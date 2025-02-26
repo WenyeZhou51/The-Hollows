@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
+using System.Linq;
 
 public class MenuSelector : MonoBehaviour
 {
@@ -36,6 +37,10 @@ public class MenuSelector : MonoBehaviour
     private int currentTargetSelection = 0;
     private CombatManager combatManager;
     private bool menuItemsEnabled = true;
+    private SkillData selectedSkill;
+    private GameObject[] skillOptions;
+    private bool isInSkillMenu = false;
+    private int skillMenuColumns = 2;
 
     void Start()
     {
@@ -86,18 +91,24 @@ public class MenuSelector : MonoBehaviour
     void Update()
     {
         if (!isActive) return;
-
+        
         if (isSelectingTarget)
         {
             HandleTargetSelection();
+            return;
+        }
+
+        if (isInSkillMenu)
+        {
+            HandleSkillMenuNavigation();
         }
         else
         {
-            HandleMenuSelection();
+            HandleMainMenuNavigation();
         }
     }
 
-    private void HandleMenuSelection()
+    private void HandleMainMenuNavigation()
     {
         // Only allow selection changes and execution if items are enabled
         if (menuItemsEnabled)
@@ -132,36 +143,309 @@ public class MenuSelector : MonoBehaviour
 
     private void HandleTargetSelection()
     {
-        if (Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.RightArrow))
+        // Safety check to prevent null reference exceptions
+        if (currentTargets == null || currentTargets.Count == 0)
         {
-            currentTargetSelection = (currentTargetSelection + 1) % currentTargets.Count;
+            Debug.LogWarning("[Target Selection] No targets available, ending target selection");
+            EndTargetSelection();
+            EnableMenu();
+            return;
+        }
+
+        Debug.Log($"[Target Selection] Current target: {currentTargetSelection} of {currentTargets.Count}");
+
+        // Check for any key press to help debug
+        if (Input.anyKeyDown)
+        {
+            Debug.Log($"[Target Selection] Key detected: {Input.inputString}");
+        }
+
+        // Check for arrow keys with more flexible detection
+        bool leftPressed = Input.GetKeyDown(KeyCode.LeftArrow);
+        bool rightPressed = Input.GetKeyDown(KeyCode.RightArrow);
+        
+        if (leftPressed || rightPressed)
+        {
+            Debug.Log($"[Target Selection] Arrow key pressed: {(leftPressed ? "Left" : "Right")}");
+            int oldSelection = currentTargetSelection;
+            
+            // For left arrow, move backward in the list
+            if (leftPressed)
+            {
+                currentTargetSelection--;
+                if (currentTargetSelection < 0) 
+                    currentTargetSelection = currentTargets.Count - 1;
+            }
+            // For right arrow, move forward in the list
+            else
+            {
+                currentTargetSelection++;
+                if (currentTargetSelection >= currentTargets.Count) 
+                    currentTargetSelection = 0;
+            }
+            
+            Debug.Log($"[Target Selection] Changed target from {oldSelection} to {currentTargetSelection}");
             HighlightSelectedTarget();
         }
 
-        if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.Z))
+        // Also allow up/down arrows for navigation
+        if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.DownArrow))
         {
-            CombatStats target = currentTargets[currentTargetSelection];
-            combatUI.OnTargetSelected(target);
-            EndTargetSelection();
+            Debug.Log($"[Target Selection] Up/Down arrow pressed");
+            int oldSelection = currentTargetSelection;
+            
+            if (Input.GetKeyDown(KeyCode.UpArrow))
+            {
+                currentTargetSelection--;
+                if (currentTargetSelection < 0) 
+                    currentTargetSelection = currentTargets.Count - 1;
+            }
+            else
+            {
+                currentTargetSelection++;
+                if (currentTargetSelection >= currentTargets.Count) 
+                    currentTargetSelection = 0;
+            }
+            
+            Debug.Log($"[Target Selection] Changed target from {oldSelection} to {currentTargetSelection}");
+            HighlightSelectedTarget();
         }
 
-        if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.X))
+        // Check for confirm/cancel with more detailed logging
+        bool confirmPressed = Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.Z);
+        bool cancelPressed = Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.X);
+        
+        if (confirmPressed)
         {
+            Debug.Log($"[Target Selection] Confirm key pressed");
+            CombatStats target = currentTargets[currentTargetSelection];
+            Debug.Log($"[Target Selection] Selected target: {target.name}");
+            
+            if (selectedSkill != null)
+            {
+                // Store a local reference to the skill before ending target selection
+                SkillData skill = selectedSkill;
+                Debug.Log($"[Target Selection] Executing skill {skill.name} on target {target.name}");
+                EndTargetSelection();
+                combatUI.ExecuteSkill(skill, target);
+            }
+            else
+            {
+                Debug.Log($"[Target Selection] Executing attack on target {target.name}");
+                EndTargetSelection();
+                combatUI.OnTargetSelected(target);
+            }
+        }
+        else if (cancelPressed)
+        {
+            Debug.Log("[Target Selection] Cancel key pressed");
             EndTargetSelection();
-            // Return to main menu
             EnableMenu();
         }
     }
 
-    private void HighlightSelectedTarget()
+    private void HandleSkillMenuNavigation()
     {
-        // Reset highlight for all targets
-        foreach (var target in currentTargets)
+        // Safety check to prevent errors if skillOptions is null or empty
+        if (skillOptions == null || skillOptions.Length == 0)
         {
-            target.HighlightCharacter(false);
+            Debug.LogWarning("[SkillButton Lifecycle] Skill options array is null or empty in HandleSkillMenuNavigation");
+            isInSkillMenu = false;
+            combatUI.BackToActionMenu();
+            return;
         }
-        // Highlight selected target
-        currentTargets[currentTargetSelection].HighlightCharacter(true);
+
+        // Create a list of valid buttons and their indices
+        List<int> validButtonIndices = new List<int>();
+        for (int i = 0; i < skillOptions.Length; i++) {
+            if (skillOptions[i] != null && skillOptions[i].activeSelf) {
+                validButtonIndices.Add(i);
+            }
+        }
+
+        // If no valid buttons, exit skill menu
+        if (validButtonIndices.Count == 0) {
+            Debug.LogWarning("[SkillButton Lifecycle] No valid skill buttons found, exiting skill menu");
+            isInSkillMenu = false;
+            combatUI.BackToActionMenu();
+            return;
+        }
+
+        // Make sure current selection is valid
+        if (!validButtonIndices.Contains(currentSelection)) {
+            currentSelection = validButtonIndices[0];
+            UpdateSkillSelection();
+        }
+
+        int oldSelection = currentSelection;
+        int totalSkills = skillOptions.Length;
+        int rows = (totalSkills + skillMenuColumns - 1) / skillMenuColumns;
+
+        if (Input.GetKeyDown(KeyCode.RightArrow))
+        {
+            // Find the next valid button to the right
+            int currentIndex = validButtonIndices.IndexOf(currentSelection);
+            if (currentIndex >= 0 && currentIndex < validButtonIndices.Count - 1) {
+                currentSelection = validButtonIndices[currentIndex + 1];
+                Debug.Log($"[SkillButton Lifecycle] Navigation - Moved right to skill {currentSelection}");
+            }
+        }
+        else if (Input.GetKeyDown(KeyCode.LeftArrow))
+        {
+            // Find the next valid button to the left
+            int currentIndex = validButtonIndices.IndexOf(currentSelection);
+            if (currentIndex > 0) {
+                currentSelection = validButtonIndices[currentIndex - 1];
+                Debug.Log($"[SkillButton Lifecycle] Navigation - Moved left to skill {currentSelection}");
+            }
+        }
+        else if (Input.GetKeyDown(KeyCode.DownArrow))
+        {
+            // Find a valid button below (approximately)
+            int currentRow = currentSelection / skillMenuColumns;
+            int currentCol = currentSelection % skillMenuColumns;
+            
+            foreach (int index in validButtonIndices) {
+                int row = index / skillMenuColumns;
+                int col = index % skillMenuColumns;
+                if (row > currentRow && col == currentCol) {
+                    currentSelection = index;
+                    Debug.Log($"[SkillButton Lifecycle] Navigation - Moved down to skill {currentSelection}");
+                    break;
+                }
+            }
+        }
+        else if (Input.GetKeyDown(KeyCode.UpArrow))
+        {
+            // Find a valid button above (approximately)
+            int currentRow = currentSelection / skillMenuColumns;
+            int currentCol = currentSelection % skillMenuColumns;
+            
+            // Iterate in reverse to find the closest button above
+            for (int i = validButtonIndices.Count - 1; i >= 0; i--) {
+                int index = validButtonIndices[i];
+                int row = index / skillMenuColumns;
+                int col = index % skillMenuColumns;
+                if (row < currentRow && col == currentCol) {
+                    currentSelection = index;
+                    Debug.Log($"[SkillButton Lifecycle] Navigation - Moved up to skill {currentSelection}");
+                    break;
+                }
+            }
+        }
+        
+        if (Input.GetKeyDown(KeyCode.Z))
+        {
+            if (currentSelection < skillOptions.Length && skillOptions[currentSelection] != null)
+            {
+                var skillData = skillOptions[currentSelection].GetComponent<SkillButtonData>();
+                if (skillData != null)
+                {
+                    Debug.Log($"[SkillButton Lifecycle] Skill selected with Z key - Skill: {skillData.skill.name}");
+                    OnSkillSelected(skillData.skill);
+                }
+            }
+        }
+        else if (Input.GetKeyDown(KeyCode.X))
+        {
+            Debug.Log("[SkillButton Lifecycle] Exiting skill menu with X key");
+            isInSkillMenu = false;
+            combatUI.BackToActionMenu();
+            return;
+        }
+
+        if (oldSelection != currentSelection)
+        {
+            UpdateSkillSelection();
+        }
+    }
+
+    private void OnSkillSelected(SkillData skill)
+    {
+        Debug.Log($"[SkillButton Lifecycle] Skill selected - Name: {skill.name}, RequiresTarget: {skill.requiresTarget}, SanityCost: {skill.sanityCost}");
+        
+        // Set the selected skill BEFORE starting target selection
+        SetSelectedSkill(skill);
+        
+        if (skill.requiresTarget)
+        {
+            Debug.Log($"[SkillButton Lifecycle] Skill requires target, starting target selection");
+            StartTargetSelection();
+        }
+        else
+        {
+            Debug.Log($"[SkillButton Lifecycle] Skill does not require target, executing immediately");
+            combatUI.ExecuteSkill(skill, null);
+        }
+    }
+
+    private void UpdateSkillSelection()
+    {
+        // Safety check to prevent errors if skillOptions is null or empty
+        if (skillOptions == null || skillOptions.Length == 0)
+        {
+            Debug.LogWarning("[SkillButton Lifecycle] Skill options array is null or empty in UpdateSkillSelection");
+            return;
+        }
+        
+        Debug.Log($"[SkillButton Lifecycle] Updating skill selection - Current selection: {currentSelection}");
+        
+        // First, create a list of valid buttons
+        List<GameObject> validButtons = new List<GameObject>();
+        for (int i = 0; i < skillOptions.Length; i++) {
+            if (skillOptions[i] != null && skillOptions[i].activeSelf) {
+                validButtons.Add(skillOptions[i]);
+            }
+        }
+        
+        // Update all valid buttons
+        for (int i = 0; i < skillOptions.Length; i++)
+        {
+            // Skip null or inactive buttons
+            if (skillOptions[i] == null || !skillOptions[i].activeSelf)
+            {
+                continue;
+            }
+            
+            // Get the TextMeshProUGUI component directly from the GameObject
+            TextMeshProUGUI text = skillOptions[i].GetComponentInChildren<TextMeshProUGUI>();
+            Image buttonImage = skillOptions[i].GetComponent<Image>();
+
+            if (i == currentSelection)
+            {
+                if (text != null) 
+                {
+                    text.color = selectedTextColor;
+                    Debug.Log($"[SkillButton Lifecycle] Set selected text color for button {i}: '{text.text}'");
+                }
+                if (buttonImage != null) 
+                {
+                    buttonImage.color = selectedButtonColor;
+                }
+                
+                // If we have a cursor, position it at the selected button
+                if (cursor != null)
+                {
+                    RectTransform buttonRect = skillOptions[i].GetComponent<RectTransform>();
+                    if (buttonRect != null)
+                    {
+                        cursor.position = buttonRect.position;
+                        cursor.gameObject.SetActive(true);
+                    }
+                }
+            }
+            else
+            {
+                if (text != null) 
+                {
+                    text.color = normalTextColor;
+                }
+                if (buttonImage != null) 
+                {
+                    buttonImage.color = normalButtonColor;
+                }
+            }
+        }
     }
 
     void UpdateSelection()
@@ -206,35 +490,97 @@ public class MenuSelector : MonoBehaviour
         }
     }
 
-    private void StartTargetSelection()
+    public void StartTargetSelection()
     {
-        currentTargets = combatManager.GetLivingEnemies();
+        // Check if we're selecting a target for Human Shield skill
+        if (selectedSkill != null && selectedSkill.name == "Human Shield!")
+        {
+            // For Human Shield, we target allies instead of enemies
+            currentTargets = new List<CombatStats>(combatManager.players);
+            
+            // Remove the active character (can't shield yourself)
+            currentTargets.Remove(combatManager.ActiveCharacter);
+            
+            Debug.Log($"[Human Shield] Starting ally selection with {currentTargets.Count} potential targets");
+            
+            // Add detailed logging for each potential target
+            for (int i = 0; i < currentTargets.Count; i++)
+            {
+                Debug.Log($"[Human Shield] Potential target {i}: {currentTargets[i].name}, isEnemy: {currentTargets[i].isEnemy}");
+            }
+        }
+        else
+        {
+            // Default behavior - target enemies
+            currentTargets = combatManager.GetLivingEnemies();
+            Debug.Log($"[Target Selection] Starting enemy selection with {currentTargets.Count} potential targets");
+        }
+        
         if (currentTargets.Count > 0)
         {
             isSelectingTarget = true;
             currentTargetSelection = 0;
-            SetMenuItemsEnabled(false); // Just disable interaction
+            SetMenuItemsEnabled(false);
+            
+            // Ensure the first target is highlighted
             HighlightSelectedTarget();
+            Debug.Log($"[Target Selection] Initial target selected: {currentTargets[currentTargetSelection].name}");
+        }
+        else
+        {
+            Debug.LogWarning("[Target Selection] No valid targets found!");
+            // If no targets, go back to menu
+            isSelectingTarget = false;
+            SetMenuItemsEnabled(true);
         }
     }
 
     private void EndTargetSelection()
     {
-        isSelectingTarget = false;
-        foreach (var target in currentTargets)
+        Debug.Log("[Target Selection] Ending target selection");
+        
+        // Only attempt to clear highlights if currentTargets exists
+        if (currentTargets != null)
         {
-            if (target != null)
+            Debug.Log($"[Target Selection] Clearing highlights for {currentTargets.Count} targets");
+            foreach (var target in currentTargets)
             {
-                target.HighlightCharacter(false);
+                if (target != null)
+                {
+                    target.HighlightCharacter(false);
+                    Debug.Log($"[Target Selection] Unhighlighted: {target.name}");
+                }
             }
+            
+            // Clear the list
+            currentTargets.Clear();
         }
+        
+        // Log the skill that was being used
+        if (selectedSkill != null)
+        {
+            Debug.Log($"[Target Selection] Clearing selected skill: {selectedSkill.name}");
+        }
+        
+        // Reset state variables
+        isSelectingTarget = false;
+        selectedSkill = null;
         currentTargets = null;
+        currentTargetSelection = 0;
+        
+        Debug.Log("[Target Selection] Target selection state reset");
     }
 
     public void EnableMenu()
     {
         isActive = true;
         currentSelection = 0;
+        
+        // Reset any ongoing target selection
+        if (isSelectingTarget)
+        {
+            EndTargetSelection();
+        }
         
         // Ensure menu and all children are visible
         if (actionMenu != null)
@@ -331,4 +677,154 @@ public class MenuSelector : MonoBehaviour
             cursor.gameObject.SetActive(enabled);
         }
     }
+
+    public void UpdateSkillMenuOptions(GameObject[] skillButtons)
+    {
+        Debug.Log($"[SkillButton Lifecycle] UpdateSkillMenuOptions called with {skillButtons.Length} buttons");
+        
+        // Filter out any inactive buttons (like the template)
+        List<GameObject> activeButtons = new List<GameObject>();
+        for (int i = 0; i < skillButtons.Length; i++)
+        {
+            if (skillButtons[i] != null && skillButtons[i].activeSelf)
+            {
+                activeButtons.Add(skillButtons[i]);
+                Debug.Log($"[SkillButton Lifecycle] Added active button: {skillButtons[i].name}");
+            }
+            else if (skillButtons[i] != null)
+            {
+                Debug.Log($"[SkillButton Lifecycle] Skipping inactive button: {skillButtons[i].name}");
+            }
+        }
+        
+        // Store the active GameObjects
+        skillOptions = activeButtons.ToArray();
+        Debug.Log($"[SkillButton Lifecycle] Using {skillOptions.Length} active buttons for navigation");
+        
+        // Reset selection to first button if we have any
+        currentSelection = skillOptions.Length > 0 ? 0 : -1;
+        isInSkillMenu = skillOptions.Length > 0;
+        
+        // Log details about each skill button
+        for (int i = 0; i < skillOptions.Length; i++)
+        {
+            TextMeshProUGUI text = skillOptions[i].GetComponentInChildren<TextMeshProUGUI>();
+            SkillButtonData skillData = skillOptions[i].GetComponent<SkillButtonData>();
+            Debug.Log($"[SkillButton Lifecycle] Skill button {i} - Text: '{text?.text ?? "unknown"}', " +
+                      $"Skill: {skillData?.skill?.name ?? "unknown"}, " +
+                      $"Position: {skillOptions[i].transform.position}, " +
+                      $"Size: {skillOptions[i].GetComponent<RectTransform>().sizeDelta}");
+            
+            // Ensure the button has the correct components for menu-style buttons
+            Image buttonImage = skillOptions[i].GetComponent<Image>();
+            if (buttonImage == null)
+            {
+                buttonImage = skillOptions[i].AddComponent<Image>();
+                Debug.Log($"[SkillButton Lifecycle] Added missing Image component to button {i}");
+            }
+            
+            // Make sure the button is active and visible
+            skillOptions[i].SetActive(true);
+            
+            // If the button has a CanvasGroup, make sure it's interactable
+            CanvasGroup canvasGroup = skillOptions[i].GetComponent<CanvasGroup>();
+            if (canvasGroup != null)
+            {
+                canvasGroup.alpha = 1f;
+                canvasGroup.interactable = true;
+                canvasGroup.blocksRaycasts = true;
+            }
+        }
+        
+        // Only update selection if we have buttons
+        if (skillOptions.Length > 0)
+        {
+            UpdateSkillSelection();
+        }
+        else
+        {
+            Debug.LogWarning("[SkillButton Lifecycle] No active skill buttons found!");
+            cursor.gameObject.SetActive(false);
+        }
+    }
+
+    public void SetSelectedSkill(SkillData skill)
+    {
+        Debug.Log($"[SkillButton Lifecycle] Setting selected skill: {skill.name}");
+        selectedSkill = skill;
+    }
+
+    private void HighlightSelectedTarget()
+    {
+        // Safety check
+        if (currentTargets == null || currentTargets.Count == 0 || currentTargetSelection < 0 || currentTargetSelection >= currentTargets.Count)
+        {
+            Debug.LogError("[Target Selection] Invalid target selection state in HighlightSelectedTarget");
+            return;
+        }
+        
+        Debug.Log($"[Target Selection] Highlighting target {currentTargetSelection}: {currentTargets[currentTargetSelection].name}");
+        
+        // Reset highlight for all targets
+        foreach (var target in currentTargets)
+        {
+            if (target != null)
+            {
+                target.HighlightCharacter(false);
+                Debug.Log($"[Target Selection] Unhighlighted: {target.name}");
+            }
+        }
+        
+        // Highlight selected target
+        if (currentTargets[currentTargetSelection] != null)
+        {
+            currentTargets[currentTargetSelection].HighlightCharacter(true);
+            Debug.Log($"[Target Selection] Highlighted: {currentTargets[currentTargetSelection].name}");
+        }
+    }
+
+    public bool IsSelectingTarget()
+    {
+        return isSelectingTarget;
+    }
+    
+    public void CancelTargetSelection()
+    {
+        EndTargetSelection();
+    }
+
+    public void ResetMenuState()
+    {
+        // Reset all state variables
+        isActive = false;
+        isSelectingTarget = false;
+        isInSkillMenu = false;
+        menuItemsEnabled = false;
+        currentSelection = 0;
+        selectedSkill = null;
+        
+        // End any ongoing target selection
+        if (currentTargets != null)
+        {
+            foreach (var target in currentTargets)
+            {
+                if (target != null)
+                {
+                    target.HighlightCharacter(false);
+                }
+            }
+            currentTargets = null;
+        }
+        
+        // Reset UI elements
+        if (cursor != null)
+        {
+            cursor.gameObject.SetActive(false);
+        }
+        
+        // Now enable the menu with a clean state
+        DisableMenu();
+        EnableMenu();
+    }
+} 
 } 

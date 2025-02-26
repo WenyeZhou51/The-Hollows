@@ -1,35 +1,85 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;  // Add this for GridLayoutGroup
 using System.Linq;
 
 public class CombatManager : MonoBehaviour
 {
+    [Header("Required References")]
+    public GameObject skillMenu;  // Only required reference for skills
+    public GameObject itemMenu;   // Only required reference for items
+    public GameObject buttonPrefab; // Single button prefab for both menus
+
+    // Auto-found references
+    private CombatUI combatUI;
+    private MenuSelector menuSelector;
+    private GameObject characterStatsPanel;
+    private RectTransform menuButtonsContainer;
+    private GridLayoutGroup menuButtonsGrid;
+
     public List<CombatStats> players;
     public List<CombatStats> enemies;
-    public CombatUI combatUI;
     public float actionBarFillRate = 20f; // Points per second
 
     private CombatStats activeCharacter;
+    public CombatStats ActiveCharacter => activeCharacter;
     private bool isCombatActive = true;
     private bool isWaitingForPlayerInput = false;
 
     private void Start()
     {
-        // Initialize lists if they're null
+        // Find required components
+        combatUI = GetComponent<CombatUI>();
+        menuSelector = GetComponent<MenuSelector>();
+        
+        // Find UI elements by name instead of tag
+        characterStatsPanel = GameObject.Find("CharacterStatsPanel");
+        if (characterStatsPanel == null)
+            Debug.LogWarning("Character Stats Panel not found! Make sure it's named 'CharacterStatsPanel'");
+
+        // Setup menu containers
+        if (skillMenu != null)
+        {
+            menuButtonsContainer = skillMenu.GetComponentInChildren<RectTransform>();
+            menuButtonsGrid = skillMenu.GetComponentInChildren<GridLayoutGroup>();
+            if (menuButtonsGrid == null)
+            {
+                menuButtonsGrid = menuButtonsContainer.gameObject.AddComponent<GridLayoutGroup>();
+                menuButtonsGrid.cellSize = new Vector2(120, 40);
+                menuButtonsGrid.spacing = new Vector2(10, 10);
+                menuButtonsGrid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+                menuButtonsGrid.constraintCount = 2;
+            }
+            skillMenu.SetActive(false);
+        }
+
+        if (itemMenu != null)
+        {
+            // Use same grid settings for item menu
+            var itemGrid = itemMenu.GetComponentInChildren<GridLayoutGroup>();
+            if (itemGrid == null)
+            {
+                itemGrid = itemMenu.GetComponentInChildren<RectTransform>().gameObject.AddComponent<GridLayoutGroup>();
+                itemGrid.cellSize = menuButtonsGrid.cellSize;
+                itemGrid.spacing = menuButtonsGrid.spacing;
+                itemGrid.constraint = menuButtonsGrid.constraint;
+                itemGrid.constraintCount = menuButtonsGrid.constraintCount;
+            }
+            itemMenu.SetActive(false);
+        }
+
+        // Initialize lists
         if (players == null) players = new List<CombatStats>();
         if (enemies == null) enemies = new List<CombatStats>();
         
-        // Remove any null entries
         players.RemoveAll(p => p == null);
         enemies.RemoveAll(e => e == null);
         
-        // Show the menu but disable interaction
+        // Initial UI setup
         if (combatUI != null)
         {
-            // Always show the menu
             combatUI.actionMenu.SetActive(true);
-            // Just disable interaction
-            combatUI.GetComponent<MenuSelector>().SetMenuItemsEnabled(false);
+            menuSelector.SetMenuItemsEnabled(false);
         }
     }
 
@@ -55,7 +105,7 @@ public class CombatManager : MonoBehaviour
         // Update UI
         if (combatUI != null)
         {
-            combatUI.UpdateUI();
+            UpdateUI();
         }
 
         // Check win/lose conditions
@@ -64,16 +114,40 @@ public class CombatManager : MonoBehaviour
 
     private void StartTurn(CombatStats character)
     {
+        if (character.IsDead()) return;
+
+        // Set the active character
         activeCharacter = character;
         
+        // Clear any guarding status if this character was guarding someone
+        if (character.ProtectedAlly != null)
+        {
+            Debug.Log($"[Human Shield] {character.name}'s turn has come - stopping guard on {character.ProtectedAlly.name}");
+            character.StopGuarding();
+        }
+        
+        // Highlight the active character
+        foreach (var c in players.Concat(enemies))
+        {
+            if (c != null)
+            {
+                c.HighlightCharacter(c == character);
+            }
+        }
+        
+        // Update UI
+        UpdateUI();
+        
+        // Handle turn based on character type
         if (character.isEnemy)
         {
+            // Enemy turn
             ExecuteEnemyTurn(character);
         }
         else
         {
+            // Player turn - show action menu
             isWaitingForPlayerInput = true;
-            character.HighlightCharacter(true);
             combatUI.ShowActionMenu(character);
         }
     }
@@ -103,6 +177,8 @@ public class CombatManager : MonoBehaviour
     {
         if (activeCharacter == null || activeCharacter.isEnemy) return;
 
+        bool actionExecuted = false;
+
         switch (action.ToLower())
         {
             case "attack":
@@ -115,6 +191,7 @@ public class CombatManager : MonoBehaviour
                         enemies.Remove(target);
                         Destroy(target.gameObject);
                     }
+                    actionExecuted = true;
                 }
                 break;
 
@@ -123,14 +200,25 @@ public class CombatManager : MonoBehaviour
                 {
                     activeCharacter.HealHealth(10f);
                     activeCharacter.UseSanity(10f);
+                    actionExecuted = true;
                 }
                 break;
         }
 
-        EndPlayerTurn();
+        // Only end the turn if an action was actually executed
+        if (actionExecuted)
+        {
+            EndPlayerTurn();
+        }
+        else
+        {
+            // If no action was executed, reset the menu state
+            menuSelector.ResetMenuState();
+            combatUI.ShowActionMenu(activeCharacter);
+        }
     }
 
-    private void EndPlayerTurn()
+    public void EndPlayerTurn()
     {
         if (activeCharacter != null)
         {
@@ -138,8 +226,13 @@ public class CombatManager : MonoBehaviour
             activeCharacter.currentAction = 0;
         }
         
-        // Disable menu items but keep menu visible
-        combatUI.GetComponent<MenuSelector>().SetMenuItemsEnabled(false);
+        // Properly disable the menu
+        MenuSelector menuSelector = GetComponent<MenuSelector>();
+        if (menuSelector != null)
+        {
+            menuSelector.DisableMenu();
+        }
+        
         isWaitingForPlayerInput = false;
         activeCharacter = null;
     }
@@ -156,5 +249,12 @@ public class CombatManager : MonoBehaviour
             isCombatActive = false;
             Debug.Log("Victory - All Enemies Defeated");
         }
+    }
+
+    private void UpdateUI()
+    {
+        // Combine players and enemies into a single array for UI update
+        var allCharacters = players.Concat(enemies).ToArray();
+        combatUI.UpdateCharacterUI(allCharacters, activeCharacter);
     }
 } 
