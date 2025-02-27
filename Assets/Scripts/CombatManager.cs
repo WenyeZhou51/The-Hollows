@@ -126,12 +126,13 @@ public class CombatManager : MonoBehaviour
             character.StopGuarding();
         }
         
-        // Highlight the active character
+        // Set the active character property and reset others
         foreach (var c in players.Concat(enemies))
         {
             if (c != null)
             {
-                c.HighlightCharacter(c == character);
+                // Set IsActiveCharacter property instead of using highlight
+                c.IsActiveCharacter = (c == character);
             }
         }
         
@@ -222,7 +223,8 @@ public class CombatManager : MonoBehaviour
     {
         if (activeCharacter != null)
         {
-            activeCharacter.HighlightCharacter(false);
+            // Reset the active character property instead of using highlight
+            activeCharacter.IsActiveCharacter = false;
             activeCharacter.currentAction = 0;
         }
         

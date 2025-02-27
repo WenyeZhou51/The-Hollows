@@ -31,6 +31,49 @@ public class CombatStats : MonoBehaviour
     public CombatStats ProtectedAlly { get; private set; } = null;
     public GameObject GuardedIcon { get; private set; } = null;
 
+    // Add these fields for the blinking highlight effect
+    private bool isHighlighted = false;
+    private float blinkTimer = 0f;
+    private float blinkInterval = 0.3f; // Changed to 0.3 seconds as requested
+    private bool isBlinkOn = false;
+    private Color defaultColor = Color.white; // Default color for non-enemy characters
+    
+    // Track if this character is the active character (currently acting)
+    private bool isActiveCharacter = false;
+    public bool IsActiveCharacter 
+    { 
+        get { return isActiveCharacter; }
+        set 
+        { 
+            isActiveCharacter = value;
+            // When set as active character, immediately update appearance
+            if (value)
+            {
+                // Set to solid yellow without blinking
+                if (spriteRenderer != null)
+                {
+                    spriteRenderer.color = highlightColor;
+                }
+                if (characterImage != null)
+                {
+                    characterImage.color = highlightColor;
+                }
+            }
+            else if (!isHighlighted) // Only reset if not being targeted
+            {
+                // Reset to default colors
+                if (spriteRenderer != null)
+                {
+                    spriteRenderer.color = isEnemy ? originalColor : Color.white;
+                }
+                if (characterImage != null)
+                {
+                    characterImage.color = isEnemy ? Color.red : Color.white;
+                }
+            }
+        }
+    }
+
     private void Start()
     {
         if (isEnemy)
@@ -51,6 +94,18 @@ public class CombatStats : MonoBehaviour
             if (healthFill == null || actionFill == null)
             {
                 Debug.LogError("Health or Action fill bar not assigned on " + gameObject.name);
+            }
+        }
+        else
+        {
+            // For non-enemy characters, store their original colors
+            if (spriteRenderer != null)
+            {
+                originalColor = spriteRenderer.color;
+            }
+            if (characterImage != null)
+            {
+                defaultColor = characterImage.color;
             }
         }
         
@@ -131,6 +186,30 @@ public class CombatStats : MonoBehaviour
             actionFill.transform.localPosition = new Vector3(-0.5f + (actionPercent * 0.5f), 0, 0);
             actionFill.transform.localScale = new Vector3(actionPercent, 1, 1);
         }
+        
+        // Handle blinking highlight effect - only if highlighted for targeting and not the active character
+        if (isHighlighted && !isActiveCharacter)
+        {
+            blinkTimer += Time.deltaTime;
+            if (blinkTimer >= blinkInterval)
+            {
+                blinkTimer = 0f;
+                isBlinkOn = !isBlinkOn;
+                
+                // Apply the appropriate color based on blink state
+                if (spriteRenderer != null)
+                {
+                    // Alternate between yellow and white (not disappearing)
+                    spriteRenderer.color = isBlinkOn ? highlightColor : Color.white;
+                }
+                
+                if (characterImage != null)
+                {
+                    // Alternate between yellow and appropriate default color
+                    characterImage.color = isBlinkOn ? highlightColor : (isEnemy ? Color.red : Color.white);
+                }
+            }
+        }
     }
 
     public bool IsDead()
@@ -204,92 +283,69 @@ public class CombatStats : MonoBehaviour
         
         Debug.Log($"[Human Shield] Creating guarded icon for {ally.name}");
         
-        // First try to find the icon in the scene
-        GameObject sceneIcon = GameObject.Find("icon");
+        // Load the Guarded Icon prefab from the Icons folder
+        GameObject guardedIconPrefab = Resources.Load<GameObject>("Guarded Icon");
         
-        if (sceneIcon != null)
+        // If not found in Resources, try direct path
+        if (guardedIconPrefab == null)
         {
-            // Use the icon from the scene
-            Debug.Log($"[Human Shield] Using icon from scene for guarded status");
-            
-            // Create a new icon instance
-            GameObject icon = Instantiate(sceneIcon);
+            #if UNITY_EDITOR
+            guardedIconPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Icons/Guarded Icon.prefab");
+            Debug.Log($"[Human Shield] Trying to load prefab from direct path: {guardedIconPrefab != null}");
+            #endif
+        }
+        
+        if (guardedIconPrefab != null)
+        {
+            // Create a new icon instance from the prefab
+            GameObject icon = Instantiate(guardedIconPrefab);
             icon.name = "GuardedIcon";
             icon.transform.SetParent(ally.transform);
-            icon.transform.localPosition = new Vector3(0, -0.7f, 0); // Position further below the character for visibility
-            icon.transform.localScale = new Vector3(1.5f, 1.5f, 1.5f); // Make it larger
+            icon.transform.localPosition = new Vector3(0, -1.2f, 0); // Position below the character
+            //icon.transform.localScale = new Vector3(1f, 1f, 1f); // Use original scale or adjust as needed
             
-            // Ensure the icon is visible
-            SpriteRenderer iconRenderer = icon.GetComponent<SpriteRenderer>();
-            if (iconRenderer != null)
+            // Ensure the icon is visible by setting high sorting order on any renderers
+            SpriteRenderer[] renderers = icon.GetComponentsInChildren<SpriteRenderer>();
+            foreach (SpriteRenderer renderer in renderers)
             {
-                iconRenderer.sortingOrder = 20; // Higher sorting order to ensure visibility
-                Debug.Log($"[Human Shield] Set icon sorting order to 20");
+                renderer.sortingOrder = 20; // Higher sorting order to ensure visibility
             }
             
             icon.SetActive(true);
             
             // Store the reference
             ally.GuardedIcon = icon;
-            Debug.Log($"[Human Shield] Icon created from scene object and attached to {ally.name}");
-            return;
-        }
-        
-        // If scene icon not found, create a new icon
-        GameObject icon2 = new GameObject("GuardedIcon");
-        icon2.transform.SetParent(ally.transform);
-        icon2.transform.localPosition = new Vector3(0, -0.7f, 0); // Position further below the character
-        
-        // Add a sprite renderer
-        SpriteRenderer renderer = icon2.AddComponent<SpriteRenderer>();
-        renderer.sortingOrder = 20; // Higher sorting order to ensure visibility
-        
-        // Try to load the sprite from the Icons folder
-        Sprite guardedSprite = Resources.Load<Sprite>("Guarded Icon");
-        
-        // If not found in Resources, try direct path
-        if (guardedSprite == null)
-        {
-            #if UNITY_EDITOR
-            guardedSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Icons/Guarded Icon.png");
-            Debug.Log($"[Human Shield] Trying to load sprite from direct path: {guardedSprite != null}");
-            #endif
-        }
-        
-        renderer.sprite = guardedSprite;
-        
-        if (renderer.sprite != null)
-        {
-            Debug.Log($"[Human Shield] Using Guarded Icon sprite from Assets/Icons");
-            renderer.color = Color.white; // Use original color
+            Debug.Log($"[Human Shield] Icon prefab instantiated and attached to {ally.name}");
         }
         else
         {
-            Debug.LogWarning("[Human Shield] Guarded Icon sprite not found. Creating a placeholder.");
+            Debug.LogWarning("[Human Shield] Guarded Icon prefab not found. Creating a placeholder.");
+            
+            // Create a fallback icon if the prefab isn't found
+            GameObject fallbackIcon = new GameObject("GuardedIcon");
+            fallbackIcon.transform.SetParent(ally.transform);
+            fallbackIcon.transform.localPosition = new Vector3(0, -0.7f, 0); // Position below the character
             
             // Create a visible placeholder
             GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            visual.transform.SetParent(icon2.transform);
+            visual.transform.SetParent(fallbackIcon.transform);
             visual.transform.localPosition = Vector3.zero;
-            visual.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f); // Larger sphere
+            visual.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
             
             // Add a material with a shield color
             Renderer visualRenderer = visual.GetComponent<Renderer>();
             visualRenderer.material.color = new Color(0, 0.5f, 1f); // Bright blue shield color
-            // Can't set sortingOrder on a regular Renderer, only on SpriteRenderer
             
-            // Make sure the GameObject with the sphere has a high sorting layer
-            visual.layer = LayerMask.NameToLayer("UI") != -1 ? LayerMask.NameToLayer("UI") : 5; // Use UI layer if available
+            // Make sure the GameObject has a high sorting layer
+            visual.layer = LayerMask.NameToLayer("UI") != -1 ? LayerMask.NameToLayer("UI") : 5;
             
             // Remove the collider
             Destroy(visual.GetComponent<Collider>());
             
-            Debug.Log("[Human Shield] Created blue sphere placeholder for guarded icon");
+            // Store the reference
+            ally.GuardedIcon = fallbackIcon;
+            Debug.Log("[Human Shield] Created fallback icon for guarded status");
         }
-        
-        // Store the reference
-        ally.GuardedIcon = icon2;
-        Debug.Log($"[Human Shield] Guarded icon created and attached to {ally.name}");
     }
 
     public void HealHealth(float amount)
@@ -309,82 +365,45 @@ public class CombatStats : MonoBehaviour
     {
         Debug.Log($"[Character Highlight] {name} highlight set to {highlight}, isEnemy: {isEnemy}");
         
-        if (spriteRenderer != null)
-        {
-            spriteRenderer.color = highlight ? highlightColor : originalColor;
-            Debug.Log($"[Character Highlight] {name} spriteRenderer color set to {(highlight ? "highlight" : "original")}");
-        }
-        else
-        {
-            Debug.Log($"[Character Highlight] {name} has no spriteRenderer");
-        }
+        // If this is the active character, don't change its appearance through highlighting
+        if (isActiveCharacter) return;
         
-        if (characterImage != null)
-        {
-            characterImage.color = highlight ? highlightColor : (isEnemy ? Color.red : Color.white);
-            Debug.Log($"[Character Highlight] {name} characterImage color set to {(highlight ? "highlight" : isEnemy ? "red" : "white")}");
-        }
-        else
-        {
-            Debug.Log($"[Character Highlight] {name} has no characterImage");
-        }
+        // Store the highlight state
+        isHighlighted = highlight;
         
-        // If neither renderer is available, create a temporary visual indicator
-        if (spriteRenderer == null && characterImage == null)
+        // Reset blink timer and state when highlight changes
+        if (highlight)
         {
-            Debug.LogWarning($"[Character Highlight] {name} has no visual components to highlight!");
+            blinkTimer = 0f;
+            isBlinkOn = true;
             
-            // Check if we already have a highlight indicator
-            Transform existingIndicator = transform.Find("HighlightIndicator");
-            
-            if (highlight)
+            // Set initial highlight colors
+            if (spriteRenderer != null)
             {
-                // Only create if it doesn't exist and we're highlighting
-                if (existingIndicator == null)
-                {
-                    GameObject indicator = new GameObject("HighlightIndicator");
-                    indicator.transform.SetParent(transform);
-                    indicator.transform.localPosition = Vector3.zero;
-                    
-                    // Create a visible highlight
-                    SpriteRenderer indicatorRenderer = indicator.AddComponent<SpriteRenderer>();
-                    indicatorRenderer.sprite = Resources.Load<Sprite>("HighlightSprite");
-                    
-                    if (indicatorRenderer.sprite == null)
-                    {
-                        // Create a primitive if no sprite is available
-                        GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                        visual.transform.SetParent(indicator.transform);
-                        visual.transform.localPosition = Vector3.zero;
-                        visual.transform.localScale = new Vector3(1.2f, 1.2f, 1.2f);
-                        
-                        // Add a material with a highlight color
-                        Renderer visualRenderer = visual.GetComponent<Renderer>();
-                        visualRenderer.material.color = highlightColor;
-                        
-                        // Remove the collider
-                        Destroy(visual.GetComponent<Collider>());
-                        
-                        Debug.Log($"[Character Highlight] Created fallback highlight indicator for {name}");
-                    }
-                    else
-                    {
-                        indicatorRenderer.color = highlightColor;
-                        indicatorRenderer.sortingOrder = 15;
-                        Debug.Log($"[Character Highlight] Created sprite highlight indicator for {name}");
-                    }
-                }
-                else
-                {
-                    existingIndicator.gameObject.SetActive(true);
-                    Debug.Log($"[Character Highlight] Activated existing highlight indicator for {name}");
-                }
+                spriteRenderer.color = highlightColor;
+                Debug.Log($"[Character Highlight] {name} spriteRenderer color set to highlight");
             }
-            else if (existingIndicator != null)
+            
+            if (characterImage != null)
             {
-                // Hide the indicator when not highlighted
-                existingIndicator.gameObject.SetActive(false);
-                Debug.Log($"[Character Highlight] Deactivated highlight indicator for {name}");
+                characterImage.color = highlightColor;
+                Debug.Log($"[Character Highlight] {name} characterImage color set to highlight");
+            }
+        }
+        else
+        {
+            // Reset to appropriate colors when not highlighted
+            if (spriteRenderer != null)
+            {
+                // Always use white for non-highlighted sprites to ensure visibility
+                spriteRenderer.color = isEnemy ? originalColor : Color.white;
+                Debug.Log($"[Character Highlight] {name} spriteRenderer color reset to visible default");
+            }
+            
+            if (characterImage != null)
+            {
+                characterImage.color = isEnemy ? Color.red : Color.white;
+                Debug.Log($"[Character Highlight] {name} characterImage color reset to default");
             }
         }
     }
