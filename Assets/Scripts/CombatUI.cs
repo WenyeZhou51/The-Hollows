@@ -18,6 +18,18 @@ public class CombatUI : MonoBehaviour
     [Tooltip("Reference to a menu button to use as template for skill buttons")]
     public GameObject menuButtonTemplate; // Assign one of your menu buttons in the Inspector
 
+    [Header("Skill Parameters")]
+    [Tooltip("Damage dealt by the Fiend Fire skill per hit")]
+    [SerializeField] private float fiendFireDamage = 10f;
+    [Tooltip("Damage dealt by the Slam skill to all enemies")]
+    [SerializeField] private float slamDamage = 10f;
+    [Tooltip("Damage dealt by the Piercing Shot skill")]
+    [SerializeField] private float piercingShotDamage = 10f;
+    [Tooltip("Amount of health restored by Healing Words")]
+    [SerializeField] private float healingWordsHealthAmount = 50f;
+    [Tooltip("Amount of sanity restored by Healing Words")]
+    [SerializeField] private float healingWordsSanityAmount = 30f;
+
     private GameObject characterStatsPanel;
     private GameObject skillMenu;
     private GameObject itemMenu;
@@ -465,20 +477,19 @@ public class CombatUI : MonoBehaviour
                 {
                     // Determine number of hits (1-5 random)
                     int hitCount = Random.Range(1, 6); // 1 to 5 inclusive
-                    int damagePerHit = 10;
-                    int totalDamage = 0;
+                    float totalDamage = 0;
                     
-                    Debug.Log($"[Skill Execution] Fiend Fire hits {hitCount} times for {damagePerHit} damage each");
+                    Debug.Log($"[Skill Execution] Fiend Fire hits {hitCount} times for {fiendFireDamage} damage each");
                     
                     // Apply damage multiple times
                     for (int i = 0; i < hitCount; i++)
                     {
-                        target.TakeDamage(damagePerHit);
-                        totalDamage += damagePerHit;
+                        target.TakeDamage(fiendFireDamage);
+                        totalDamage += fiendFireDamage;
                         
                         // Small delay between hits would be nice in a full implementation
                         // For now, just log each hit
-                        Debug.Log($"[Skill Execution] Fiend Fire hit #{i+1} deals {damagePerHit} damage");
+                        Debug.Log($"[Skill Execution] Fiend Fire hit #{i+1} deals {fiendFireDamage} damage");
                     }
                     
                     Debug.Log($"[Skill Execution] Fiend Fire total damage: {totalDamage}");
@@ -491,7 +502,6 @@ public class CombatUI : MonoBehaviour
             case "Slam!":
                 // Get all enemies
                 var enemies = combatManager.enemies;
-                int slamDamage = 10;
                 int totalEnemiesHit = 0;
                 
                 Debug.Log($"[Skill Execution] Slam! targeting all {enemies.Count} enemies for {slamDamage} damage each");
@@ -531,6 +541,60 @@ public class CombatUI : MonoBehaviour
                 else
                 {
                     Debug.LogWarning($"[Skill Execution] Human Shield! Invalid target: {target?.name ?? "null"}");
+                }
+                break;
+                
+            case "Healing Words":
+                // Check if target is a valid ally (not an enemy and not self)
+                if (target != null && !target.isEnemy && target != activeCharacter)
+                {
+                    Debug.Log($"[Skill Execution] Healing Words! {activeCharacter.name} is healing {target.name}");
+                    
+                    // Heal the target using the configurable amount
+                    target.HealHealth(healingWordsHealthAmount);
+                    
+                    // Restore sanity to the target using the configurable amount
+                    if (target.currentSanity < target.maxSanity)
+                    {
+                        target.HealSanity(healingWordsSanityAmount);
+                        Debug.Log($"[Skill Execution] Healing Words restored {healingWordsSanityAmount} sanity to {target.name}");
+                    }
+                    
+                    // Use sanity from the caster
+                    activeCharacter.UseSanity(skill.sanityCost);
+                    
+                    Debug.Log($"[Skill Execution] Healing Words healed {target.name} for {healingWordsHealthAmount} HP and {healingWordsSanityAmount} sanity");
+                }
+                else
+                {
+                    Debug.LogWarning($"[Skill Execution] Healing Words! Invalid target: {target?.name ?? "null"}");
+                }
+                break;
+                
+            case "Piercing Shot":
+                // Check if target is a valid enemy
+                if (target != null && target.isEnemy)
+                {
+                    Debug.Log($"[Skill Execution] Piercing Shot! {activeCharacter.name} is shooting {target.name}");
+                    
+                    // Deal damage using the configurable amount
+                    target.TakeDamage(piercingShotDamage);
+                    
+                    // Apply defense reduction for 2 turns
+                    if (!target.IsDead())
+                    {
+                        // Apply defense reduction effect using the proper method
+                        target.ApplyDefenseReduction();
+                        
+                        Debug.Log($"[Skill Execution] Piercing Shot reduced {target.name}'s defense by 50% for 2 turns");
+                    }
+                    
+                    // Use sanity (0 in this case, but keeping the code for consistency)
+                    activeCharacter.UseSanity(skill.sanityCost);
+                }
+                else
+                {
+                    Debug.LogWarning($"[Skill Execution] Piercing Shot! Invalid target: {target?.name ?? "null"}");
                 }
                 break;
         }

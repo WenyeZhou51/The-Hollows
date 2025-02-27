@@ -252,7 +252,7 @@ MonoBehaviour:
   spriteRenderer: {fileID: 5636393689027812746}
   healthFill: {fileID: 5972926927154482544}
   actionFill: {fileID: 2635387471165526119}
-  maxHealth: 20
+  maxHealth: 100
   currentHealth: 0
   maxSanity: 100
   currentSanity: 0
@@ -260,6 +260,9 @@ MonoBehaviour:
   currentAction: 0
   actionSpeed: 20
   isEnemy: 1
+  highlightColor: {r: 1, g: 1, b: 0.5, a: 1}
+  characterName: 
+  skills: []
 --- !u!1 &6656742641168095109
 GameObject:
   m_ObjectHideFlags: 0

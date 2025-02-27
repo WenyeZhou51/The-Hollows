@@ -65,6 +65,7 @@
     <Compile Include="Assets\Scripts\MenuSelector.cs" />
     <Compile Include="Assets\Scripts\CombatStats.cs" />
     <Compile Include="Assets\Scripts\SkillData.cs" />
+    <Compile Include="Assets\Scripts\HealingPopup.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />

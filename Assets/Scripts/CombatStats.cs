@@ -20,21 +20,42 @@ public class CombatStats : MonoBehaviour
     public float currentAction;
     public float actionSpeed = 20f; // Action points gained per second
     public bool isEnemy;
+    
+    [Header("Visual Settings")]
     [SerializeField] private Color highlightColor = new Color(1f, 1f, 0.5f, 1f); // Yellow-ish highlight
+    [SerializeField] private float blinkInterval = 0.3f; // How fast the highlight blinks
+    [SerializeField] private Color enemyDefaultColor = Color.red; // Default color for enemies
+    [SerializeField] private Color allyDefaultColor = Color.white; // Default color for allies
+    
     private Color originalColor;
     public string characterName;
     public List<SkillData> skills = new List<SkillData>();
     
     // Properties for the Human Shield skill
+    [Header("Human Shield Settings")]
+    [Tooltip("Position offset for the guarded icon")]
+    [SerializeField] private Vector3 guardedIconOffset = new Vector3(0, -1.2f, 0);
+    
     public bool IsGuarded { get; private set; } = false;
     public CombatStats Guardian { get; private set; } = null;
     public CombatStats ProtectedAlly { get; private set; } = null;
     public GameObject GuardedIcon { get; private set; } = null;
 
+    // Properties for the Piercing Shot skill
+    [Header("Defense Reduction Settings")]
+    [SerializeField] private int defenseReductionDefaultDuration = 2; // Default duration in turns
+    [SerializeField] private float defenseReductionDefaultMultiplier = 1.5f; // Default multiplier (1.5 = 50% more damage)
+    [Tooltip("Position offset for the defense reduction icon")]
+    [SerializeField] private Vector3 defenseReductionIconOffset = new Vector3(0, -1.2f, 0);
+    
+    public bool HasReducedDefense { get; private set; } = false;
+    public int DefenseReductionTurnsLeft { get; private set; } = 0;
+    public float DefenseReductionMultiplier { get; private set; } = 1.0f; // 1.0 = normal damage, 1.5 = 50% more damage
+    public GameObject DefenseReductionIcon { get; private set; } = null;
+
     // Add these fields for the blinking highlight effect
     private bool isHighlighted = false;
     private float blinkTimer = 0f;
-    private float blinkInterval = 0.3f; // Changed to 0.3 seconds as requested
     private bool isBlinkOn = false;
     private Color defaultColor = Color.white; // Default color for non-enemy characters
     
@@ -64,11 +85,24 @@ public class CombatStats : MonoBehaviour
                 // Reset to default colors
                 if (spriteRenderer != null)
                 {
-                    spriteRenderer.color = isEnemy ? originalColor : Color.white;
+                    spriteRenderer.color = isEnemy ? originalColor : allyDefaultColor;
                 }
                 if (characterImage != null)
                 {
-                    characterImage.color = isEnemy ? Color.red : Color.white;
+                    characterImage.color = isEnemy ? enemyDefaultColor : allyDefaultColor;
+                }
+            }
+            
+            // If this character's turn is ending, reduce defense reduction duration
+            if (!value && HasReducedDefense && DefenseReductionTurnsLeft > 0)
+            {
+                DefenseReductionTurnsLeft--;
+                Debug.Log($"[Piercing Shot] {name}'s defense reduction turns left: {DefenseReductionTurnsLeft}");
+                
+                // If no turns left, remove the defense reduction
+                if (DefenseReductionTurnsLeft <= 0)
+                {
+                    RemoveDefenseReduction();
                 }
             }
         }
@@ -78,17 +112,16 @@ public class CombatStats : MonoBehaviour
     {
         if (isEnemy)
         {
-            maxHealth = 20f;
-            maxAction = 100f;
+            // Set up enemy-specific properties without overriding inspector values
             if (characterImage != null)
             {
-                characterImage.color = Color.red; // Make enemies red-tinted
+                characterImage.color = enemyDefaultColor; // Use configurable enemy color
             }
             if (spriteRenderer != null)
             {
                 originalColor = spriteRenderer.color;
             }
-            // Enemies don't use sanity
+            // Enemies don't use sanity, but we don't need to modify maxSanity
             
             // No need to instantiate, just verify components
             if (healthFill == null || actionFill == null)
@@ -109,12 +142,13 @@ public class CombatStats : MonoBehaviour
             }
         }
         
+        // Initialize current values based on max values from inspector
         currentHealth = maxHealth;
         currentSanity = maxSanity;
-        currentAction = 0f;
+        currentAction = 0f; // Always start with empty action bar
 
         // Debug log to check character name
-        Debug.Log($"Character initialized: {characterName}, isEnemy: {isEnemy}");
+        Debug.Log($"Character initialized: {characterName}, isEnemy: {isEnemy}, maxHealth: {maxHealth}, maxAction: {maxAction}, actionSpeed: {actionSpeed}");
 
         if (!isEnemy && characterName == "The Magician")
         {
@@ -167,6 +201,42 @@ public class CombatStats : MonoBehaviour
             // Debug log to verify skills were added
             Debug.Log($"The Fighter now has {skills.Count} skills: {string.Join(", ", skills.Select(s => s.name))}");
         }
+        else if (!isEnemy && characterName == "The Bard")
+        {
+            Debug.Log($"Adding skills for The Bard character");
+            
+            // Clear existing skills to prevent duplicates
+            skills.Clear();
+            
+            // Add the Healing Words skill with updated healing values
+            skills.Add(new SkillData(
+                "Healing Words",
+                "Heal an ally for 50 HP and 30 sanity. Costs 10 sanity to cast.",
+                10f,  // Costs 10 sanity
+                true  // Requires a target (the ally to heal)
+            ));
+            
+            // Debug log to verify skills were added
+            Debug.Log($"The Bard now has {skills.Count} skills: {string.Join(", ", skills.Select(s => s.name))}");
+        }
+        else if (!isEnemy && characterName == "The Ranger")
+        {
+            Debug.Log($"Adding skills for The Ranger character");
+            
+            // Clear existing skills to prevent duplicates
+            skills.Clear();
+            
+            // Add the Piercing Shot skill
+            skills.Add(new SkillData(
+                "Piercing Shot",
+                "Deal 10 damage and reduce target's defense by 50% for 2 turns.",
+                0f,  // Costs 0 sanity
+                true  // Requires a target (the enemy to hit)
+            ));
+            
+            // Debug log to verify skills were added
+            Debug.Log($"The Ranger now has {skills.Count} skills: {string.Join(", ", skills.Select(s => s.name))}");
+        }
     }
 
     private void Update()
@@ -199,14 +269,14 @@ public class CombatStats : MonoBehaviour
                 // Apply the appropriate color based on blink state
                 if (spriteRenderer != null)
                 {
-                    // Alternate between yellow and white (not disappearing)
-                    spriteRenderer.color = isBlinkOn ? highlightColor : Color.white;
+                    // Alternate between highlight color and appropriate default color
+                    spriteRenderer.color = isBlinkOn ? highlightColor : (isEnemy ? originalColor : allyDefaultColor);
                 }
                 
                 if (characterImage != null)
                 {
-                    // Alternate between yellow and appropriate default color
-                    characterImage.color = isBlinkOn ? highlightColor : (isEnemy ? Color.red : Color.white);
+                    // Alternate between highlight color and appropriate default color
+                    characterImage.color = isBlinkOn ? highlightColor : (isEnemy ? enemyDefaultColor : allyDefaultColor);
                 }
             }
         }
@@ -227,11 +297,19 @@ public class CombatStats : MonoBehaviour
             return;
         }
         
-        currentHealth = Mathf.Max(0, currentHealth - damage);
+        // Apply defense reduction multiplier if active
+        float actualDamage = damage;
+        if (HasReducedDefense)
+        {
+            actualDamage = damage * DefenseReductionMultiplier;
+            Debug.Log($"[Piercing Shot] {name} takes increased damage due to reduced defense: {damage} -> {actualDamage}");
+        }
+        
+        currentHealth = Mathf.Max(0, currentHealth - actualDamage);
         
         // Create damage popup
         Vector3 popupPosition = transform.position + Vector3.up * 0.5f; // Adjust the Y offset as needed
-        DamagePopup.Create(popupPosition, damage, !isEnemy);
+        DamagePopup.Create(popupPosition, actualDamage, !isEnemy);
     }
 
     // Set up guarding relationship
@@ -301,8 +379,7 @@ public class CombatStats : MonoBehaviour
             GameObject icon = Instantiate(guardedIconPrefab);
             icon.name = "GuardedIcon";
             icon.transform.SetParent(ally.transform);
-            icon.transform.localPosition = new Vector3(0, -1.2f, 0); // Position below the character
-            //icon.transform.localScale = new Vector3(1f, 1f, 1f); // Use original scale or adjust as needed
+            icon.transform.localPosition = guardedIconOffset; // Use the configurable offset
             
             // Ensure the icon is visible by setting high sorting order on any renderers
             SpriteRenderer[] renderers = icon.GetComponentsInChildren<SpriteRenderer>();
@@ -324,7 +401,7 @@ public class CombatStats : MonoBehaviour
             // Create a fallback icon if the prefab isn't found
             GameObject fallbackIcon = new GameObject("GuardedIcon");
             fallbackIcon.transform.SetParent(ally.transform);
-            fallbackIcon.transform.localPosition = new Vector3(0, -0.7f, 0); // Position below the character
+            fallbackIcon.transform.localPosition = guardedIconOffset; // Use the configurable offset
             
             // Create a visible placeholder
             GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -351,6 +428,22 @@ public class CombatStats : MonoBehaviour
     public void HealHealth(float amount)
     {
         currentHealth = Mathf.Min(maxHealth, currentHealth + amount);
+        
+        // Create healing popup
+        Vector3 popupPosition = transform.position + Vector3.up * 0.5f; // Adjust the Y offset as needed
+        HealingPopup.CreateHealthPopup(popupPosition, amount);
+    }
+
+    public void HealSanity(float amount)
+    {
+        if (!isEnemy)
+        {
+            currentSanity = Mathf.Min(maxSanity, currentSanity + amount);
+            
+            // Create sanity healing popup
+            Vector3 popupPosition = transform.position + Vector3.up * 0.7f; // Slightly higher than health popup
+            HealingPopup.CreateSanityPopup(popupPosition, amount);
+        }
     }
 
     public void UseSanity(float amount)
@@ -395,14 +488,14 @@ public class CombatStats : MonoBehaviour
             // Reset to appropriate colors when not highlighted
             if (spriteRenderer != null)
             {
-                // Always use white for non-highlighted sprites to ensure visibility
-                spriteRenderer.color = isEnemy ? originalColor : Color.white;
+                // Use configurable colors
+                spriteRenderer.color = isEnemy ? originalColor : allyDefaultColor;
                 Debug.Log($"[Character Highlight] {name} spriteRenderer color reset to visible default");
             }
             
             if (characterImage != null)
             {
-                characterImage.color = isEnemy ? Color.red : Color.white;
+                characterImage.color = isEnemy ? enemyDefaultColor : allyDefaultColor;
                 Debug.Log($"[Character Highlight] {name} characterImage color reset to default");
             }
         }
@@ -411,5 +504,105 @@ public class CombatStats : MonoBehaviour
     public void ResetAction()
     {
         currentAction = 0f;
+    }
+
+    public void ApplyDefenseReduction()
+    {
+        HasReducedDefense = true;
+        DefenseReductionTurnsLeft = defenseReductionDefaultDuration; // Use the inspector-configurable duration
+        DefenseReductionMultiplier = defenseReductionDefaultMultiplier; // Use the inspector-configurable multiplier
+        Debug.Log($"[Piercing Shot] {name} now has reduced defense. Turns left: {DefenseReductionTurnsLeft}, Multiplier: {DefenseReductionMultiplier}");
+        
+        // Create defense reduction icon
+        CreateDefenseReductionIcon();
+    }
+
+    public void RemoveDefenseReduction()
+    {
+        HasReducedDefense = false;
+        DefenseReductionTurnsLeft = 0;
+        DefenseReductionMultiplier = 1.0f;
+        Debug.Log($"[Piercing Shot] {name} defense reduction removed. Turns left: {DefenseReductionTurnsLeft}, Multiplier: {DefenseReductionMultiplier}");
+        
+        // Remove defense reduction icon
+        if (DefenseReductionIcon != null)
+        {
+            Destroy(DefenseReductionIcon);
+            DefenseReductionIcon = null;
+        }
+    }
+
+    private void CreateDefenseReductionIcon()
+    {
+        // Remove any existing icon
+        if (DefenseReductionIcon != null)
+        {
+            Destroy(DefenseReductionIcon);
+        }
+        
+        Debug.Log($"[Piercing Shot] Creating defense reduction icon for {name}");
+        
+        // Load the Defense Reduction Icon prefab from the Icons folder
+        GameObject defenseReductionIconPrefab = Resources.Load<GameObject>("Defense Reduction Icon");
+        
+        // If not found in Resources, try direct path
+        if (defenseReductionIconPrefab == null)
+        {
+            #if UNITY_EDITOR
+            defenseReductionIconPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Icons/Defense Reduction Icon.prefab");
+            Debug.Log($"[Piercing Shot] Trying to load prefab from direct path: {defenseReductionIconPrefab != null}");
+            #endif
+        }
+        
+        if (defenseReductionIconPrefab != null)
+        {
+            // Create a new icon instance from the prefab
+            GameObject icon = Instantiate(defenseReductionIconPrefab);
+            icon.name = "DefenseReductionIcon";
+            icon.transform.SetParent(transform);
+            icon.transform.localPosition = defenseReductionIconOffset; // Use the configurable offset
+            
+            // Ensure the icon is visible by setting high sorting order on any renderers
+            SpriteRenderer[] renderers = icon.GetComponentsInChildren<SpriteRenderer>();
+            foreach (SpriteRenderer renderer in renderers)
+            {
+                renderer.sortingOrder = 20; // Higher sorting order to ensure visibility
+            }
+            
+            icon.SetActive(true);
+            
+            // Store the reference
+            DefenseReductionIcon = icon;
+            Debug.Log($"[Piercing Shot] Icon prefab instantiated and attached to {name}");
+        }
+        else
+        {
+            Debug.LogWarning("[Piercing Shot] Defense Reduction Icon prefab not found. Creating a placeholder.");
+            
+            // Create a fallback icon if the prefab isn't found
+            GameObject fallbackIcon = new GameObject("DefenseReductionIcon");
+            fallbackIcon.transform.SetParent(transform);
+            fallbackIcon.transform.localPosition = defenseReductionIconOffset; // Use the configurable offset
+            
+            // Create a visible placeholder
+            GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            visual.transform.SetParent(fallbackIcon.transform);
+            visual.transform.localPosition = Vector3.zero;
+            visual.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
+            
+            // Add a material with a defense reduction color
+            Renderer visualRenderer = visual.GetComponent<Renderer>();
+            visualRenderer.material.color = new Color(1f, 0.5f, 0f); // Orange defense reduction color
+            
+            // Make sure the GameObject has a high sorting layer
+            visual.layer = LayerMask.NameToLayer("UI") != -1 ? LayerMask.NameToLayer("UI") : 5;
+            
+            // Remove the collider
+            Destroy(visual.GetComponent<Collider>());
+            
+            // Store the reference
+            DefenseReductionIcon = fallbackIcon;
+            Debug.Log("[Piercing Shot] Created fallback icon for defense reduction");
+        }
     }
 } 

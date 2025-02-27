@@ -92,7 +92,8 @@ public class CombatManager : MonoBehaviour
         {
             if (character.IsDead()) continue;
 
-            character.currentAction += actionBarFillRate * Time.deltaTime;
+            // Use each character's individual actionSpeed instead of the global actionBarFillRate
+            character.currentAction += character.actionSpeed * Time.deltaTime;
 
             if (character.currentAction >= character.maxAction)
             {

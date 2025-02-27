@@ -931,7 +931,7 @@ MonoBehaviour:
   currentSanity: 0
   maxAction: 100
   currentAction: 0
-  actionSpeed: 20
+  actionSpeed: 50
   isEnemy: 0
   highlightColor: {r: 1, g: 1, b: 0.5, a: 1}
   characterName: The Magician
@@ -1275,7 +1275,7 @@ MonoBehaviour:
   currentSanity: 0
   maxAction: 100
   currentAction: 0
-  actionSpeed: 20
+  actionSpeed: 50
   isEnemy: 0
   highlightColor: {r: 1, g: 1, b: 0.5, a: 1}
   characterName: The Fighter
@@ -1392,7 +1392,7 @@ MonoBehaviour:
   currentSanity: 0
   maxAction: 100
   currentAction: 0
-  actionSpeed: 20
+  actionSpeed: 100
   isEnemy: 0
   highlightColor: {r: 1, g: 1, b: 0.5, a: 1}
   characterName: The Ranger
@@ -1973,6 +1973,10 @@ PrefabInstance:
     - target: {fileID: 5636393689027812740, guid: 12e87dde88b77b045aba13d4a39ba856, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5636393689027812741, guid: 12e87dde88b77b045aba13d4a39ba856, type: 3}
+      propertyPath: actionSpeed
+      value: 80
       objectReference: {fileID: 0}
     - target: {fileID: 5636393689027812743, guid: 12e87dde88b77b045aba13d4a39ba856, type: 3}
       propertyPath: m_Name

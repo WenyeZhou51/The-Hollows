@@ -378,6 +378,7 @@
 "Assets/Scripts/CombatStats.cs"
 "Assets/Scripts/CombatUI.cs"
 "Assets/Scripts/DamagePopup.cs"
+"Assets/Scripts/HealingPopup.cs"
 "Assets/Scripts/MenuSelector.cs"
 "Assets/Scripts/SkillButtonData.cs"
 "Assets/Scripts/SkillData.cs"
