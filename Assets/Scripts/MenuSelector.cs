@@ -38,6 +38,7 @@ public class MenuSelector : MonoBehaviour
     private CombatManager combatManager;
     private bool menuItemsEnabled = true;
     private SkillData selectedSkill;
+    private ItemData selectedItem;
     private GameObject[] skillOptions;
     private bool isInSkillMenu = false;
     private int skillMenuColumns = 2;
@@ -229,6 +230,11 @@ public class MenuSelector : MonoBehaviour
                 EndTargetSelection();
                 combatUI.ExecuteSkill(skill, target);
             }
+            else if (selectedItem != null)
+            {
+                Debug.Log($"[Target Selection] Using item: {selectedItem.name} on target: {target.name}");
+                combatUI.ExecuteItem(selectedItem, target);
+            }
             else
             {
                 Debug.Log($"[Target Selection] Executing attack on target {target.name}");
@@ -338,11 +344,24 @@ public class MenuSelector : MonoBehaviour
         {
             if (currentSelection < skillOptions.Length && skillOptions[currentSelection] != null)
             {
+                // Check for both SkillButtonData and ItemButtonData
                 var skillData = skillOptions[currentSelection].GetComponent<SkillButtonData>();
+                var itemData = skillOptions[currentSelection].GetComponent<ItemButtonData>();
+                
                 if (skillData != null)
                 {
                     Debug.Log($"[SkillButton Lifecycle] Skill selected with Z key - Skill: {skillData.skill.name}");
                     OnSkillSelected(skillData.skill);
+                }
+                else if (itemData != null)
+                {
+                    Debug.Log($"[ItemButton Lifecycle] Item selected with Z key - Item: {itemData.item.name}");
+                    // Call the CombatUI's OnItemButtonClicked method
+                    combatUI.OnItemButtonClicked(itemData.item);
+                }
+                else
+                {
+                    Debug.LogWarning("[Button Lifecycle] Selected button has neither SkillButtonData nor ItemButtonData component");
                 }
             }
         }
@@ -471,21 +490,43 @@ public class MenuSelector : MonoBehaviour
         }
     }
 
-    void ExecuteSelection()
+    private void ExecuteSelection()
     {
-        switch (currentSelection)
+        if (currentSelection < 0 || currentSelection >= menuOptions.Length) return;
+        
+        // Get the name of the selected option, trim whitespace and newlines, and convert to lowercase
+        string selectedOption = menuTexts[currentSelection].text.Trim().ToLower();
+        
+        Debug.Log($"[MenuSelector] Executing selection: {selectedOption}");
+        
+        switch (selectedOption)
         {
-            case 0: // Attack
+            case "attack":
+                Debug.Log("[MenuSelector] Attack selected, starting target selection");
                 StartTargetSelection();
                 break;
-            case 1: // Skills
+            case "skill":
+            case "skills":
+                Debug.Log("[MenuSelector] Skill selected, showing skill menu");
+                isInSkillMenu = true;
                 combatUI.OnSkillSelected();
                 break;
-            case 2: // Guard
+            case "item":
+            case "items":
+                Debug.Log("[MenuSelector] Item selected, showing item menu");
+                isInSkillMenu = true; // Reuse the skill menu navigation for items
+                combatUI.ShowItemMenu();
+                break;
+            case "guard":
+                Debug.Log("[MenuSelector] Guard selected");
                 combatUI.OnGuardSelected();
                 break;
-            case 3: // Heal
+            case "heal":
+                Debug.Log("[MenuSelector] Heal selected");
                 combatUI.OnHealSelected();
+                break;
+            default:
+                Debug.Log($"[MenuSelector] Unknown option: {selectedOption}");
                 break;
         }
     }
@@ -562,9 +603,15 @@ public class MenuSelector : MonoBehaviour
             Debug.Log($"[Target Selection] Clearing selected skill: {selectedSkill.name}");
         }
         
+        if (selectedItem != null)
+        {
+            Debug.Log($"[Target Selection] Clearing selected item: {selectedItem.name}");
+        }
+        
         // Reset state variables
         isSelectingTarget = false;
         selectedSkill = null;
+        selectedItem = null;
         currentTargets = null;
         currentTargetSelection = 0;
         
@@ -825,5 +872,11 @@ public class MenuSelector : MonoBehaviour
         // Now enable the menu with a clean state
         DisableMenu();
         EnableMenu();
+    }
+
+    public void SetSelectedItem(ItemData item)
+    {
+        selectedItem = item;
+        Debug.Log($"[MenuSelector] Selected item set: {item.name}");
     }
 } 

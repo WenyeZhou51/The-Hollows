@@ -386,6 +386,42 @@ public class CombatUI : MonoBehaviour
                                  $"Color: {buttonText.color}, " +
                                  $"Position: {skillButton.transform.position}, " +
                                  $"Size: {skillButton.GetComponent<RectTransform>().sizeDelta}");
+                        
+                        // Find the cost text component (should be a separate TextMeshProUGUI in the prefab)
+                        TextMeshProUGUI costText = null;
+                        
+                        // Look for a child object with "Cost" in its name
+                        foreach (Transform child in skillButton.transform)
+                        {
+                            if (child.name.Contains("Cost"))
+                            {
+                                costText = child.GetComponent<TextMeshProUGUI>();
+                                break;
+                            }
+                        }
+                        
+                        // If we didn't find it by name, look for a second TextMeshProUGUI component
+                        if (costText == null)
+                        {
+                            TextMeshProUGUI[] allTexts = skillButton.GetComponentsInChildren<TextMeshProUGUI>();
+                            if (allTexts.Length > 1)
+                            {
+                                // Use the second text component as the cost text
+                                costText = allTexts[1];
+                            }
+                        }
+                        
+                        // If we found the cost text component, update it
+                        if (costText != null)
+                        {
+                            costText.text = $"{skill.sanityCost} SP";
+                            costText.ForceMeshUpdate();
+                            Debug.Log($"[SkillButton Lifecycle] Updated cost text: '{costText.text}'");
+                        }
+                        else
+                        {
+                            Debug.LogWarning("[SkillButton Lifecycle] Cost text component not found on skill button!");
+                        }
                     }
                     else
                     {
@@ -652,11 +688,408 @@ public class CombatUI : MonoBehaviour
 
     public void ShowItemMenu()
     {
+        Debug.Log("[ItemButton Lifecycle] ShowItemMenu called - Beginning item menu setup");
         if (itemMenu != null)
         {
+            if (characterStatsPanel != null) characterStatsPanel.SetActive(false);
             actionMenu.SetActive(false);
+            // Hide skill menu if it's active
+            if (skillMenu != null) skillMenu.SetActive(false);
             itemMenu.SetActive(true);
+            
+            // Hide the menu button template if it's assigned
+            if (menuButtonTemplate != null)
+            {
+                // Store the original state to restore it later
+                bool wasTemplateActive = menuButtonTemplate.activeSelf;
+                menuButtonTemplate.SetActive(false);
+                
+                // We'll restore this when returning to the action menu
+                menuButtonTemplate.tag = wasTemplateActive ? "ActiveTemplate" : "InactiveTemplate";
+                Debug.Log($"[ItemButton Lifecycle] Hiding menu button template: {menuButtonTemplate.name}");
+            }
+            
+            // First, create a local copy of the buttons to destroy
+            List<GameObject> buttonsToDestroy = new List<GameObject>(currentSkillButtons);
+            
+            // Clear the list before destroying to prevent access to destroyed objects
+            currentSkillButtons.Clear();
+            
+            // Now destroy the buttons
+            if (buttonsToDestroy.Count > 0)
+            {
+                Debug.Log($"[ItemButton Lifecycle] Destroying {buttonsToDestroy.Count} existing buttons");
+                foreach (var button in buttonsToDestroy)
+                {
+                    if (button != null)
+                    {
+                        Debug.Log($"[ItemButton Lifecycle] Destroying button: {(button.GetComponentInChildren<TextMeshProUGUI>()?.text ?? "unknown")}");
+                        Destroy(button);
+                    }
+                }
+            }
+            
+            // Find the container for the item buttons - look for a direct child of itemMenu
+            Transform containerTransform = itemMenu.transform.Find("ItemButtonsContainer");
+            RectTransform itemButtonsContainer;
+            
+            if (containerTransform != null)
+            {
+                // Use the existing container
+                itemButtonsContainer = containerTransform.GetComponent<RectTransform>();
+                Debug.Log("[ItemButton Lifecycle] Found existing ItemButtonsContainer");
+                
+                // Check for and destroy any existing RuntimeItemButtons container
+                Transform existingRuntimeContainer = containerTransform.Find("RuntimeItemButtons");
+                if (existingRuntimeContainer != null)
+                {
+                    Debug.Log("[ItemButton Lifecycle] Destroying existing RuntimeItemButtons container");
+                    Destroy(existingRuntimeContainer.gameObject);
+                }
+            }
+            else
+            {
+                // If we didn't find a direct child container, check if there are any children at all
+                if (itemMenu.transform.childCount > 0)
+                {
+                    // Use the first child as the container
+                    itemButtonsContainer = itemMenu.transform.GetChild(0).GetComponent<RectTransform>();
+                    Debug.Log($"[ItemButton Lifecycle] Using first child as container: {itemButtonsContainer.name}");
+                    
+                    // Check for and destroy any existing RuntimeItemButtons container
+                    Transform existingRuntimeContainer = itemButtonsContainer.Find("RuntimeItemButtons");
+                    if (existingRuntimeContainer != null)
+                    {
+                        Debug.Log("[ItemButton Lifecycle] Destroying existing RuntimeItemButtons container in first child");
+                        Destroy(existingRuntimeContainer.gameObject);
+                    }
+                }
+                else
+                {
+                    // Create a child container if needed
+                    GameObject container = new GameObject("ItemButtonsContainer");
+                    itemButtonsContainer = container.AddComponent<RectTransform>();
+                    itemButtonsContainer.SetParent(itemMenu.transform, false);
+                    itemButtonsContainer.anchorMin = new Vector2(0, 0);
+                    itemButtonsContainer.anchorMax = new Vector2(1, 1);
+                    itemButtonsContainer.offsetMin = new Vector2(10, 10);
+                    itemButtonsContainer.offsetMax = new Vector2(-10, -10);
+                    Debug.Log("[ItemButton Lifecycle] Created new ItemButtonsContainer");
+                }
+            }
+            
+            // Ensure the container has a grid layout
+            GridLayoutGroup itemButtonsGrid = itemButtonsContainer.GetComponent<GridLayoutGroup>();
+            if (itemButtonsGrid == null)
+            {
+                itemButtonsGrid = itemButtonsContainer.gameObject.AddComponent<GridLayoutGroup>();
+                itemButtonsGrid.cellSize = new Vector2(120, 40);
+                itemButtonsGrid.spacing = new Vector2(10, 10);
+                itemButtonsGrid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+                itemButtonsGrid.constraintCount = 2;
+            }
+            
+            // Create a runtime container for the buttons
+            GameObject runtimeContainer = new GameObject("RuntimeItemButtons");
+            RectTransform runtimeContainerRect = runtimeContainer.AddComponent<RectTransform>();
+            runtimeContainerRect.SetParent(itemButtonsContainer, false);
+            runtimeContainerRect.anchorMin = new Vector2(0, 0);
+            runtimeContainerRect.anchorMax = new Vector2(1, 1);
+            runtimeContainerRect.offsetMin = Vector2.zero;
+            runtimeContainerRect.offsetMax = Vector2.zero;
+            
+            // Add a grid layout to the runtime container
+            GridLayoutGroup runtimeGrid = runtimeContainer.AddComponent<GridLayoutGroup>();
+            runtimeGrid.cellSize = itemButtonsGrid.cellSize;
+            runtimeGrid.spacing = itemButtonsGrid.spacing;
+            runtimeGrid.constraint = itemButtonsGrid.constraint;
+            runtimeGrid.constraintCount = itemButtonsGrid.constraintCount;
+            
+            // Create buttons for each item
+            var activeCharStats = combatManager.ActiveCharacter;
+            if (activeCharStats != null)
+            {
+                // Track processed items to avoid duplicates
+                HashSet<string> processedItems = new HashSet<string>();
+                
+                // Get all items from the party (all player characters)
+                List<ItemData> partyItems = new List<ItemData>();
+                foreach (var player in combatManager.players)
+                {
+                    if (player != null && !player.IsDead())
+                    {
+                        partyItems.AddRange(player.items);
+                    }
+                }
+                
+                // Create a button for each unique item
+                foreach (var item in partyItems)
+                {
+                    // Skip if we've already processed this item
+                    if (processedItems.Contains(item.name))
+                    {
+                        Debug.Log($"[ItemButton Lifecycle] Skipping duplicate item: {item.name}");
+                        continue;
+                    }
+                    
+                    // Add to processed items
+                    processedItems.Add(item.name);
+                    
+                    Debug.Log($"[ItemButton Lifecycle] Creating button for item: {item.name}");
+                    
+                    // Use menu button template if available, otherwise fall back to buttonPrefab
+                    GameObject itemButton;
+                    if (menuButtonTemplate != null)
+                    {
+                        // Instantiate from menu button template
+                        itemButton = Instantiate(menuButtonTemplate);
+                        Debug.Log($"[ItemButton Lifecycle] Using menu button template: {menuButtonTemplate.name}");
+                        
+                        // Remove any existing components that might interfere
+                        Button existingButton = itemButton.GetComponent<Button>();
+                        if (existingButton != null)
+                        {
+                            Destroy(existingButton);
+                        }
+                        
+                        // Remove any existing SkillButtonData component
+                        SkillButtonData existingSkillData = itemButton.GetComponent<SkillButtonData>();
+                        if (existingSkillData != null)
+                        {
+                            Destroy(existingSkillData);
+                        }
+                        
+                        // Remove any existing ItemButtonData component
+                        ItemButtonData existingItemData = itemButton.GetComponent<ItemButtonData>();
+                        if (existingItemData != null)
+                        {
+                            Destroy(existingItemData);
+                        }
+                    }
+                    else
+                    {
+                        // Fall back to the original button prefab
+                        itemButton = Instantiate(buttonPrefab);
+                        Debug.Log($"[ItemButton Lifecycle] Using fallback button prefab");
+                    }
+                    
+                    // Give the button a meaningful name
+                    itemButton.name = $"ItemButton_{item.name}";
+                    
+                    // Then set the parent to our runtime container
+                    itemButton.transform.SetParent(runtimeContainer.transform, false);
+                    
+                    // Ensure the button is active
+                    itemButton.SetActive(true);
+                    
+                    // Ensure the button has the correct size
+                    RectTransform buttonRect = itemButton.GetComponent<RectTransform>();
+                    if (buttonRect != null)
+                    {
+                        buttonRect.anchorMin = new Vector2(0, 0);
+                        buttonRect.anchorMax = new Vector2(1, 1);
+                        buttonRect.sizeDelta = Vector2.zero;
+                    }
+                    
+                    // Add a button component for click handling
+                    Button button = itemButton.GetComponent<Button>();
+                    if (button == null)
+                    {
+                        button = itemButton.AddComponent<Button>();
+                    }
+                    
+                    // Store the item data for reference
+                    ItemButtonData itemData = itemButton.AddComponent<ItemButtonData>();
+                    itemData.item = item;
+                    
+                    // Set up the button click handler
+                    ItemData capturedItem = item; // Capture for lambda
+                    button.onClick.RemoveAllListeners();
+                    button.onClick.AddListener(() => OnItemButtonClicked(capturedItem));
+                    
+                    // Add a debug click handler to verify the button is working
+                    button.onClick.AddListener(() => Debug.Log($"[ItemButton Lifecycle] Button clicked for item: {capturedItem.name}"));
+                    
+                    // Make sure the button is interactable
+                    button.interactable = true;
+                    
+                    // Find the Name and Cost text components
+                    Transform nameTransform = itemButton.transform.Find("Name");
+                    Transform costTransform = itemButton.transform.Find("Cost");
+                    
+                    if (nameTransform != null && costTransform != null)
+                    {
+                        TextMeshProUGUI nameText = nameTransform.GetComponent<TextMeshProUGUI>();
+                        TextMeshProUGUI costText = costTransform.GetComponent<TextMeshProUGUI>();
+                        
+                        if (nameText != null && costText != null)
+                        {
+                            // Set the name and amount
+                            nameText.text = item.name;
+                            costText.text = item.amount.ToString();
+                            
+                            Debug.Log($"[ItemButton Lifecycle] Set text - Name: {item.name}, Amount: {item.amount}");
+                        }
+                        else
+                        {
+                            Debug.LogError("[ItemButton Lifecycle] TextMeshProUGUI components not found on Name or Cost objects");
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogError("[ItemButton Lifecycle] Name or Cost objects not found in button hierarchy");
+                        
+                        // Try to find any TextMeshProUGUI component
+                        TextMeshProUGUI buttonText = itemButton.GetComponentInChildren<TextMeshProUGUI>();
+                        if (buttonText != null)
+                        {
+                            buttonText.text = $"{item.name} x{item.amount}";
+                            Debug.Log($"[ItemButton Lifecycle] Set fallback text: {item.name} x{item.amount}");
+                        }
+                        else
+                        {
+                            Debug.LogError("[ItemButton Lifecycle] Button text not found on item button!");
+                        }
+                    }
+                    
+                    currentSkillButtons.Add(itemButton);
+                }
+                
+                Debug.Log($"[ItemButton Lifecycle] Created {currentSkillButtons.Count} item buttons, updating MenuSelector");
+                menuSelector.UpdateSkillMenuOptions(currentSkillButtons.ToArray());
+            }
         }
+    }
+    
+    public void OnItemButtonClicked(ItemData item)
+    {
+        Debug.Log($"[ItemButton Lifecycle] Item button clicked - Item: {item.name}");
+        if (item.requiresTarget)
+        {
+            Debug.Log($"[ItemButton Lifecycle] Item requires target, starting target selection");
+            menuSelector.StartTargetSelection();
+            // Store the selected item for when target is selected
+            menuSelector.SetSelectedItem(item);
+        }
+        else
+        {
+            Debug.Log($"[ItemButton Lifecycle] Item does not require target, executing immediately");
+            ExecuteItem(item, null);
+        }
+    }
+    
+    public void ExecuteItem(ItemData item, CombatStats target)
+    {
+        Debug.Log($"[ItemButton Lifecycle] Executing item: {item.name}, Target: {target?.name ?? "none"}");
+        
+        // Implement item effects
+        switch (item.name)
+        {
+            case "Fruit Juice":
+                // Heal all party members for 30 HP
+                foreach (var player in combatManager.players)
+                {
+                    if (player != null && !player.IsDead())
+                    {
+                        player.HealHealth(30f);
+                        Debug.Log($"[ItemButton Lifecycle] Healed {player.name} for 30 HP using Fruit Juice");
+                    }
+                }
+                break;
+                
+            default:
+                Debug.LogWarning($"[ItemButton Lifecycle] Unknown item: {item.name}");
+                break;
+        }
+        
+        // Reduce item count
+        item.amount--;
+        Debug.Log($"[ItemButton Lifecycle] {item.name} amount reduced to {item.amount}");
+        
+        // Remove item if amount is 0
+        if (item.amount <= 0)
+        {
+            Debug.Log($"[ItemButton Lifecycle] {item.name} used up, removing from inventory");
+            
+            // Remove from all players' inventories
+            foreach (var player in combatManager.players)
+            {
+                if (player != null)
+                {
+                    player.items.RemoveAll(i => i.name == item.name && i.amount <= 0);
+                }
+            }
+        }
+        
+        // Make sure we're not in target selection mode before ending the turn
+        if (menuSelector.IsSelectingTarget())
+        {
+            menuSelector.CancelTargetSelection();
+        }
+        
+        // Update UI to reflect changes immediately
+        UpdateUI();
+        
+        // Return to action menu and end the player's turn
+        BackToItemMenu();
+        combatManager.EndPlayerTurn();
+    }
+    
+    public void BackToItemMenu()
+    {
+        Debug.Log("[ItemButton Lifecycle] Returning to action menu from item menu");
+        if (itemMenu != null) itemMenu.SetActive(false);
+        if (characterStatsPanel != null) characterStatsPanel.SetActive(true);
+        if (skillMenu != null) skillMenu.SetActive(false); // Ensure skill menu is hidden
+        actionMenu.SetActive(true);
+        
+        // Restore the menu button template's original state
+        if (menuButtonTemplate != null)
+        {
+            bool shouldBeActive = menuButtonTemplate.CompareTag("ActiveTemplate");
+            menuButtonTemplate.SetActive(shouldBeActive);
+            // Reset the tag
+            menuButtonTemplate.tag = "Untagged";
+            Debug.Log($"[ItemButton Lifecycle] Restoring menu button template: {menuButtonTemplate.name}, Active: {shouldBeActive}");
+        }
+        
+        // First, create a local copy of the buttons to destroy
+        List<GameObject> buttonsToDestroy = new List<GameObject>(currentSkillButtons);
+        
+        // Clear the list before destroying to prevent access to destroyed objects
+        currentSkillButtons.Clear();
+        
+        // Now destroy the buttons
+        if (buttonsToDestroy.Count > 0)
+        {
+            Debug.Log($"[ItemButton Lifecycle] Destroying {buttonsToDestroy.Count} item buttons");
+            foreach (var button in buttonsToDestroy)
+            {
+                if (button != null)
+                {
+                    Debug.Log($"[ItemButton Lifecycle] Destroying button: {(button.GetComponentInChildren<TextMeshProUGUI>()?.text ?? "unknown")}");
+                    Destroy(button);
+                }
+            }
+        }
+        
+        // Find and destroy any RuntimeItemButtons container that might have been left behind
+        Transform containerTransform = itemMenu.transform.Find("ItemButtonsContainer");
+        if (containerTransform != null)
+        {
+            Transform runtimeContainer = containerTransform.Find("RuntimeItemButtons");
+            if (runtimeContainer != null)
+            {
+                Debug.Log("[ItemButton Lifecycle] Destroying leftover RuntimeItemButtons container");
+                Destroy(runtimeContainer.gameObject);
+            }
+        }
+        
+        // Update UI to reflect any changes
+        UpdateUI();
+        
+        // Reset the menu selector state
+        menuSelector.EnableMenu();
     }
 
     public void HideActionMenu()
