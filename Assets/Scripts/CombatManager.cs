@@ -127,6 +127,12 @@ public class CombatManager : MonoBehaviour
             character.StopGuarding();
         }
         
+        // Deactivate guard stance if active
+        if (character.IsGuarding)
+        {
+            character.DeactivateGuard();
+        }
+        
         // Set the active character property and reset others
         foreach (var c in players.Concat(enemies))
         {
@@ -139,6 +145,12 @@ public class CombatManager : MonoBehaviour
         
         // Update UI
         UpdateUI();
+        
+        // Display turn message
+        if (combatUI != null && combatUI.turnText != null)
+        {
+            combatUI.turnText.text = $"It's {character.characterName}'s Turn";
+        }
         
         // Handle turn based on character type
         if (character.isEnemy)
@@ -156,6 +168,12 @@ public class CombatManager : MonoBehaviour
 
     private void ExecuteEnemyTurn(CombatStats enemy)
     {
+        // Display action message
+        if (combatUI != null && combatUI.turnText != null)
+        {
+            combatUI.DisplayTurnAndActionMessage($"{enemy.characterName} attacks!");
+        }
+        
         // Find player with lowest HP
         var target = players
             .Where(p => !p.IsDead())
@@ -186,6 +204,12 @@ public class CombatManager : MonoBehaviour
             case "attack":
                 if (target != null)
                 {
+                    // Display action message
+                    if (combatUI != null && combatUI.turnText != null)
+                    {
+                        combatUI.DisplayTurnAndActionMessage($"{activeCharacter.characterName} attacks!");
+                    }
+                    
                     target.TakeDamage(10f);
                     if (target.IsDead())
                     {
@@ -200,6 +224,12 @@ public class CombatManager : MonoBehaviour
             case "heal":
                 if (activeCharacter.currentSanity >= 10f)
                 {
+                    // Display action message
+                    if (combatUI != null && combatUI.turnText != null)
+                    {
+                        combatUI.DisplayTurnAndActionMessage($"{activeCharacter.characterName} heals!");
+                    }
+                    
                     activeCharacter.HealHealth(10f);
                     activeCharacter.UseSanity(10f);
                     actionExecuted = true;

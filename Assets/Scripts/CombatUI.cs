@@ -4,6 +4,7 @@ using TMPro;
 using System.Collections.Generic;
 using UnityEditor;
 using System.Linq;
+using System.Collections;
 
 public class CombatUI : MonoBehaviour
 {
@@ -11,6 +12,15 @@ public class CombatUI : MonoBehaviour
     
     [Header("Character UI")]
     public CharacterUIElements[] characterUI;
+
+    [Header("Text Panel")]
+    [Tooltip("Reference to the text panel that displays turn and action information")]
+    public GameObject textPanel;
+    [Tooltip("Reference to the TextMeshProUGUI component in the text panel")]
+    public TextMeshProUGUI turnText;
+    [Tooltip("How long to display action messages before executing the action")]
+    [SerializeField] private float actionMessageDuration = 1f;
+    private Coroutine currentTextCoroutine;
 
     [Header("Skill UI")]
     public GameObject skillPanel; // Assign this in the Inspector
@@ -48,6 +58,16 @@ public class CombatUI : MonoBehaviour
         // Find references by name instead of using GameObject.Find
         if (characterStatsPanel == null)
             characterStatsPanel = GameObject.Find("CharacterStatsPanel");
+        
+        // Initialize text panel if not assigned
+        if (textPanel == null)
+            textPanel = GameObject.Find("TextPanel");
+            
+        if (textPanel != null && turnText == null)
+            turnText = textPanel.GetComponentInChildren<TextMeshProUGUI>();
+            
+        if (turnText == null)
+            Debug.LogWarning("Turn text not found! Make sure TextPanel has a TextMeshProUGUI component.");
         
         // Don't try to find skillPanel by name if it's already assigned
         // Don't overwrite existing reference
@@ -498,6 +518,17 @@ public class CombatUI : MonoBehaviour
             return;
         }
 
+        // Display skill action message
+        DisplayTurnAndActionMessage($"{activeCharacter.characterName} uses {skill.name}!");
+        
+        // Execute skill after message duration
+        StartCoroutine(ExecuteSkillAfterMessage(skill, target, activeCharacter));
+    }
+    
+    private IEnumerator ExecuteSkillAfterMessage(SkillData skill, CombatStats target, CombatStats activeCharacter)
+    {
+        yield return new WaitForSeconds(actionMessageDuration);
+        
         switch (skill.name)
         {
             case "Before Your Eyes":
@@ -982,6 +1013,21 @@ public class CombatUI : MonoBehaviour
     {
         Debug.Log($"[ItemButton Lifecycle] Executing item: {item.name}, Target: {target?.name ?? "none"}");
         
+        // Get the active character
+        var activeCharacter = combatManager.ActiveCharacter;
+        if (activeCharacter == null) return;
+        
+        // Display item action message
+        DisplayTurnAndActionMessage($"{activeCharacter.characterName} uses {item.name}!");
+        
+        // Execute item after message duration
+        StartCoroutine(ExecuteItemAfterMessage(item, target, activeCharacter));
+    }
+    
+    private IEnumerator ExecuteItemAfterMessage(ItemData item, CombatStats target, CombatStats activeCharacter)
+    {
+        yield return new WaitForSeconds(actionMessageDuration);
+        
         // Implement item effects
         switch (item.name)
         {
@@ -1123,7 +1169,28 @@ public class CombatUI : MonoBehaviour
 
     public void OnGuardSelected()
     {
-        // Implement guard
+        // Get the active character
+        CombatStats activeCharacter = combatManager.ActiveCharacter;
+        
+        if (activeCharacter != null && !activeCharacter.isEnemy)
+        {
+            // Display action message
+            DisplayTurnAndActionMessage($"{activeCharacter.characterName} guards...");
+            
+            // Activate guard stance after the message duration
+            StartCoroutine(GuardAfterMessage(activeCharacter));
+        }
+    }
+    
+    private IEnumerator GuardAfterMessage(CombatStats character)
+    {
+        yield return new WaitForSeconds(actionMessageDuration);
+        
+        // Activate guard stance
+        character.ActivateGuard();
+        
+        // End the player's turn
+        combatManager.EndPlayerTurn();
     }
 
     public void OnHealSelected()
@@ -1141,5 +1208,23 @@ public class CombatUI : MonoBehaviour
                 characterUI[i].UpdateUI(allCharacters[i], isActive);
             }
         }
+    }
+
+    public void DisplayTurnAndActionMessage(string message)
+    {
+        if (currentTextCoroutine != null)
+        {
+            StopCoroutine(currentTextCoroutine);
+        }
+
+        currentTextCoroutine = StartCoroutine(DisplayMessage(message));
+    }
+
+    private IEnumerator DisplayMessage(string message)
+    {
+        turnText.text = message;
+        yield return new WaitForSeconds(actionMessageDuration);
+        turnText.text = "";
+        currentTextCoroutine = null;
     }
 } 

@@ -42,6 +42,16 @@ public class CombatStats : MonoBehaviour
     public CombatStats ProtectedAlly { get; private set; } = null;
     public GameObject GuardedIcon { get; private set; } = null;
 
+    // Properties for Guard action
+    [Header("Guard Action Settings")]
+    [Tooltip("Damage reduction multiplier when in guard mode (0.5 = 50% damage reduction)")]
+    [SerializeField] private float guardDamageReductionMultiplier = 0.5f;
+    [Tooltip("Position offset for the guard icon")]
+    [SerializeField] private Vector3 guardIconOffset = new Vector3(0, 1.2f, 0);
+    public bool IsGuarding { get; private set; } = false;
+    public float GuardDamageReductionMultiplier => guardDamageReductionMultiplier;
+    public GameObject GuardIcon { get; private set; } = null;
+
     // Properties for the Piercing Shot skill
     [Header("Defense Reduction Settings")]
     [SerializeField] private int defenseReductionDefaultDuration = 2; // Default duration in turns
@@ -319,6 +329,13 @@ public class CombatStats : MonoBehaviour
             Debug.Log($"[Piercing Shot] {name} takes increased damage due to reduced defense: {damage} -> {actualDamage}");
         }
         
+        // Apply guard damage reduction if active
+        if (IsGuarding)
+        {
+            actualDamage = actualDamage * GuardDamageReductionMultiplier;
+            Debug.Log($"[Guard] {name} takes reduced damage due to guard stance: {damage} -> {actualDamage}");
+        }
+        
         currentHealth = Mathf.Max(0, currentHealth - actualDamage);
         
         // Create damage popup
@@ -349,22 +366,49 @@ public class CombatStats : MonoBehaviour
     {
         if (ProtectedAlly != null)
         {
-            Debug.Log($"[Human Shield] {name} stopped guarding {ProtectedAlly.name}");
             ProtectedAlly.IsGuarded = false;
             ProtectedAlly.Guardian = null;
             
-            // Remove the guarded icon
+            // Destroy the guarded icon
             if (ProtectedAlly.GuardedIcon != null)
             {
                 Destroy(ProtectedAlly.GuardedIcon);
                 ProtectedAlly.GuardedIcon = null;
             }
             
+            Debug.Log($"[Human Shield] {name} stopped guarding {ProtectedAlly.name}");
             ProtectedAlly = null;
         }
     }
     
-    // Create a visual indicator for guarded status
+    // Activate guard stance
+    public void ActivateGuard()
+    {
+        IsGuarding = true;
+        Debug.Log($"[Guard] {name} entered guard stance. Damage reduced by {(1 - GuardDamageReductionMultiplier) * 100}%");
+        
+        // Create guard icon
+        CreateGuardIcon();
+    }
+    
+    // Deactivate guard stance
+    public void DeactivateGuard()
+    {
+        if (IsGuarding)
+        {
+            IsGuarding = false;
+            Debug.Log($"[Guard] {name} exited guard stance");
+            
+            // Destroy guard icon
+            if (GuardIcon != null)
+            {
+                Destroy(GuardIcon);
+                GuardIcon = null;
+            }
+        }
+    }
+
+    // Create a visual indicator for guarding status
     private void CreateGuardedIcon(CombatStats ally)
     {
         // Remove any existing icon
@@ -437,6 +481,55 @@ public class CombatStats : MonoBehaviour
             ally.GuardedIcon = fallbackIcon;
             Debug.Log("[Human Shield] Created fallback icon for guarded status");
         }
+    }
+
+    // Create a visual indicator for guard stance
+    private void CreateGuardIcon()
+    {
+        // Destroy any existing icon first
+        if (GuardIcon != null)
+        {
+            Destroy(GuardIcon);
+        }
+        
+        // Create a new icon
+        GuardIcon = new GameObject($"{name}_GuardIcon");
+        GuardIcon.transform.position = transform.position + guardIconOffset;
+        
+        // Make the icon a child of this character
+        GuardIcon.transform.SetParent(transform);
+        
+        // Add a sprite renderer
+        SpriteRenderer iconRenderer = GuardIcon.AddComponent<SpriteRenderer>();
+        
+        // Try to find a shield sprite in the project
+        Sprite shieldSprite = Resources.Load<Sprite>("Shield");
+        if (shieldSprite != null)
+        {
+            iconRenderer.sprite = shieldSprite;
+        }
+        else
+        {
+            // Create a simple colored square if no sprite is found
+            iconRenderer.sprite = null;
+            iconRenderer.color = Color.blue;
+            iconRenderer.drawMode = SpriteDrawMode.Simple;
+            
+            // Add a simple shield shape
+            GameObject shieldShape = new GameObject("ShieldShape");
+            shieldShape.transform.SetParent(GuardIcon.transform);
+            shieldShape.transform.localPosition = Vector3.zero;
+            
+            SpriteRenderer shieldRenderer = shieldShape.AddComponent<SpriteRenderer>();
+            shieldRenderer.color = Color.blue;
+            shieldRenderer.sortingOrder = iconRenderer.sortingOrder + 1;
+            
+            // Set the size of the shield
+            GuardIcon.transform.localScale = new Vector3(0.5f, 0.5f, 1f);
+        }
+        
+        // Set sorting order to be in front of the character
+        iconRenderer.sortingOrder = spriteRenderer != null ? spriteRenderer.sortingOrder + 1 : 1;
     }
 
     public void HealHealth(float amount)
