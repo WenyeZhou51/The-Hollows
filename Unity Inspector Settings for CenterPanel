@@ -1,9 +1,0 @@
-Rect Transform:
-  Width: 400
-  Height: 400
-  Anchor: Middle
-Layout Element:
-  Preferred Width: 400
-  Preferred Height: 400
-  Flexible Width: 1
-  Flexible Height: 1 
