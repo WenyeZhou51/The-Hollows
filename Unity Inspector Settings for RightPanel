@@ -1,0 +1,12 @@
+Rect Transform:
+  Width: 300
+  Height: 400
+  Anchor: Right
+Vertical Layout Group:
+  Padding: 5
+  Spacing: 10
+Layout Element:
+  Preferred Width: 300
+  Preferred Height: 400
+  Flexible Width: 0
+  Flexible Height: 1 

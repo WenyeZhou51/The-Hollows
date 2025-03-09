@@ -1,0 +1,6 @@
+TextMeshPro:
+  Font Size: 24
+  Alignment: Left
+  Color: White
+  Margin:
+    Left: 20 (to make room for cursor) 

@@ -1,0 +1,14 @@
+Vertical Layout Group:
+  Padding:
+    Left: 10
+    Right: 10
+    Top: 10
+    Bottom: 10
+  Spacing: 5
+  Child Alignment: Upper Left
+  Child Controls Size:
+    Width: ☑
+    Height: ☑
+  Child Force Expand:
+    Width: ☐
+    Height: ☐ 
