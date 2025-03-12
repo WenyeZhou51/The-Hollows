@@ -9,8 +9,12 @@ public class CharacterUIElements
     private Slider[] sliders; // Will hold health, sanity, action bars
     private TextMeshProUGUI nameText;
     private Image panelImage; // Add reference to panel background image
-    [SerializeField] private Color highlightColor = new Color(1f, 1f, 1f, 0.6f); // Default highlight color
-    private Color defaultColor; // Store the default panel color
+    
+    // Use pure white for active character's turn
+    [SerializeField] private Color activeColor = Color.white;
+    
+    // Use the same grey as action buttons when not active (matching the action button color)
+    [SerializeField] private Color inactiveColor = new Color(0.8f, 0.8f, 0.8f, 1f);
 
     public void Initialize()
     {
@@ -21,10 +25,6 @@ public class CharacterUIElements
         Debug.Log($"Panel {characterPanel.name}: Found nameText? {nameText != null}");
         
         panelImage = characterPanel.GetComponent<Image>();
-        if (panelImage != null)
-        {
-            defaultColor = panelImage.color;
-        }
     }
 
     public void UpdateUI(CombatStats stats, bool isActive)
@@ -45,10 +45,10 @@ public class CharacterUIElements
             nameText.text = stats.characterName;
         }
 
-        // Update panel highlight
+        // Update panel color based on active state
         if (panelImage != null)
         {
-            panelImage.color = isActive ? highlightColor : defaultColor;
+            panelImage.color = isActive ? activeColor : inactiveColor;
         }
     }
 } 

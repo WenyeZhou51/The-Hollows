@@ -80,7 +80,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_Sprite: {fileID: 21300000, guid: 631b1ac93fb7f0e40892145b9a73e7c8, type: 3}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 0.73333335, g: 0.73333335, b: 0.73333335, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -114,10 +114,10 @@ MonoBehaviour:
   currentAction: 0
   actionSpeed: 50
   isEnemy: 0
-  highlightColor: {r: 1, g: 1, b: 0.5, a: 1}
+  highlightColor: {r: 1, g: 1, b: 1, a: 1}
   blinkInterval: 0.3
-  enemyDefaultColor: {r: 1, g: 0, b: 0, a: 1}
-  allyDefaultColor: {r: 1, g: 1, b: 1, a: 1}
+  enemyDefaultColor: {r: 0.73333335, g: 0.73333335, b: 0.73333335, a: 1}
+  allyDefaultColor: {r: 0.73333335, g: 0.73333335, b: 0.73333335, a: 1}
   characterName: The Magician
   skills:
   - name: Before Your Eyes
