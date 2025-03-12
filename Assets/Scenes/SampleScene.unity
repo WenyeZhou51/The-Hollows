@@ -774,15 +774,20 @@ MonoBehaviour:
   actionMenu: {fileID: 855358691}
   characterUI:
   - characterPanel: {fileID: 969701460}
-    highlightColor: {r: 1, g: 1, b: 1, a: 0.6}
+    activeColor: {r: 1, g: 1, b: 1, a: 1}
+    inactiveColor: {r: 0.8, g: 0.8, b: 0.8, a: 1}
   - characterPanel: {fileID: 2064304977}
-    highlightColor: {r: 1, g: 1, b: 1, a: 0.6}
+    activeColor: {r: 1, g: 1, b: 1, a: 1}
+    inactiveColor: {r: 0.8, g: 0.8, b: 0.8, a: 1}
   - characterPanel: {fileID: 1877388455}
-    highlightColor: {r: 1, g: 1, b: 1, a: 0.6}
+    activeColor: {r: 1, g: 1, b: 1, a: 1}
+    inactiveColor: {r: 0.8, g: 0.8, b: 0.8, a: 1}
   - characterPanel: {fileID: 1603444932}
-    highlightColor: {r: 1, g: 1, b: 1, a: 0.6}
+    activeColor: {r: 1, g: 1, b: 1, a: 1}
+    inactiveColor: {r: 0.8, g: 0.8, b: 0.8, a: 1}
   textPanel: {fileID: 2090843263}
   turnText: {fileID: 2127834882}
+  actionDisplayLabel: {fileID: 0}
   actionMessageDuration: 0.2
   skillPanel: {fileID: 820284072}
   skillButtonsContainer: {fileID: 61287668}
@@ -2509,15 +2514,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5636393689027812741, guid: 12e87dde88b77b045aba13d4a39ba856, type: 3}
       propertyPath: highlightColor.b
-      value: 0.72955966
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5636393689027812741, guid: 12e87dde88b77b045aba13d4a39ba856, type: 3}
       propertyPath: highlightColor.g
-      value: 0.72955966
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5636393689027812741, guid: 12e87dde88b77b045aba13d4a39ba856, type: 3}
       propertyPath: highlightColor.r
-      value: 0.72955966
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5636393689027812743, guid: 12e87dde88b77b045aba13d4a39ba856, type: 3}
       propertyPath: m_Name
@@ -2537,15 +2542,15 @@ PrefabInstance:
       objectReference: {fileID: 21300000, guid: f00ff892f833a3846b8e3156c89fb0db, type: 3}
     - target: {fileID: 5636393689027812746, guid: 12e87dde88b77b045aba13d4a39ba856, type: 3}
       propertyPath: m_Color.b
-      value: 0.7484276
+      value: 0.73333335
       objectReference: {fileID: 0}
     - target: {fileID: 5636393689027812746, guid: 12e87dde88b77b045aba13d4a39ba856, type: 3}
       propertyPath: m_Color.g
-      value: 0.7484276
+      value: 0.73333335
       objectReference: {fileID: 0}
     - target: {fileID: 5636393689027812746, guid: 12e87dde88b77b045aba13d4a39ba856, type: 3}
       propertyPath: m_Color.r
-      value: 0.7484276
+      value: 0.73333335
       objectReference: {fileID: 0}
     - target: {fileID: 5636393689027812746, guid: 12e87dde88b77b045aba13d4a39ba856, type: 3}
       propertyPath: m_SortingLayer
@@ -2649,17 +2654,17 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: New Text
+  m_text: asdfasdf
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 930c6a60d24bf2e4194a5323c2df31a9, type: 2}
+  m_sharedMaterial: {fileID: 4053211975015742970, guid: 930c6a60d24bf2e4194a5323c2df31a9, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
-  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
+    rgba: 4278190080
+  m_fontColor: {r: 0, g: 0, b: 0, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -2676,14 +2681,14 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 14
-  m_fontSizeBase: 14
+  m_fontSize: 40
+  m_fontSizeBase: 40
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 0
-  m_HorizontalAlignment: 1
+  m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
@@ -2712,7 +2717,7 @@ MonoBehaviour:
   m_VertexBufferAutoSizeReduction: 0
   m_useMaxVisibleDescender: 1
   m_pageToDisplay: 1
-  m_margin: {x: 0, y: 0, z: 0, w: 0}
+  m_margin: {x: 112.57866, y: 0, z: 120.619995, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
   m_hasFontAssetChanged: 0
@@ -2906,6 +2911,18 @@ PrefabInstance:
     - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
       propertyPath: highlightColor.r
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
+      propertyPath: allyDefaultColor.b
+      value: 0.73333335
+      objectReference: {fileID: 0}
+    - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
+      propertyPath: allyDefaultColor.g
+      value: 0.73333335
+      objectReference: {fileID: 0}
+    - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
+      propertyPath: allyDefaultColor.r
+      value: 0.73333335
       objectReference: {fileID: 0}
     - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
       propertyPath: skills.Array.data[0].description
