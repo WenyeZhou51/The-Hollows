@@ -9,20 +9,29 @@ public class DialogueManager : MonoBehaviour
 {
     public static DialogueManager Instance { get; private set; }
 
+    [Header("Prefab Reference")]
+    [SerializeField] private GameObject dialogueCanvasPrefab;
+    [Tooltip("Assign this in the inspector! This is the button prefab used for dialogue choices")]
+    [SerializeField] public GameObject choiceButtonPrefab; // Made public to ensure it's exposed in the inspector
+
     [Header("UI Components")]
     [SerializeField] private GameObject dialoguePanel;
     [SerializeField] private TextMeshProUGUI dialogueText;
-    [SerializeField] private GameObject choicesPanel;
-    [SerializeField] private GameObject choiceButtonPrefab;
+    [SerializeField] private GameObject dialogueButtonContainer; // Changed from choicesPanel to match your prefab
     
     [Header("Settings")]
     [SerializeField] private float typingSpeed = 0.04f;
     [SerializeField] private bool useTypewriterEffect = true;
+    [SerializeField] private Color normalButtonColor = new Color(0.2f, 0.2f, 0.2f, 1f);
+    [SerializeField] private Color highlightedButtonColor = new Color(0.4f, 0.6f, 1f, 1f);
+    [SerializeField] private KeyCode interactKey = KeyCode.Z;
     
     private bool isDialogueActive = false;
     private InkDialogueHandler currentInkHandler;
     private List<GameObject> choiceButtons = new List<GameObject>();
     private Coroutine typingCoroutine;
+    private GameObject instantiatedCanvas;
+    private int currentChoiceIndex = 0;
 
     private void Awake()
     {
@@ -41,73 +50,208 @@ public class DialogueManager : MonoBehaviour
         }
     }
 
+    private void Update()
+    {
+        // Handle choice navigation with keyboard
+        if (isDialogueActive && choiceButtons.Count > 0)
+        {
+            // Navigate up
+            if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.W))
+            {
+                currentChoiceIndex--;
+                if (currentChoiceIndex < 0)
+                    currentChoiceIndex = choiceButtons.Count - 1;
+                
+                UpdateChoiceHighlights();
+            }
+            // Navigate down
+            else if (Input.GetKeyDown(KeyCode.DownArrow) || Input.GetKeyDown(KeyCode.S))
+            {
+                currentChoiceIndex++;
+                if (currentChoiceIndex >= choiceButtons.Count)
+                    currentChoiceIndex = 0;
+                
+                UpdateChoiceHighlights();
+            }
+            // Select choice
+            else if (Input.GetKeyDown(interactKey))
+            {
+                if (currentChoiceIndex >= 0 && currentChoiceIndex < choiceButtons.Count)
+                {
+                    MakeChoice(currentChoiceIndex);
+                }
+            }
+        }
+        // Continue dialogue with interact key
+        else if (isDialogueActive && Input.GetKeyDown(interactKey))
+        {
+            if (typingCoroutine != null)
+            {
+                // Skip typing animation
+                StopCoroutine(typingCoroutine);
+                if (dialogueText != null && currentInkHandler != null)
+                {
+                    Story story = GetStoryFromHandler();
+                    if (story != null && story.currentText != null)
+                    {
+                        dialogueText.text = story.currentText;
+                    }
+                }
+                typingCoroutine = null;
+            }
+            else
+            {
+                // Continue to next dialogue line
+                ContinueInkStory();
+            }
+        }
+    }
+
     private void Start()
     {
+        // Initialize the dialogue UI from the prefab if it's assigned
+        if (dialogueCanvasPrefab != null)
+        {
+            InstantiateDialogueCanvas();
+        }
+        else
+        {
+            Debug.LogError("DialogueCanvas prefab is not assigned! Please assign it in the inspector.");
+            
+            // Try to find the dialogue panel in the scene as a fallback
+            TryFindDialogueUIInScene();
+        }
+        
         // Make sure dialogue panel is initially hidden
         if (dialoguePanel != null)
         {
             dialoguePanel.SetActive(false);
             Debug.Log("Dialogue panel initialized and hidden");
         }
+        
+        // Make sure dialogue button container is initially hidden
+        if (dialogueButtonContainer != null)
+        {
+            dialogueButtonContainer.SetActive(false);
+        }
+        
+        // Log warning if choice button prefab is not assigned
+        if (choiceButtonPrefab == null)
+        {
+            Debug.LogError("CHOICE BUTTON PREFAB IS NOT ASSIGNED! Please assign it in the inspector!");
+        }
         else
         {
-            Debug.LogError("Dialogue panel is not assigned!");
+            Debug.Log("Choice button prefab is assigned: " + choiceButtonPrefab.name);
+        }
+    }
+    
+    private void InstantiateDialogueCanvas()
+    {
+        // Instantiate the dialogue canvas prefab
+        instantiatedCanvas = Instantiate(dialogueCanvasPrefab);
+        
+        // Make sure it persists between scenes
+        DontDestroyOnLoad(instantiatedCanvas);
+        
+        // Find the dialogue panel in the instantiated prefab
+        Transform panelTransform = instantiatedCanvas.transform.Find("DialoguePanel");
+        if (panelTransform != null)
+        {
+            dialoguePanel = panelTransform.gameObject;
             
-            // Try to find the dialogue panel in the scene
-            GameObject panelObj = GameObject.Find("DialoguePanel");
-            if (panelObj != null)
+            // Find the dialogue text
+            Transform textTransform = panelTransform.Find("DialogueText");
+            if (textTransform != null)
             {
-                dialoguePanel = panelObj;
-                Debug.Log("Found DialoguePanel in scene");
-                
-                // Try to find the dialogue text
-                TextMeshProUGUI[] textComponents = panelObj.GetComponentsInChildren<TextMeshProUGUI>(true);
-                foreach (TextMeshProUGUI text in textComponents)
-                {
-                    if (text.gameObject.name == "DialogueText")
-                    {
-                        dialogueText = text;
-                        Debug.Log("Found DialogueText in DialoguePanel");
-                        break;
-                    }
-                }
+                dialogueText = textTransform.GetComponent<TextMeshProUGUI>();
             }
             else
             {
-                Debug.LogError("Could not find DialoguePanel in scene");
+                Debug.LogError("DialogueText not found in the DialogueCanvas prefab!");
             }
-        }
-        
-        // Make sure choices panel is initially hidden
-        if (choicesPanel != null)
-        {
-            choicesPanel.SetActive(false);
         }
         else
         {
-            Debug.LogError("Choices panel is not assigned!");
-            
-            // Try to find the choices panel in the scene
-            GameObject choicesPanelObj = GameObject.Find("ChoicesPanel");
-            if (choicesPanelObj != null)
-            {
-                choicesPanel = choicesPanelObj;
-                Debug.Log("Found ChoicesPanel in scene");
-            }
+            Debug.LogError("DialoguePanel not found in the DialogueCanvas prefab!");
         }
         
-        // Make sure choice button prefab is assigned
-        if (choiceButtonPrefab == null)
+        // Find the dialogue button container in the instantiated prefab
+        Transform buttonContainerTransform = instantiatedCanvas.transform.Find("DialogueButtonContainer");
+        if (buttonContainerTransform != null)
         {
-            Debug.LogError("Choice button prefab is not assigned!");
+            dialogueButtonContainer = buttonContainerTransform.gameObject;
+            Debug.Log("Found DialogueButtonContainer in the DialogueCanvas prefab");
+        }
+        else
+        {
+            Debug.LogWarning("DialogueButtonContainer not found in the DialogueCanvas prefab. Choices will not be displayed.");
+            // Create a container for choices if it doesn't exist
+            dialogueButtonContainer = new GameObject("DialogueButtonContainer");
+            dialogueButtonContainer.transform.SetParent(instantiatedCanvas.transform, false);
             
-            // Try to find the choice button prefab in the scene
-            GameObject prefabObj = GameObject.Find("ChoiceButtonPrefab");
-            if (prefabObj != null)
+            // Add RectTransform
+            RectTransform containerRect = dialogueButtonContainer.AddComponent<RectTransform>();
+            containerRect.anchorMin = new Vector2(0.3f, 0.35f);
+            containerRect.anchorMax = new Vector2(0.7f, 0.65f);
+            containerRect.offsetMin = Vector2.zero;
+            containerRect.offsetMax = Vector2.zero;
+            
+            // Add VerticalLayoutGroup
+            VerticalLayoutGroup layoutGroup = dialogueButtonContainer.AddComponent<VerticalLayoutGroup>();
+            layoutGroup.padding = new RectOffset(10, 10, 10, 10);
+            layoutGroup.spacing = 10;
+            layoutGroup.childAlignment = TextAnchor.MiddleCenter;
+            layoutGroup.childControlHeight = true;
+            layoutGroup.childControlWidth = true;
+            
+            Debug.Log("Created DialogueButtonContainer as a fallback");
+        }
+        
+        Debug.Log("Dialogue UI initialized from prefab successfully");
+    }
+    
+    private void TryFindDialogueUIInScene()
+    {
+        // Try to find the dialogue panel in the scene
+        GameObject panelObj = GameObject.Find("DialoguePanel");
+        if (panelObj != null)
+        {
+            dialoguePanel = panelObj;
+            Debug.Log("Found DialoguePanel in scene");
+            
+            // Try to find the dialogue text
+            TextMeshProUGUI[] textComponents = panelObj.GetComponentsInChildren<TextMeshProUGUI>(true);
+            foreach (TextMeshProUGUI text in textComponents)
             {
-                choiceButtonPrefab = prefabObj;
-                Debug.Log("Found ChoiceButtonPrefab in scene");
+                if (text.gameObject.name == "DialogueText")
+                {
+                    dialogueText = text;
+                    Debug.Log("Found DialogueText in DialoguePanel");
+                    break;
+                }
             }
+        }
+        else
+        {
+            Debug.LogError("Could not find DialoguePanel in scene");
+        }
+        
+        // Try to find the dialogue button container in the scene
+        GameObject buttonContainerObj = GameObject.Find("DialogueButtonContainer");
+        if (buttonContainerObj != null)
+        {
+            dialogueButtonContainer = buttonContainerObj;
+            Debug.Log("Found DialogueButtonContainer in scene");
+        }
+        
+        // Try to find the choice button prefab in the scene
+        GameObject prefabObj = GameObject.Find("DialogueButton");
+        if (prefabObj != null)
+        {
+            choiceButtonPrefab = prefabObj;
+            prefabObj.SetActive(false);
+            Debug.Log("Found DialogueButton in scene");
         }
     }
 
@@ -293,49 +437,116 @@ public class DialogueManager : MonoBehaviour
     {
         yield return new WaitForSeconds(delay);
         
-        Story story = GetStoryFromHandler();
-        if (story == null || story.currentChoices.Count == 0) yield break;
-        
-        // Show the choices panel
-        if (choicesPanel != null)
+        if (currentInkHandler == null)
         {
-            choicesPanel.SetActive(true);
+            Debug.LogError("No active ink story to show choices for");
+            yield break;
+        }
+        
+        Story story = GetStoryFromHandler();
+        if (story == null)
+        {
+            Debug.LogError("Failed to get story from handler");
+            yield break;
+        }
+        
+        if (story.currentChoices.Count > 0)
+        {
+            Debug.Log($"Showing {story.currentChoices.Count} choices");
             
-            // Create buttons for each choice
-            for (int i = 0; i < story.currentChoices.Count; i++)
+            // Clear any existing choice buttons
+            ClearChoices();
+            
+            // Reset current choice index
+            currentChoiceIndex = 0;
+            
+            // Make sure the dialogue button container is active
+            if (dialogueButtonContainer != null)
             {
-                GameObject choiceObj = Instantiate(choiceButtonPrefab, choicesPanel.transform);
-                choiceObj.SetActive(true); // Ensure the button is active
-                choiceButtons.Add(choiceObj);
+                dialogueButtonContainer.SetActive(true);
                 
-                TextMeshProUGUI choiceText = choiceObj.GetComponentInChildren<TextMeshProUGUI>();
-                if (choiceText != null)
+                // Make sure the parent canvas is active
+                Transform parent = dialogueButtonContainer.transform.parent;
+                if (parent != null && !parent.gameObject.activeSelf)
                 {
-                    choiceText.text = story.currentChoices[i].text;
-                }
-                else
-                {
-                    Debug.LogError("No TextMeshProUGUI component found in choice button children");
+                    parent.gameObject.SetActive(true);
                 }
                 
-                Button button = choiceObj.GetComponent<Button>();
-                if (button != null)
+                // Check if choiceButtonPrefab is assigned
+                if (choiceButtonPrefab == null)
                 {
+                    Debug.LogError("Choice button prefab is not assigned! Please assign it in the inspector!");
+                    yield break;
+                }
+                
+                // Create a button for each choice
+                for (int i = 0; i < story.currentChoices.Count; i++)
+                {
+                    Choice choice = story.currentChoices[i];
+                    
+                    // Create a button for this choice
+                    GameObject buttonObj = Instantiate(choiceButtonPrefab, dialogueButtonContainer.transform);
+                    buttonObj.SetActive(true);
+                    
+                    // Find the text component
+                    TextMeshProUGUI buttonText = buttonObj.GetComponentInChildren<TextMeshProUGUI>();
+                    if (buttonText != null)
+                    {
+                        buttonText.text = choice.text;
+                    }
+                    else
+                    {
+                        Debug.LogError("No TextMeshProUGUI component found in choice button prefab");
+                    }
+                    
+                    // Add a button component if it doesn't exist
+                    Button button = buttonObj.GetComponent<Button>();
+                    if (button == null)
+                    {
+                        button = buttonObj.AddComponent<Button>();
+                    }
+                    
+                    // Set up the button click event
                     int choiceIndex = i; // Need to store this in a local variable for the closure
+                    button.onClick.RemoveAllListeners();
                     button.onClick.AddListener(() => MakeChoice(choiceIndex));
+                    
+                    // Add to our list of buttons
+                    choiceButtons.Add(buttonObj);
+                    
+                    Debug.Log($"Created choice button for: {choice.text}");
                 }
-                else
-                {
-                    Debug.LogError("No Button component found on choice button");
-                }
+                
+                // Set initial highlight
+                UpdateChoiceHighlights();
             }
-            
-            // Log that choices were created
-            Debug.Log($"Created {story.currentChoices.Count} choice buttons");
+            else
+            {
+                Debug.LogError("DialogueButtonContainer is not assigned! Cannot display choices.");
+            }
         }
         else
         {
-            Debug.LogError("Choices panel is null");
+            Debug.Log("No choices to show");
+        }
+    }
+    
+    private void UpdateChoiceHighlights()
+    {
+        for (int i = 0; i < choiceButtons.Count; i++)
+        {
+            Image buttonImage = choiceButtons[i].GetComponent<Image>();
+            if (buttonImage != null)
+            {
+                buttonImage.color = (i == currentChoiceIndex) ? highlightedButtonColor : normalButtonColor;
+            }
+            
+            // Also update the text color for better visibility
+            TextMeshProUGUI buttonText = choiceButtons[i].GetComponentInChildren<TextMeshProUGUI>();
+            if (buttonText != null)
+            {
+                buttonText.color = (i == currentChoiceIndex) ? Color.white : new Color(0.8f, 0.8f, 0.8f);
+            }
         }
     }
     
@@ -350,9 +561,9 @@ public class DialogueManager : MonoBehaviour
     
     private void ClearChoices()
     {
-        if (choicesPanel != null)
+        if (dialogueButtonContainer != null)
         {
-            choicesPanel.SetActive(false);
+            dialogueButtonContainer.SetActive(false);
         }
         
         foreach (GameObject button in choiceButtons)
@@ -366,42 +577,35 @@ public class DialogueManager : MonoBehaviour
     {
         Debug.Log("CloseDialogue called");
         
+        // Stop any typing coroutine
         if (typingCoroutine != null)
         {
             StopCoroutine(typingCoroutine);
             typingCoroutine = null;
         }
         
+        // Clear any choices
+        ClearChoices();
+        
+        // Hide the dialogue panel
         if (dialoguePanel != null)
         {
             dialoguePanel.SetActive(false);
-            isDialogueActive = false;
-            Debug.Log("Dialogue closed successfully");
+            Debug.Log("Dialogue panel hidden");
         }
         
-        // Make sure choices panel is closed
-        ClearChoices();
+        // Hide the dialogue button container
+        if (dialogueButtonContainer != null)
+        {
+            dialogueButtonContainer.SetActive(false);
+            Debug.Log("DialogueButtonContainer hidden");
+        }
+        
+        // Reset the current ink handler
         currentInkHandler = null;
         
-        // Reset player control
-        GameObject playerObj = GameObject.Find("Player");
-        if (playerObj != null)
-        {
-            PlayerController playerController = playerObj.GetComponent<PlayerController>();
-            if (playerController != null)
-            {
-                // Use reflection to set canMove to true
-                System.Type type = playerController.GetType();
-                System.Reflection.FieldInfo field = type.GetField("canMove", 
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                
-                if (field != null)
-                {
-                    field.SetValue(playerController, true);
-                    Debug.Log("Reset player control");
-                }
-            }
-        }
+        isDialogueActive = false;
+        Debug.Log("Dialogue closed");
     }
 
     public bool IsDialogueActive()
@@ -421,18 +625,49 @@ public class DialogueManager : MonoBehaviour
 
     public void Initialize(GameObject panel, TextMeshProUGUI text, GameObject choices, GameObject buttonPrefab)
     {
-        Debug.Log("DialogueManager.Initialize called with direct references");
+        Debug.Log("Initialize called with explicit references");
         
-        // Set all the references directly
+        // Set the references
         dialoguePanel = panel;
         dialogueText = text;
-        choicesPanel = choices;
+        dialogueButtonContainer = choices;
         choiceButtonPrefab = buttonPrefab;
         
-        // Verify the references
-        Debug.Log($"DialogueManager initialized with Panel: {(dialoguePanel != null ? dialoguePanel.name : "NULL")}, " +
-                 $"Text: {(dialogueText != null ? dialogueText.name : "NULL")}, " +
-                 $"Choices: {(choicesPanel != null ? choicesPanel.name : "NULL")}, " +
-                 $"Button: {(choiceButtonPrefab != null ? choiceButtonPrefab.name : "NULL")}");
+        // Make sure panels are initially hidden
+        if (dialoguePanel != null)
+        {
+            dialoguePanel.SetActive(false);
+        }
+        
+        if (dialogueButtonContainer != null)
+        {
+            dialogueButtonContainer.SetActive(false);
+        }
+        
+        Debug.Log("DialogueManager initialized with explicit references");
+    }
+    
+    public void SetDialogueCanvasPrefab(GameObject prefab)
+    {
+        if (prefab != null)
+        {
+            // Clean up any existing instantiated canvas
+            if (instantiatedCanvas != null)
+            {
+                Destroy(instantiatedCanvas);
+            }
+            
+            // Set the new prefab
+            dialogueCanvasPrefab = prefab;
+            
+            // Instantiate the new prefab
+            InstantiateDialogueCanvas();
+            
+            Debug.Log("DialogueCanvas prefab set and instantiated");
+        }
+        else
+        {
+            Debug.LogError("Attempted to set null DialogueCanvas prefab");
+        }
     }
 } 
