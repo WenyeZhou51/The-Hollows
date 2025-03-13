@@ -35,18 +35,16 @@ The dialogue system has been updated to use a prefab-based approach instead of g
 ### 2. Scene Setup
 There are two ways to set up the dialogue system in your scene:
 
-#### Option 1: Using the DialogueInitializer
-1. Create an empty GameObject in your scene.
-2. Add the `DialogueInitializer` component to it.
-3. Assign the `DialogueCanvas` prefab to the `Dialogue Canvas Prefab` field in the Inspector.
-4. Assign the `DialogueButton` prefab to the `Dialogue Button Prefab` field in the Inspector.
-5. The initializer will automatically create and set up the DialogueManager at runtime.
-
-#### Option 2: Manual Setup
+#### Option 1: Manual Setup in Scene
 1. Create an empty GameObject in your scene.
 2. Add the `DialogueManager` component to it.
 3. Assign the `DialogueCanvas` prefab to the `Dialogue Canvas Prefab` field in the Inspector.
 4. Assign the `DialogueButton` prefab to the `Choice Button Prefab` field in the Inspector.
+
+#### Option 2: Create from Code
+1. Call `DialogueManager.CreateInstance()` from your code to create a DialogueManager if one doesn't exist.
+2. The DialogueManager will automatically try to load the prefabs from the Resources folder if they're not assigned.
+3. Alternatively, you can call `DialogueManager.Instance.SetDialogueCanvasPrefab(yourPrefab)` to set the canvas prefab.
 
 ### 3. Using Ink for Dialogue
 1. Create an Ink story file (.ink) and compile it to JSON.

@@ -405,7 +405,7 @@ BoxCollider2D:
   m_IsTrigger: 0
   m_UsedByEffector: 0
   m_UsedByComposite: 0
-  m_Offset: {x: 0.43945014, y: 0}
+  m_Offset: {x: 0.007544756, y: 0}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0.5}
@@ -416,7 +416,7 @@ BoxCollider2D:
     adaptiveTiling: 0
   m_AutoTiling: 0
   serializedVersion: 2
-  m_Size: {x: 1.8789003, y: 1}
+  m_Size: {x: 1.0150895, y: 1}
   m_EdgeRadius: 0
 --- !u!114 &730548463
 MonoBehaviour:
@@ -531,7 +531,7 @@ BoxCollider2D:
   m_IsTrigger: 0
   m_UsedByEffector: 0
   m_UsedByComposite: 0
-  m_Offset: {x: 0, y: -0.3210168}
+  m_Offset: {x: 0, y: -0.0040171146}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0.5}
@@ -542,7 +542,7 @@ BoxCollider2D:
     adaptiveTiling: 0
   m_AutoTiling: 0
   serializedVersion: 2
-  m_Size: {x: 1, y: 1.1420336}
+  m_Size: {x: 1, y: 0.5080342}
   m_EdgeRadius: 0
 --- !u!114 &887411259
 MonoBehaviour:
@@ -558,20 +558,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   npcName: NPC
   inkFile: {fileID: 4900000, guid: c89e63466962fbb4d8c1b796435949dc, type: 3}
---- !u!115 &1051241925
-MonoScript:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: 
-  serializedVersion: 5
-  m_Script: 
-  m_DefaultReferences: {}
-  m_Icon: {fileID: 0}
-  m_ExecutionOrder: 0
-  m_ClassName: AutoSceneSetup
-  m_Namespace: 
 --- !u!1 &1098438675
 GameObject:
   m_ObjectHideFlags: 0
@@ -705,7 +691,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1670431906}
-  - component: {fileID: 1670431905}
+  - component: {fileID: 1670431907}
   m_Layer: 0
   m_Name: DialogeManager
   m_TagString: Untagged
@@ -713,21 +699,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1670431905
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1670431904}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 21b6086c173e92248bcb131866bb55cd, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  canvas: {fileID: 0}
-  dialoguePanel: {fileID: 0}
-  dialogueText: {fileID: 0}
 --- !u!4 &1670431906
 Transform:
   m_ObjectHideFlags: 0
@@ -743,47 +714,25 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 5
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &2037651967
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2037651969}
-  - component: {fileID: 2037651968}
-  m_Layer: 0
-  m_Name: AutoSetup
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &2037651968
+--- !u!114 &1670431907
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2037651967}
+  m_GameObject: {fileID: 1670431904}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 1051241925}
+  m_Script: {fileID: 11500000, guid: 38ef4200cda75c942bbe831c778564e4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!4 &2037651969
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2037651967}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_RootOrder: 6
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  dialogueCanvasPrefab: {fileID: 432120797797096323, guid: 4e30158d9d2adb94b9467051e689c2e6, type: 3}
+  choiceButtonPrefab: {fileID: 1188552304782851096, guid: 032a7aab61455484b81dd1eae789b56f, type: 3}
+  dialoguePanel: {fileID: 0}
+  dialogueText: {fileID: 0}
+  dialogueButtonContainer: {fileID: 0}
+  typingSpeed: 0.02
+  useTypewriterEffect: 1
+  normalButtonColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
+  highlightedButtonColor: {r: 0.38871083, g: 0.38911957, b: 0.38993704, a: 1}
+  interactKey: 122

@@ -32,6 +32,27 @@ public class DialogueManager : MonoBehaviour
     private Coroutine typingCoroutine;
     private GameObject instantiatedCanvas;
     private int currentChoiceIndex = 0;
+    private bool canvasInitialized = false;
+
+    /// <summary>
+    /// Creates a DialogueManager instance if one doesn't exist already.
+    /// This can be called from code instead of using the DialogueInitializer component.
+    /// </summary>
+    /// <returns>The DialogueManager instance</returns>
+    public static DialogueManager CreateInstance()
+    {
+        if (Instance != null)
+        {
+            return Instance;
+        }
+        
+        // Create a new DialogueManager GameObject
+        GameObject managerObj = new GameObject("DialogueManager");
+        DialogueManager dialogueManager = managerObj.AddComponent<DialogueManager>();
+        Debug.Log("Created new DialogueManager through CreateInstance method");
+        
+        return dialogueManager;
+    }
 
     private void Awake()
     {
@@ -42,6 +63,35 @@ public class DialogueManager : MonoBehaviour
         {
             Instance = this;
             Debug.Log("DialogueManager instance created");
+            
+            // Try to load prefabs from Resources if not assigned in inspector
+            if (dialogueCanvasPrefab == null)
+            {
+                GameObject prefabFromResources = Resources.Load<GameObject>("DialogueCanvas");
+                if (prefabFromResources != null)
+                {
+                    dialogueCanvasPrefab = prefabFromResources;
+                    Debug.Log("Loaded DialogueCanvas prefab from Resources");
+                }
+                else
+                {
+                    Debug.LogError("Could not find DialogueCanvas prefab in Resources folder!");
+                }
+            }
+            
+            if (choiceButtonPrefab == null)
+            {
+                GameObject buttonPrefabFromResources = Resources.Load<GameObject>("DialogueButton");
+                if (buttonPrefabFromResources != null)
+                {
+                    choiceButtonPrefab = buttonPrefabFromResources;
+                    Debug.Log("Loaded DialogueButton prefab from Resources");
+                }
+                else
+                {
+                    Debug.LogError("Could not find DialogueButton prefab in Resources folder!");
+                }
+            }
         }
         else
         {
@@ -109,12 +159,12 @@ public class DialogueManager : MonoBehaviour
 
     private void Start()
     {
-        // Initialize the dialogue UI from the prefab if it's assigned
-        if (dialogueCanvasPrefab != null)
+        // Initialize the dialogue UI from the prefab if it's assigned and not already initialized
+        if (dialogueCanvasPrefab != null && !canvasInitialized)
         {
             InstantiateDialogueCanvas();
         }
-        else
+        else if (dialogueCanvasPrefab == null)
         {
             Debug.LogError("DialogueCanvas prefab is not assigned! Please assign it in the inspector.");
             
@@ -209,6 +259,8 @@ public class DialogueManager : MonoBehaviour
         }
         
         Debug.Log("Dialogue UI initialized from prefab successfully");
+        
+        canvasInitialized = true;
     }
     
     private void TryFindDialogueUIInScene()
@@ -655,6 +707,7 @@ public class DialogueManager : MonoBehaviour
             if (instantiatedCanvas != null)
             {
                 Destroy(instantiatedCanvas);
+                canvasInitialized = false;
             }
             
             // Set the new prefab
