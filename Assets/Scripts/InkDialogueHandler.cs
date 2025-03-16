@@ -30,35 +30,44 @@ public class InkDialogueHandler : MonoBehaviour
     {
         if (!_isInitialized)
         {
+            Debug.Log("GetNextDialogueLine: Story not initialized, initializing now...");
             InitializeStory();
         }
 
         if (_story == null)
         {
+            Debug.LogError("GetNextDialogueLine: No story loaded.");
             return "Error: No story loaded.";
         }
 
+        Debug.Log($"GetNextDialogueLine: Story state - canContinue: {_story.canContinue}, choiceCount: {_story.currentChoices.Count}");
+
         if (_story.canContinue)
         {
+            Debug.Log("GetNextDialogueLine: Story can continue, getting next content...");
             string text = _story.Continue();
             text = text.Trim();
             
             // Process any tags
             ProcessTags();
             
+            Debug.Log($"GetNextDialogueLine: Returning text: \"{text.Substring(0, Mathf.Min(50, text.Length))}...\"");
             return text;
         }
         else if (_story.currentChoices.Count > 0)
         {
+            Debug.Log($"GetNextDialogueLine: Story has {_story.currentChoices.Count} choices, formatting choice text...");
             // Return choices as a formatted string
             string choices = "Choose an option:\n";
             for (int i = 0; i < _story.currentChoices.Count; i++)
             {
                 choices += $"{i + 1}. {_story.currentChoices[i].text}\n";
+                Debug.Log($"Choice {i}: {_story.currentChoices[i].text}");
             }
             return choices;
         }
 
+        Debug.Log("GetNextDialogueLine: No more content, returning end message");
         return "End of dialogue.";
     }
 
@@ -66,7 +75,13 @@ public class InkDialogueHandler : MonoBehaviour
     {
         if (_story != null && choiceIndex >= 0 && choiceIndex < _story.currentChoices.Count)
         {
+            // ONLY select the choice, do NOT continue the story here
+            // Let DialogueManager.ContinueInkStory handle the continuation through GetNextDialogueLine
             _story.ChooseChoiceIndex(choiceIndex);
+            Debug.Log($"Selected choice {choiceIndex} in InkDialogueHandler");
+            
+            // DO NOT call _story.Continue() here - this was causing the issue
+            // The story will be continued properly in GetNextDialogueLine when called by DialogueManager
         }
     }
 

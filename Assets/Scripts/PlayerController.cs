@@ -44,14 +44,51 @@ public class PlayerController : MonoBehaviour
         // Check if dialogue is active
         if (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive())
         {
-            // If Z key is pressed while dialogue is active, continue or close the dialogue
+            // If Z key is pressed while dialogue is active
             if (Input.GetKeyDown(KeyCode.Z))
             {
-                // Try to continue the Ink story first
                 DialogueManager dialogueManager = DialogueManager.Instance;
                 
-                // Use reflection to access the private currentInkHandler field
+                // CRITICAL FIX: Check if there are active choices first
+                // Use reflection to access the private choiceButtons field
                 System.Type type = dialogueManager.GetType();
+                System.Reflection.FieldInfo choiceButtonsField = type.GetField("choiceButtons", 
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                
+                if (choiceButtonsField != null)
+                {
+                    List<GameObject> choiceButtons = (List<GameObject>)choiceButtonsField.GetValue(dialogueManager);
+                    
+                    // If there are active choices, select the current choice instead of continuing
+                    if (choiceButtons != null && choiceButtons.Count > 0)
+                    {
+                        // Get the current choice index
+                        System.Reflection.FieldInfo currentChoiceIndexField = type.GetField("currentChoiceIndex", 
+                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        
+                        if (currentChoiceIndexField != null)
+                        {
+                            int currentChoiceIndex = (int)currentChoiceIndexField.GetValue(dialogueManager);
+                            
+                            // Call MakeChoice with the current choice index
+                            System.Reflection.MethodInfo makeChoiceMethod = type.GetMethod("MakeChoice", 
+                                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                            
+                            if (makeChoiceMethod != null)
+                            {
+                                Debug.Log($"Selecting choice {currentChoiceIndex} via interact key");
+                                makeChoiceMethod.Invoke(dialogueManager, new object[] { currentChoiceIndex });
+                            }
+                        }
+                        
+                        // Don't continue processing - we've handled the choice selection
+                        movement = Vector2.zero;
+                        return;
+                    }
+                }
+                
+                // If no choices are active, try to continue the Ink story
+                // Use reflection to access the private currentInkHandler field
                 System.Reflection.FieldInfo inkHandlerField = type.GetField("currentInkHandler", 
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 
@@ -59,16 +96,26 @@ public class PlayerController : MonoBehaviour
                 {
                     InkDialogueHandler inkHandler = (InkDialogueHandler)inkHandlerField.GetValue(dialogueManager);
                     
-                    if (inkHandler != null && inkHandler.HasNextLine())
+                    // Check if dialogue can be advanced (text fully revealed and not waiting for key release)
+                    if (dialogueManager.CanAdvanceDialogue())
                     {
-                        // Continue the Ink story
-                        dialogueManager.ContinueInkStory();
+                        if (inkHandler != null && inkHandler.HasNextLine())
+                        {
+                            // Continue the Ink story
+                            dialogueManager.ContinueInkStory();
+                        }
+                        else
+                        {
+                            // Close the dialogue if there's no more content
+                            dialogueManager.CloseDialogue();
+                            canMove = true;
+                        }
                     }
                     else
                     {
-                        // Close the dialogue if there's no more content
-                        dialogueManager.CloseDialogue();
-                        canMove = true;
+                        // If the text isn't fully revealed yet, let DialogueManager handle skipping typing
+                        // We don't need to do anything here as DialogueManager will handle it
+                        Debug.Log("Player pressed Z, but dialogue not ready to advance - letting DialogueManager handle it");
                     }
                 }
                 else
@@ -82,6 +129,12 @@ public class PlayerController : MonoBehaviour
             // Don't process movement while dialogue is active
             movement = Vector2.zero;
             return;
+        }
+        else
+        {
+            // FIX: If dialogue is not active, ensure player can move
+            // This fixes the bug where player can't move after dialogue ends
+            canMove = true;
         }
         
         // Process movement input
@@ -172,12 +225,35 @@ public class PlayerController : MonoBehaviour
                 
                 // Interact with the object
                 interactable.Interact();
-                canMove = false; // Prevent movement during interaction
+                
+                // Temporarily prevent movement during interaction
+                canMove = false;
+                
+                // Start a coroutine to check when dialogue is closed
+                StartCoroutine(CheckDialogueStatus());
+                
                 return true; // Successfully interacted
             }
         }
         
         return false; // No interaction occurred
+    }
+    
+    // Coroutine to check when dialogue is closed and restore movement
+    private IEnumerator CheckDialogueStatus()
+    {
+        // Wait a short time to ensure dialogue is properly started
+        yield return new WaitForSeconds(0.1f);
+        
+        // Keep checking until dialogue is no longer active
+        while (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive())
+        {
+            yield return new WaitForSeconds(0.2f);
+        }
+        
+        // Once dialogue is closed, restore movement
+        Debug.Log("Dialogue closed, restoring player movement");
+        canMove = true;
     }
     
     // Draw the interaction radius in the editor

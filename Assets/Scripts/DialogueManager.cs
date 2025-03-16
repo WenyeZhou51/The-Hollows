@@ -33,6 +33,8 @@ public class DialogueManager : MonoBehaviour
     private GameObject instantiatedCanvas;
     private int currentChoiceIndex = 0;
     private bool canvasInitialized = false;
+    private bool waitForKeyRelease = false;
+    private bool textFullyRevealed = false; // Track if text has been revealed but not advanced
 
     /// <summary>
     /// Creates a DialogueManager instance if one doesn't exist already.
@@ -102,6 +104,13 @@ public class DialogueManager : MonoBehaviour
 
     private void Update()
     {
+        // Check if we're waiting for the interact key to be released
+        if (waitForKeyRelease && Input.GetKeyUp(interactKey))
+        {
+            waitForKeyRelease = false;
+            Debug.Log("Interact key released, ready for next input");
+        }
+
         // Handle choice navigation with keyboard
         if (isDialogueActive && choiceButtons.Count > 0)
         {
@@ -124,20 +133,23 @@ public class DialogueManager : MonoBehaviour
                 UpdateChoiceHighlights();
             }
             // Select choice
-            else if (Input.GetKeyDown(interactKey))
+            else if (Input.GetKeyDown(interactKey) && !waitForKeyRelease)
             {
                 if (currentChoiceIndex >= 0 && currentChoiceIndex < choiceButtons.Count)
                 {
+                    Debug.Log($"DialogueManager.Update - Selecting choice {currentChoiceIndex} via keyboard");
+                    waitForKeyRelease = true; // Wait for key release after selecting a choice
                     MakeChoice(currentChoiceIndex);
                 }
             }
         }
-        // Continue dialogue with interact key
-        else if (isDialogueActive && Input.GetKeyDown(interactKey))
+        // Continue dialogue with interact key ONLY if no choices are displayed
+        else if (isDialogueActive && choiceButtons.Count == 0 && Input.GetKeyDown(interactKey) && !waitForKeyRelease)
         {
+            Debug.Log("DialogueManager.Update - Continuing dialogue via keyboard (no choices active)");
             if (typingCoroutine != null)
             {
-                // Skip typing animation
+                // Skip typing animation - only reveal the text, don't advance
                 StopCoroutine(typingCoroutine);
                 if (dialogueText != null && currentInkHandler != null)
                 {
@@ -148,10 +160,22 @@ public class DialogueManager : MonoBehaviour
                     }
                 }
                 typingCoroutine = null;
+                waitForKeyRelease = true; // Wait for key release after skipping typing
+                textFullyRevealed = true; // Mark that text is now fully revealed
+                Debug.Log("Text fully revealed, waiting for next input to continue");
+            }
+            else if (textFullyRevealed)
+            {
+                // If text is already fully revealed, advance to next dialogue
+                textFullyRevealed = false; // Reset flag
+                waitForKeyRelease = true; // Wait for key release after continuing dialogue
+                Debug.Log("Text was already revealed, now continuing to next dialogue");
+                ContinueInkStory();
             }
             else
             {
-                // Continue to next dialogue line
+                // If this is a fresh dialogue line (no coroutine and not revealed), continue
+                waitForKeyRelease = true; // Wait for key release after continuing dialogue
                 ContinueInkStory();
             }
         }
@@ -311,6 +335,9 @@ public class DialogueManager : MonoBehaviour
     {
         Debug.Log("ShowDialogue called with message: " + message);
         
+        // Reset the text fully revealed flag when starting a new dialogue
+        textFullyRevealed = false;
+        
         // Debug all the references first
         Debug.Log($"Reference check - Panel: {(dialoguePanel != null ? dialoguePanel.name : "NULL")}, " +
                  $"Text: {(dialogueText != null ? dialogueText.name : "NULL")}");
@@ -447,23 +474,46 @@ public class DialogueManager : MonoBehaviour
             return;
         }
         
+        Debug.Log("ContinueInkStory - Starting to continue the story");
+        
+        // Reset the text fully revealed flag when starting a new dialogue line
+        textFullyRevealed = false;
+        
         // Clear any existing choice buttons
         ClearChoices();
         
-        if (currentInkHandler.HasNextLine())
+        // Check if there's more content
+        bool hasNextLine = currentInkHandler.HasNextLine();
+        Debug.Log($"HasNextLine returned: {hasNextLine}");
+        
+        if (hasNextLine)
         {
+            // Get the next line of dialogue
             string nextLine = currentInkHandler.GetNextDialogueLine();
+            Debug.Log($"GetNextDialogueLine returned: \"{nextLine.Substring(0, Mathf.Min(50, nextLine.Length))}...\"");
+            
+            // Show the dialogue
             ShowDialogue(nextLine);
+            
+            // Set waitForKeyRelease to true when new dialogue is shown
+            waitForKeyRelease = true;
             
             // Check if we need to show choices
             Story story = GetStoryFromHandler();
-            if (story != null && story.currentChoices.Count > 0)
+            if (story != null)
             {
-                StartCoroutine(ShowChoicesAfterDelay(0.5f));
+                Debug.Log($"Story state after getting dialogue: canContinue={story.canContinue}, choiceCount={story.currentChoices.Count}");
+                
+                if (story.currentChoices.Count > 0)
+                {
+                    Debug.Log($"Starting coroutine to show {story.currentChoices.Count} choices after delay");
+                    StartCoroutine(ShowChoicesAfterDelay(0.5f));
+                }
             }
         }
         else
         {
+            Debug.Log("No more content in the story, closing dialogue");
             CloseDialogue();
         }
     }
@@ -604,11 +654,47 @@ public class DialogueManager : MonoBehaviour
     
     public void MakeChoice(int choiceIndex)
     {
-        if (currentInkHandler == null) return;
+        if (currentInkHandler == null) 
+        {
+            Debug.LogError("Cannot make choice: No active ink handler");
+            return;
+        }
         
+        Debug.Log($"DialogueManager.MakeChoice({choiceIndex}) - Starting choice selection");
+        
+        // Get the story before making the choice to compare states
+        Story storyBefore = GetStoryFromHandler();
+        if (storyBefore != null)
+        {
+            Debug.Log($"Before choice: canContinue={storyBefore.canContinue}, choiceCount={storyBefore.currentChoices.Count}");
+        }
+        
+        // Tell the ink handler to make the choice (this now ONLY selects the choice without continuing)
         currentInkHandler.MakeChoice(choiceIndex);
+        
+        // Get the story after making the choice to see how the state changed
+        Story storyAfter = GetStoryFromHandler();
+        if (storyAfter != null)
+        {
+            Debug.Log($"After choice selection: canContinue={storyAfter.canContinue}, choiceCount={storyAfter.currentChoices.Count}");
+        }
+        
+        // Set waitForKeyRelease to true to require the player to release and press the key again for next dialogue
+        waitForKeyRelease = true;
+        
+        // Clear the choice buttons from the UI
         ClearChoices();
+        
+        // Continue the story to show the next dialogue
+        Debug.Log("Calling ContinueInkStory to advance dialogue after choice");
         ContinueInkStory();
+        
+        // Check the final state after continuing
+        Story storyFinal = GetStoryFromHandler();
+        if (storyFinal != null)
+        {
+            Debug.Log($"Final state after continuing: canContinue={storyFinal.canContinue}, choiceCount={storyFinal.currentChoices.Count}");
+        }
     }
     
     private void ClearChoices()
@@ -636,6 +722,9 @@ public class DialogueManager : MonoBehaviour
             typingCoroutine = null;
         }
         
+        // Reset typing state
+        textFullyRevealed = false;
+        
         // Clear any choices
         ClearChoices();
         
@@ -656,13 +745,42 @@ public class DialogueManager : MonoBehaviour
         // Reset the current ink handler
         currentInkHandler = null;
         
+        // Set dialogue inactive - this is what PlayerController checks
         isDialogueActive = false;
+        
+        // Try to find the player and enable movement
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+        {
+            PlayerController playerController = player.GetComponent<PlayerController>();
+            if (playerController != null)
+            {
+                // Use reflection to set the canMove field to true
+                System.Type type = playerController.GetType();
+                System.Reflection.FieldInfo canMoveField = type.GetField("canMove", 
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                
+                if (canMoveField != null)
+                {
+                    canMoveField.SetValue(playerController, true);
+                    Debug.Log("Set player canMove to true");
+                }
+            }
+        }
+        
         Debug.Log("Dialogue closed");
     }
 
     public bool IsDialogueActive()
     {
         return isDialogueActive;
+    }
+    
+    // New method to check if dialogue can be advanced to the next line
+    public bool CanAdvanceDialogue()
+    {
+        // Can only advance if text is fully revealed and we're not waiting for key release
+        return textFullyRevealed && !waitForKeyRelease;
     }
     
     private IEnumerator TypeText(string text)
@@ -673,6 +791,10 @@ public class DialogueManager : MonoBehaviour
             dialogueText.text += c;
             yield return new WaitForSeconds(typingSpeed);
         }
+        
+        // Text has finished typing naturally, mark it as fully revealed
+        textFullyRevealed = true;
+        Debug.Log("Text typing completed naturally, marked as fully revealed");
     }
 
     public void Initialize(GameObject panel, TextMeshProUGUI text, GameObject choices, GameObject buttonPrefab)
