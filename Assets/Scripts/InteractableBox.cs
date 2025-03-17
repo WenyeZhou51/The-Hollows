@@ -2,10 +2,12 @@ using UnityEngine;
 
 public class InteractableBox : MonoBehaviour, IInteractable
 {
-    [SerializeField] private string itemName = "Fruit Juice";
+    [SerializeField] private bool hasBeenLooted = false;
     [SerializeField] private TextAsset inkFile;
+    [SerializeField] private LootTable customLootTable;
     
     private InkDialogueHandler inkHandler;
+    private LootTable lootTable;
     
     private void Awake()
     {
@@ -21,6 +23,21 @@ public class InteractableBox : MonoBehaviour, IInteractable
         {
             inkHandler.InkJSON = inkFile;
         }
+        
+        // Set up the loot table
+        if (customLootTable != null)
+        {
+            lootTable = customLootTable;
+        }
+        else
+        {
+            // Add a loot table component if not assigned
+            lootTable = GetComponent<LootTable>();
+            if (lootTable == null)
+            {
+                lootTable = gameObject.AddComponent<LootTable>();
+            }
+        }
     }
     
     private void Start()
@@ -32,12 +49,40 @@ public class InteractableBox : MonoBehaviour, IInteractable
             Debug.Log("Added BoxCollider2D to " + gameObject.name);
         }
         
-        Debug.Log("InteractableBox initialized on " + gameObject.name + " with item: " + itemName);
+        Debug.Log("InteractableBox initialized on " + gameObject.name);
     }
     
     public void Interact()
     {
-        Debug.Log("Box interaction triggered! Item: " + itemName);
+        if (hasBeenLooted)
+        {
+            // Already looted message
+            if (DialogueManager.Instance != null)
+            {
+                DialogueManager.Instance.ShowDialogue("Nothing Left");
+            }
+            return;
+        }
+        
+        // Generate random loot
+        ItemData lootedItem = lootTable.GetRandomLoot();
+        
+        // Add to player inventory
+        PlayerController player = FindObjectOfType<PlayerController>();
+        if (player != null)
+        {
+            PlayerInventory inventory = player.GetComponent<PlayerInventory>();
+            
+            if (inventory == null)
+            {
+                inventory = player.gameObject.AddComponent<PlayerInventory>();
+            }
+            
+            inventory.AddItem(lootedItem);
+            hasBeenLooted = true;
+            
+            Debug.Log($"Player looted {lootedItem.name} from box");
+        }
         
         if (inkFile != null)
         {
@@ -55,7 +100,7 @@ public class InteractableBox : MonoBehaviour, IInteractable
             if (DialogueManager.Instance != null)
             {
                 DialogueManager.Instance.StartInkDialogue(inkHandler);
-                Debug.Log("Started Ink dialogue for box with item: " + itemName);
+                Debug.Log("Started Ink dialogue for box");
             }
             else
             {
@@ -65,7 +110,7 @@ public class InteractableBox : MonoBehaviour, IInteractable
         else
         {
             // Fallback to simple dialogue if no ink file is assigned
-            string message = $"You got a <b>{itemName}</b>";
+            string message = $"You found <b>{lootedItem.name}!</b>";
             
             if (DialogueManager.Instance != null)
             {

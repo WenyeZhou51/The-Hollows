@@ -11,9 +11,14 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float interactionRadius = 2f;
     [SerializeField] private LayerMask interactableLayers = -1; // Default to everything
     
+    [Header("UI References")]
+    [SerializeField] private GameObject menuCanvas; // Reference to the existing menu canvas
+    
     private Rigidbody2D rb;
     private Vector2 movement;
     private bool canMove = true;
+    private PlayerInventory inventory;
+    private bool isInventoryOpen = false;
 
     private void Awake()
     {
@@ -34,6 +39,46 @@ public class PlayerController : MonoBehaviour
         {
             BoxCollider2D collider = gameObject.AddComponent<BoxCollider2D>();
             collider.size = new Vector2(0.8f, 0.8f); // Slightly smaller than the sprite
+        }
+        
+        // Get or add PlayerInventory component
+        inventory = GetComponent<PlayerInventory>();
+        if (inventory == null)
+        {
+            inventory = gameObject.AddComponent<PlayerInventory>();
+        }
+        
+        // Make sure menu canvas is assigned
+        if (menuCanvas == null)
+        {
+            // Try to find it by name in the scene
+            menuCanvas = GameObject.Find("Menu Canvas");
+            if (menuCanvas == null)
+            {
+                Debug.LogError("Menu Canvas not found in scene. Inventory UI won't work.");
+            }
+            else
+            {
+                Debug.Log("Found Menu Canvas in scene");
+            }
+        }
+
+        if (menuCanvas != null)
+        {
+            // Initial setup - make sure it's inactive
+            menuCanvas.SetActive(false);
+            
+            // Set up the inventory UI if it exists
+            InventoryUI inventoryUI = menuCanvas.GetComponent<InventoryUI>();
+            if (inventoryUI == null)
+            {
+                // Add the component if it doesn't exist
+                inventoryUI = menuCanvas.AddComponent<InventoryUI>();
+                Debug.Log("Added InventoryUI component to Menu Canvas");
+            }
+            
+            // Connect the inventory to the UI
+            inventoryUI.SetInventory(inventory);
         }
         
         Debug.Log("PlayerController initialized. Interaction radius: " + interactionRadius + ", Layer mask: " + interactableLayers.value);
@@ -134,7 +179,20 @@ public class PlayerController : MonoBehaviour
         {
             // FIX: If dialogue is not active, ensure player can move
             // This fixes the bug where player can't move after dialogue ends
-            canMove = true;
+            canMove = !isInventoryOpen; // Only allow movement if inventory is closed
+        }
+        
+        // Check for inventory toggle with Escape key instead of Tab
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            ToggleInventory();
+        }
+        
+        // Don't process movement if inventory is open
+        if (isInventoryOpen)
+        {
+            movement = Vector2.zero;
+            return;
         }
         
         // Process movement input
@@ -151,6 +209,28 @@ public class PlayerController : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Z))
         {
             TryInteract();
+        }
+    }
+    
+    private void ToggleInventory()
+    {
+        if (menuCanvas == null)
+        {
+            Debug.LogWarning("Menu Canvas not assigned. Cannot toggle inventory.");
+            return;
+        }
+        
+        isInventoryOpen = !isInventoryOpen;
+        menuCanvas.SetActive(isInventoryOpen);
+        
+        // Update UI if inventory is opened
+        if (isInventoryOpen)
+        {
+            InventoryUI inventoryUI = menuCanvas.GetComponent<InventoryUI>();
+            if (inventoryUI != null)
+            {
+                inventoryUI.RefreshInventoryUI();
+            }
         }
     }
     
