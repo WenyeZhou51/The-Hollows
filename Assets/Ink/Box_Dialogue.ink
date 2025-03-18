@@ -1,9 +1,11 @@
 // Box Dialogue Sample
 // This is a sample Ink script for interacting with a box
 
+VAR itemName = "Item"
+
 -> main
 
 === main ===
-You find  <b>Fruit Juice</b>! # GIVE_ITEM:FruitJuice
-
+You found: <b>{itemName}</b>!
+# GIVE_ITEM:{itemName}
 -> END 

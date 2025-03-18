@@ -120,6 +120,14 @@ public class InkDialogueHandler : MonoBehaviour
         {
             foreach (string tag in _story.currentTags)
             {
+                // Get the itemName from story variables
+                string dynamicItemName = (string)_story.variablesState["itemName"];
+                
+                if (tag == "GIVE_ITEM")
+                {
+                    Debug.Log($"Giving item: {dynamicItemName}");
+                    // Add your item giving logic here using dynamicItemName
+                }
                 // Process any special tags here
                 Debug.Log($"Tag: {tag}");
                 
@@ -150,5 +158,19 @@ public class InkDialogueHandler : MonoBehaviour
     {
         get { return inkJSON; }
         set { inkJSON = value; _isInitialized = false; }
+    }
+
+    public void SetStoryVariable(string variableName, string value)
+    {
+        if (_story != null)
+        {
+            _story.variablesState[variableName] = value;
+            Debug.Log($"Set Ink variable {variableName} to {value}");
+        }
+    }
+
+    public bool IsInitialized()
+    {
+        return _isInitialized;
     }
 } 

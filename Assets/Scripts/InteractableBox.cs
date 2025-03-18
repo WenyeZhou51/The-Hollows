@@ -64,7 +64,7 @@ public class InteractableBox : MonoBehaviour, IInteractable
             return;
         }
         
-        // Generate random loot
+        // Generate random loot FIRST
         ItemData lootedItem = lootTable.GetRandomLoot();
         
         // Add to player inventory
@@ -86,15 +86,18 @@ public class InteractableBox : MonoBehaviour, IInteractable
         
         if (inkFile != null)
         {
-            // Ensure the ink handler is initialized
+            // Ensure the ink handler is initialized FIRST
             if (inkHandler == null)
             {
                 inkHandler = gameObject.AddComponent<InkDialogueHandler>();
                 inkHandler.InkJSON = inkFile;
             }
             
-            // Explicitly initialize the story before starting dialogue
-            inkHandler.InitializeStory();
+            // Initialize the story BEFORE setting variables
+            inkHandler.InitializeStory();  // This creates the Story object
+            
+            // NOW set the looted item in the Ink story
+            inkHandler.SetStoryVariable("itemName", lootedItem.name);
             
             // Start the ink dialogue
             if (DialogueManager.Instance != null)
@@ -109,7 +112,9 @@ public class InteractableBox : MonoBehaviour, IInteractable
         }
         else
         {
-            Debug.Log("inkfile not found");
+            // Use dynamic message with actual item name
+            string message = $"You found <b>{lootedItem.name}!</b>";
+            DialogueManager.Instance.ShowDialogue(message);
         }
     }
 } 

@@ -425,6 +425,12 @@ public class DialogueManager : MonoBehaviour
     
     public void StartInkDialogue(InkDialogueHandler inkHandler)
     {
+        if (isDialogueActive) // Prevent overlapping dialogues
+        {
+            Debug.Log("Dialogue already active, ignoring new request");
+            return;
+        }
+        
         if (inkHandler == null)
         {
             Debug.LogError("Null InkDialogueHandler passed to StartInkDialogue");
