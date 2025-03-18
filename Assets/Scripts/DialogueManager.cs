@@ -792,13 +792,47 @@ public class DialogueManager : MonoBehaviour
     private IEnumerator TypeText(string text)
     {
         dialogueText.text = "";
-        foreach (char c in text)
+        string visibleText = "";
+        // Parse rich text tags to handle them properly
+        List<int> tagStarts = new List<int>();
+        List<int> tagEnds = new List<int>();
+        
+        // Find all tag positions
+        for (int i = 0; i < text.Length; i++)
         {
-            dialogueText.text += c;
-            yield return new WaitForSeconds(typingSpeed);
+            if (text[i] == '<')
+                tagStarts.Add(i);
+            else if (text[i] == '>')
+                tagEnds.Add(i);
         }
         
-        // Text has finished typing naturally, mark it as fully revealed
+        // Display text character by character
+        for (int i = 0; i < text.Length; i++)
+        {
+            // Check if current position is inside a tag
+            bool insideTag = false;
+            for (int j = 0; j < tagStarts.Count; j++)
+            {
+                if (i >= tagStarts[j] && i <= tagEnds[j])
+                {
+                    insideTag = true;
+                    break;
+                }
+            }
+            
+            // Add the current character
+            visibleText += text[i];
+            
+            // Only pause for visible characters (not tags)
+            if (!insideTag)
+            {
+                dialogueText.text = visibleText;
+                yield return new WaitForSeconds(typingSpeed);
+            }
+        }
+        
+        // Ensure the final text is set correctly
+        dialogueText.text = text;
         textFullyRevealed = true;
         Debug.Log("Text typing completed naturally, marked as fully revealed");
     }
