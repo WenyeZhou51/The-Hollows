@@ -109,18 +109,7 @@ public class InteractableBox : MonoBehaviour, IInteractable
         }
         else
         {
-            // Fallback to simple dialogue if no ink file is assigned
-            string message = $"You found <b>{lootedItem.name}!</b>";
-            
-            if (DialogueManager.Instance != null)
-            {
-                DialogueManager.Instance.ShowDialogue(message);
-                Debug.Log("Dialogue shown: " + message);
-            }
-            else
-            {
-                Debug.LogError("DialogueManager instance not found!");
-            }
+            Debug.Log("inkfile not found");
         }
     }
 } 
