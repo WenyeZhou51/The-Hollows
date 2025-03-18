@@ -54,36 +54,7 @@ public class InteractableBox : MonoBehaviour, IInteractable
     
     public void Interact()
     {
-        if (hasBeenLooted)
-        {
-            // Already looted message
-            if (DialogueManager.Instance != null)
-            {
-                DialogueManager.Instance.ShowDialogue("Nothing Left");
-            }
-            return;
-        }
-        
-        // Generate random loot FIRST
-        ItemData lootedItem = lootTable.GetRandomLoot();
-        
-        // Add to player inventory
-        PlayerController player = FindObjectOfType<PlayerController>();
-        if (player != null)
-        {
-            PlayerInventory inventory = player.GetComponent<PlayerInventory>();
-            
-            if (inventory == null)
-            {
-                inventory = player.gameObject.AddComponent<PlayerInventory>();
-            }
-            
-            inventory.AddItem(lootedItem);
-            hasBeenLooted = true;
-            
-            Debug.Log($"Player looted {lootedItem.name} from box");
-        }
-        
+        // Initialize the Ink system regardless of looted state
         if (inkFile != null)
         {
             // Ensure the ink handler is initialized FIRST
@@ -96,8 +67,34 @@ public class InteractableBox : MonoBehaviour, IInteractable
             // Initialize the story BEFORE setting variables
             inkHandler.InitializeStory();  // This creates the Story object
             
-            // NOW set the looted item in the Ink story
-            inkHandler.SetStoryVariable("itemName", lootedItem.name);
+            // Set the looted state in the Ink story
+            inkHandler.SetStoryVariable("hasBeenLooted", hasBeenLooted);
+            
+            if (!hasBeenLooted)
+            {
+                // Generate random loot ONLY if not looted before
+                ItemData lootedItem = lootTable.GetRandomLoot();
+                
+                // Add to player inventory
+                PlayerController player = FindObjectOfType<PlayerController>();
+                if (player != null)
+                {
+                    PlayerInventory inventory = player.GetComponent<PlayerInventory>();
+                    
+                    if (inventory == null)
+                    {
+                        inventory = player.gameObject.AddComponent<PlayerInventory>();
+                    }
+                    
+                    inventory.AddItem(lootedItem);
+                    hasBeenLooted = true;
+                    
+                    Debug.Log($"Player looted {lootedItem.name} from box");
+                }
+                
+                // Set the looted item in the Ink story
+                inkHandler.SetStoryVariable("itemName", lootedItem.name);
+            }
             
             // Start the ink dialogue
             if (DialogueManager.Instance != null)
@@ -112,9 +109,37 @@ public class InteractableBox : MonoBehaviour, IInteractable
         }
         else
         {
-            // Use dynamic message with actual item name
-            string message = $"You found <b>{lootedItem.name}!</b>";
-            DialogueManager.Instance.ShowDialogue(message);
+            // Fallback for when no ink file is assigned
+            if (hasBeenLooted)
+            {
+                DialogueManager.Instance.ShowDialogue("Nothing Left");
+            }
+            else
+            {
+                // Generate random loot
+                ItemData lootedItem = lootTable.GetRandomLoot();
+                
+                // Add to player inventory and mark as looted
+                PlayerController player = FindObjectOfType<PlayerController>();
+                if (player != null)
+                {
+                    PlayerInventory inventory = player.GetComponent<PlayerInventory>();
+                    
+                    if (inventory == null)
+                    {
+                        inventory = player.gameObject.AddComponent<PlayerInventory>();
+                    }
+                    
+                    inventory.AddItem(lootedItem);
+                    hasBeenLooted = true;
+                    
+                    Debug.Log($"Player looted {lootedItem.name} from box");
+                }
+                
+                // Use dynamic message with actual item name
+                string message = $"You found <b>{lootedItem.name}!</b>";
+                DialogueManager.Instance.ShowDialogue(message);
+            }
         }
     }
 } 

@@ -169,6 +169,15 @@ public class InkDialogueHandler : MonoBehaviour
         }
     }
 
+    public void SetStoryVariable(string variableName, bool value)
+    {
+        if (_story != null)
+        {
+            _story.variablesState[variableName] = value;
+            Debug.Log($"Set Ink variable {variableName} to {value}");
+        }
+    }
+
     public bool IsInitialized()
     {
         return _isInitialized;
