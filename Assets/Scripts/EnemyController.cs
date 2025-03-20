@@ -6,7 +6,7 @@ public class EnemyController : MonoBehaviour
 {
     [Header("Target")]
     public Transform target; // The player to chase
-    
+
     [Header("Pathfinding")]
     public float sightDistance = 5f; // Distance at which enemy can see player
     public float stoppingDistance = 1f; // Distance to stop chasing/attacking
@@ -20,9 +20,14 @@ public class EnemyController : MonoBehaviour
     public float wanderRadius = 3f; // How far the enemy wanders from its starting position
     public float wanderPauseDuration = 2f; // Time to pause between wander movements
     
+    [Header("Corner Handling")]
+    public float cornerCutDistance = 0.5f; // How much to cut corners
+    public float pathResetTime = 1f; // How often to recalculate the path
+    
     // References to A* components
     private AIPath aiPath;
     private AIDestinationSetter aiDestinationSetter;
+    private Seeker seeker;
     
     // State tracking
     private bool isChasing = false;
@@ -32,6 +37,14 @@ public class EnemyController : MonoBehaviour
     private Vector3 originalScale; // Store the original scale
     private SpriteRenderer spriteRenderer; // Reference to sprite renderer
     private Vector3 startingPosition; // Original position for wandering reference
+    
+    // Path recalculation
+    private float pathUpdateTimer = 0f;
+    private bool stuckDetected = false;
+    private Vector2 lastPosition;
+    private float stuckCheckTimer = 0f;
+    private float stuckCheckInterval = 0.5f;
+    private float stuckThreshold = 0.1f;
     
     // Wandering state
     private enum EnemyState { Chasing, Wandering, Paused }
@@ -45,6 +58,7 @@ public class EnemyController : MonoBehaviour
         // Store original scale and position
         originalScale = transform.localScale;
         startingPosition = transform.position;
+        lastPosition = transform.position;
         
         // Get sprite renderer
         spriteRenderer = GetComponent<SpriteRenderer>();
@@ -52,6 +66,7 @@ public class EnemyController : MonoBehaviour
         // Get components
         aiPath = GetComponent<AIPath>();
         aiDestinationSetter = GetComponent<AIDestinationSetter>();
+        seeker = GetComponent<Seeker>();
         
         // Check if components exist
         if (aiPath == null)
@@ -63,6 +78,12 @@ public class EnemyController : MonoBehaviour
         if (aiDestinationSetter == null)
         {
             Debug.LogError("AIDestinationSetter component missing from " + gameObject.name + ". Add it in the inspector.");
+            return;
+        }
+        
+        if (seeker == null)
+        {
+            Debug.LogError("Seeker component missing from " + gameObject.name + ". Add it in the inspector.");
             return;
         }
         
@@ -87,8 +108,18 @@ public class EnemyController : MonoBehaviour
             }
         }
         
-        // Configure AI path properties
+        // Configure AI path properties for better corner handling
         aiPath.endReachedDistance = stoppingDistance;
+        aiPath.pickNextWaypointDist = cornerCutDistance;
+        aiPath.slowdownDistance = stoppingDistance * 0.5f;
+        aiPath.slowWhenNotFacingTarget = false; // Prevent slowing on corners
+        
+        // Reduce the agent radius if it's too large
+        float currentRadius = aiPath.radius;
+        if (currentRadius > 0.3f)
+        {
+            aiPath.radius = 0.3f;
+        }
         
         // Initially disable movement until player is in range
         aiPath.canMove = false;
@@ -133,6 +164,90 @@ public class EnemyController : MonoBehaviour
         
         // Handle sprite flipping for 2D games
         UpdateFacing();
+        
+        // Periodically update path to prevent getting stuck
+        pathUpdateTimer += Time.deltaTime;
+        if (aiPath.canMove && pathUpdateTimer >= pathResetTime)
+        {
+            pathUpdateTimer = 0f;
+            seeker.StartPath(transform.position, aiDestinationSetter.target.position);
+        }
+        
+        // Check if the enemy is stuck
+        CheckIfStuck();
+    }
+    
+    private void CheckIfStuck()
+    {
+        // Only check if we're supposed to be moving
+        if (!aiPath.canMove) return;
+        
+        stuckCheckTimer += Time.deltaTime;
+        
+        if (stuckCheckTimer >= stuckCheckInterval)
+        {
+            stuckCheckTimer = 0f;
+            
+            // Check if we've moved significantly
+            float distanceMoved = Vector2.Distance(lastPosition, (Vector2)transform.position);
+            
+            if (distanceMoved < stuckThreshold && aiPath.velocity.magnitude < 0.1f)
+            {
+                if (!stuckDetected)
+                {
+                    stuckDetected = true;
+                    Debug.Log("Enemy stuck detected - attempting to unstick");
+                    StartCoroutine(UnstickEnemy());
+                }
+            }
+            else
+            {
+                stuckDetected = false;
+            }
+            
+            // Update last position for next check
+            lastPosition = transform.position;
+        }
+    }
+    
+    private IEnumerator UnstickEnemy()
+    {
+        // Temporarily disable path following
+        bool originalCanMove = aiPath.canMove;
+        aiPath.canMove = false;
+        
+        // Try to move in a random direction to escape the stuck position
+        Vector2 randomDir = Random.insideUnitCircle.normalized;
+        Rigidbody2D rb = GetComponent<Rigidbody2D>();
+        
+        if (rb != null)
+        {
+            rb.velocity = randomDir * aiPath.maxSpeed;
+            
+            // Wait a short moment
+            yield return new WaitForSeconds(0.2f);
+            
+            // Stop and reset
+            rb.velocity = Vector2.zero;
+        }
+        else
+        {
+            // No rigidbody, try to move directly
+            transform.position += new Vector3(randomDir.x, randomDir.y, 0) * 0.3f;
+            
+            // Wait a short moment
+            yield return new WaitForSeconds(0.1f);
+        }
+        
+        // Recalculate path
+        if (seeker != null && aiDestinationSetter.target != null)
+        {
+            seeker.StartPath(transform.position, aiDestinationSetter.target.position);
+        }
+        
+        // Re-enable movement if it was enabled before
+        aiPath.canMove = originalCanMove;
+        stuckDetected = false;
     }
     
     private void CheckLineOfSight()
@@ -149,12 +264,16 @@ public class EnemyController : MonoBehaviour
             RaycastHit2D hit = Physics2D.Raycast(
                 transform.position, 
                 directionToTarget, 
-                sightDistance, 
+                distanceToTarget,  // Only cast as far as the player, not the full sight distance
                 obstacleLayer
             );
             
-            // If no obstacle was hit or the hit object is the player, we have line of sight
-            if (hit.collider == null || hit.collider.gameObject == target.gameObject)
+            // Debug ray to visualize the sight line
+            Debug.DrawRay(transform.position, directionToTarget * distanceToTarget, 
+                Color.red, 0.1f, false);
+            
+            // We have line of sight only if the ray didn't hit anything (no obstacles in the way)
+            if (hit.collider == null)
             {
                 hasLineOfSight = true;
                 lostSightTimer = 0f;
@@ -167,6 +286,9 @@ public class EnemyController : MonoBehaviour
             }
             else
             {
+                // Debug what was hit
+                Debug.DrawLine(transform.position, hit.point, Color.yellow, 0.1f, false);
+                
                 // Line of sight is blocked by an obstacle
                 hasLineOfSight = false;
             }
@@ -259,6 +381,12 @@ public class EnemyController : MonoBehaviour
         
         // Allow movement again
         aiPath.canMove = true;
+        
+        // Force immediate path recalculation
+        if (seeker != null)
+        {
+            seeker.StartPath(transform.position, wanderTarget);
+        }
     }
     
     private void ChangeState(EnemyState newState)
