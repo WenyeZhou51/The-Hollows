@@ -335,6 +335,29 @@ public class DialogueManager : MonoBehaviour
     {
         Debug.Log("ShowDialogue called with message: " + message);
         
+        // Skip empty messages or messages containing only ellipses
+        if (string.IsNullOrWhiteSpace(message) || message.Trim() == "...")
+        {
+            Debug.Log("Empty message or ellipses detected, skipping dialogue display");
+            
+            // If we're in an ink story, continue to the next line if possible
+            if (currentInkHandler != null && currentInkHandler.HasNextLine())
+            {
+                Debug.Log("Continuing to next line of ink story instead of showing empty dialogue");
+                ContinueInkStory();
+                return;
+            }
+            else if (currentInkHandler != null)
+            {
+                Debug.Log("No more content in the story after empty line, closing dialogue");
+                CloseDialogue();
+                return;
+            }
+            
+            // If not in an ink story, just don't show anything
+            return;
+        }
+        
         // Reset the text fully revealed flag when starting a new dialogue
         textFullyRevealed = false;
         

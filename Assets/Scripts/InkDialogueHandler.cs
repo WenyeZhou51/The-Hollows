@@ -48,6 +48,17 @@ public class InkDialogueHandler : MonoBehaviour
             string text = _story.Continue();
             text = text.Trim();
             
+            // Check if the text is empty or just "..." and there are tags and the story can continue BEFORE processing tags
+            bool hasTags = _story.currentTags.Count > 0;
+            if ((text == "" || text == "...") && hasTags && _story.canContinue)
+            {
+                Debug.Log($"GetNextDialogueLine: Found empty node with tags ({_story.currentTags.Count}), skipping to next content...");
+                // Process tags before skipping
+                ProcessTags();
+                // Skip to next content
+                return GetNextDialogueLine();
+            }
+            
             // Process any tags
             ProcessTags();
             

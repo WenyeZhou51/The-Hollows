@@ -275,6 +275,10 @@ public class PlayerController : MonoBehaviour
     {
         Debug.Log("Found " + colliders.Length + " colliders in range");
         
+        float closestDistance = float.MaxValue;
+        IInteractable closestInteractable = null;
+        GameObject closestGameObject = null;
+        
         foreach (Collider2D collider in colliders)
         {
             if (collider.gameObject == gameObject)
@@ -301,19 +305,34 @@ public class PlayerController : MonoBehaviour
             
             if (interactable != null)
             {
-                Debug.Log("Found interactable on: " + collider.gameObject.name);
+                // Calculate distance to this interactable
+                float distance = Vector2.Distance(transform.position, collider.transform.position);
                 
-                // Interact with the object
-                interactable.Interact();
-                
-                // Temporarily prevent movement during interaction
-                canMove = false;
-                
-                // Start a coroutine to check when dialogue is closed
-                StartCoroutine(CheckDialogueStatus());
-                
-                return true; // Successfully interacted
+                // If this is closer than the current closest, update
+                if (distance < closestDistance)
+                {
+                    closestDistance = distance;
+                    closestInteractable = interactable;
+                    closestGameObject = collider.gameObject;
+                }
             }
+        }
+        
+        // After checking all colliders, interact with only the closest one
+        if (closestInteractable != null)
+        {
+            Debug.Log("Interacting with closest: " + closestGameObject.name + " at distance: " + closestDistance);
+            
+            // Interact with the object
+            closestInteractable.Interact();
+            
+            // Temporarily prevent movement during interaction
+            canMove = false;
+            
+            // Start a coroutine to check when dialogue is closed
+            StartCoroutine(CheckDialogueStatus());
+            
+            return true; // Successfully interacted
         }
         
         return false; // No interaction occurred
