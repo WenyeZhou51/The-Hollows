@@ -1,18 +1,24 @@
 using UnityEngine;
 using Pathfinding;
+using System.Collections;
 
 public class EnemyController : MonoBehaviour
 {
     [Header("Target")]
     public Transform target; // The player to chase
-
+    
     [Header("Pathfinding")]
-    public float activationDistance = 7f; // Distance at which enemy starts chasing
+    public float sightDistance = 5f; // Distance at which enemy can see player
     public float stoppingDistance = 1f; // Distance to stop chasing/attacking
+    public LayerMask obstacleLayer; // Layers that block line of sight
     
     [Header("Enemy Properties")]
     public bool faceTarget = true;
     public float rotationSpeed = 10f;
+    
+    [Header("Wandering Behavior")]
+    public float wanderRadius = 3f; // How far the enemy wanders from its starting position
+    public float wanderPauseDuration = 2f; // Time to pause between wander movements
     
     // References to A* components
     private AIPath aiPath;
@@ -20,13 +26,25 @@ public class EnemyController : MonoBehaviour
     
     // State tracking
     private bool isChasing = false;
+    private bool hasLineOfSight = false;
+    private float lostSightTimer = 0f;
+    private float timeToLoseSight = 2f; // Time before forgetting player after losing sight
     private Vector3 originalScale; // Store the original scale
     private SpriteRenderer spriteRenderer; // Reference to sprite renderer
+    private Vector3 startingPosition; // Original position for wandering reference
+    
+    // Wandering state
+    private enum EnemyState { Chasing, Wandering, Paused }
+    private EnemyState currentState = EnemyState.Paused;
+    private float wanderTimer = 0f;
+    private Vector3 wanderTarget;
+    private GameObject wanderTargetObject;
     
     private void Start()
     {
-        // Store original scale
+        // Store original scale and position
         originalScale = transform.localScale;
+        startingPosition = transform.position;
         
         // Get sprite renderer
         spriteRenderer = GetComponent<SpriteRenderer>();
@@ -82,71 +100,241 @@ public class EnemyController : MonoBehaviour
             aiPath.enableRotation = false;
             aiPath.orientation = OrientationMode.YAxisForward;
         }
+        
+        // Create a wander target object
+        wanderTargetObject = new GameObject(gameObject.name + " Wander Target");
+        
+        // Set initial state to wandering
+        ChangeState(EnemyState.Paused);
+        // Start wandering immediately
+        SetNewWanderTarget();
     }
     
     private void Update()
     {
         if (target == null) return;
         
-        // Calculate distance to target
+        // Check line of sight to player
+        CheckLineOfSight();
+        
+        // Handle state behavior
+        switch (currentState)
+        {
+            case EnemyState.Chasing:
+                HandleChasing();
+                break;
+            case EnemyState.Wandering:
+                HandleWandering();
+                break;
+            case EnemyState.Paused:
+                HandlePaused();
+                break;
+        }
+        
+        // Handle sprite flipping for 2D games
+        UpdateFacing();
+    }
+    
+    private void CheckLineOfSight()
+    {
+        if (target == null) return;
+        
         float distanceToTarget = Vector2.Distance(transform.position, target.position);
         
-        // Handle activation based on distance
-        if (distanceToTarget <= activationDistance)
+        // Only check line of sight if within sight distance
+        if (distanceToTarget <= sightDistance)
         {
-            if (!isChasing)
-            {
-                isChasing = true;
-                aiPath.canMove = true;
-                Debug.Log("Enemy has spotted player, beginning chase");
-            }
+            // Cast a ray to check if there are obstacles between enemy and player
+            Vector2 directionToTarget = (target.position - transform.position).normalized;
+            RaycastHit2D hit = Physics2D.Raycast(
+                transform.position, 
+                directionToTarget, 
+                sightDistance, 
+                obstacleLayer
+            );
             
-            // Only stop at stopping distance if we're chasing
-            if (distanceToTarget <= stoppingDistance)
+            // If no obstacle was hit or the hit object is the player, we have line of sight
+            if (hit.collider == null || hit.collider.gameObject == target.gameObject)
             {
-                aiPath.canMove = false;
+                hasLineOfSight = true;
+                lostSightTimer = 0f;
                 
-                // Optional: Trigger attack or other behavior when in range
-                // Attack();
+                // If not already chasing, start chasing
+                if (currentState != EnemyState.Chasing)
+                {
+                    ChangeState(EnemyState.Chasing);
+                }
             }
             else
             {
-                // Make sure we're moving if we're chasing but not close enough to stop
-                aiPath.canMove = true;
+                // Line of sight is blocked by an obstacle
+                hasLineOfSight = false;
             }
         }
         else
         {
-            if (isChasing)
-            {
-                isChasing = false;
-                aiPath.canMove = false;
-                Debug.Log("Enemy lost sight of player, stopping chase");
-            }
+            // Player is too far away
+            hasLineOfSight = false;
         }
         
-        // Handle sprite flipping for 2D games instead of rotation
-        if (faceTarget && target != null && spriteRenderer != null)
+        // If line of sight is lost, increment timer
+        if (!hasLineOfSight && currentState == EnemyState.Chasing)
         {
-            // Determine which way to face based on target position
-            Vector2 direction = (target.position - transform.position);
+            lostSightTimer += Time.deltaTime;
             
+            // If player has been out of sight long enough, start wandering
+            if (lostSightTimer >= timeToLoseSight)
+            {
+                ChangeState(EnemyState.Paused);
+                SetNewWanderTarget();
+            }
+        }
+    }
+    
+    private void HandleChasing()
+    {
+        if (target == null) return;
+        
+        // Make sure target is set for pathfinding
+        aiDestinationSetter.target = target;
+        
+        float distanceToTarget = Vector2.Distance(transform.position, target.position);
+        
+        // Stop at stopping distance
+        if (distanceToTarget <= stoppingDistance)
+        {
+            aiPath.canMove = false;
+            // Optional: Attack behavior when in range
+        }
+        else
+        {
+            aiPath.canMove = true;
+        }
+    }
+    
+    private void HandleWandering()
+    {
+        // Check if we've reached the wander target or timed out
+        wanderTimer += Time.deltaTime;
+        
+        if (wanderTimer >= wanderPauseDuration || 
+            Vector2.Distance(transform.position, wanderTarget) <= stoppingDistance)
+        {
+            // Pause before setting new target
+            ChangeState(EnemyState.Paused);
+            wanderTimer = 0f;
+        }
+    }
+    
+    private void HandlePaused()
+    {
+        // When paused, ensure we're not moving
+        aiPath.canMove = false;
+        
+        // Increment pause timer
+        wanderTimer += Time.deltaTime;
+        
+        // After pause duration, go back to wandering with a new target
+        if (wanderTimer >= wanderPauseDuration)
+        {
+            wanderTimer = 0f;
+            SetNewWanderTarget();
+            ChangeState(EnemyState.Wandering);
+        }
+    }
+    
+    private void SetNewWanderTarget()
+    {
+        // Generate random point within wander radius of starting position
+        Vector2 randomDirection = Random.insideUnitCircle.normalized;
+        float randomDistance = Random.Range(1f, wanderRadius);
+        
+        wanderTarget = startingPosition + new Vector3(randomDirection.x, randomDirection.y, 0) * randomDistance;
+        
+        // Update wander target object position
+        wanderTargetObject.transform.position = wanderTarget;
+        
+        // Set the wander target as the destination for A* pathfinding
+        aiDestinationSetter.target = wanderTargetObject.transform;
+        
+        // Allow movement again
+        aiPath.canMove = true;
+    }
+    
+    private void ChangeState(EnemyState newState)
+    {
+        // Exit previous state
+        switch (currentState)
+        {
+            case EnemyState.Chasing:
+                isChasing = false;
+                break;
+            case EnemyState.Wandering:
+            case EnemyState.Paused:
+                // Nothing special to do when exiting these states
+                break;
+        }
+        
+        // Enter new state
+        currentState = newState;
+        
+        switch (newState)
+        {
+            case EnemyState.Chasing:
+                isChasing = true;
+                Debug.Log("Enemy has spotted player, beginning chase");
+                break;
+            case EnemyState.Wandering:
+                Debug.Log("Enemy is wandering");
+                break;
+            case EnemyState.Paused:
+                aiPath.canMove = false;
+                Debug.Log("Enemy is paused");
+                break;
+        }
+        
+        // Reset timer when changing states
+        wanderTimer = 0f;
+    }
+    
+    private void UpdateFacing()
+    {
+        // Determine which way to face
+        Vector2 direction;
+        
+        if (currentState == EnemyState.Chasing && target != null)
+        {
+            // Face toward target when chasing
+            direction = target.position - transform.position;
+        }
+        else if (currentState == EnemyState.Wandering && aiPath.velocity.magnitude > 0.1f)
+        {
+            // Face in movement direction when wandering
+            direction = aiPath.velocity;
+        }
+        else
+        {
+            // Keep current direction when paused
+            return;
+        }
+        
+        // Only update if we have a valid direction and sprite renderer
+        if (direction != Vector2.zero && spriteRenderer != null && faceTarget)
+        {
             // Use absolute scale value to maintain size while flipping
             float xScale = Mathf.Abs(originalScale.x);
             
             // Flip the sprite based on direction
             if (direction.x > 0)
             {
-                // Target is to the right, face right
+                // Face right
                 transform.localScale = new Vector3(xScale, originalScale.y, originalScale.z);
             }
             else if (direction.x < 0)
             {
-                // Target is to the left, face left
+                // Face left
                 transform.localScale = new Vector3(-xScale, originalScale.y, originalScale.z);
             }
-            
-            // No rotation needed for 2D sprite flipping
         }
     }
     
@@ -179,20 +367,21 @@ public class EnemyController : MonoBehaviour
             // Optional: Add any damage or gameplay logic here
             // playerHealth.TakeDamage(damageAmount);
         }
+        else if (currentState == EnemyState.Wandering)
+        {
+            // If we hit something while wandering, set a new wander target
+            SetNewWanderTarget();
+        }
     }
     
     private void OnCollisionExit2D(Collision2D collision)
     {
         if (collision.gameObject.CompareTag("Player"))
         {
-            // Resume chasing if the player is still in range
-            if (isChasing && target != null)
+            // Resume movement if we were in chase mode
+            if (currentState == EnemyState.Chasing && hasLineOfSight)
             {
-                float distanceToTarget = Vector2.Distance(transform.position, target.position);
-                if (distanceToTarget > stoppingDistance && distanceToTarget <= activationDistance)
-                {
-                    aiPath.canMove = true;
-                }
+                aiPath.canMove = true;
             }
         }
     }
@@ -200,12 +389,36 @@ public class EnemyController : MonoBehaviour
     // Visualize detection ranges in the editor
     private void OnDrawGizmosSelected()
     {
-        // Draw activation radius
+        // Draw sight radius
         Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(transform.position, activationDistance);
+        Gizmos.DrawWireSphere(transform.position, sightDistance);
         
         // Draw stopping radius
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, stoppingDistance);
+        
+        // Draw wander radius if in play mode
+        if (Application.isPlaying)
+        {
+            Gizmos.color = Color.blue;
+            Gizmos.DrawWireSphere(startingPosition, wanderRadius);
+            
+            // Draw current wander target if wandering
+            if (currentState == EnemyState.Wandering)
+            {
+                Gizmos.color = Color.green;
+                Gizmos.DrawSphere(wanderTarget, 0.2f);
+                Gizmos.DrawLine(transform.position, wanderTarget);
+            }
+        }
+    }
+    
+    // Clean up the wander target object when destroyed
+    private void OnDestroy()
+    {
+        if (wanderTargetObject != null)
+        {
+            Destroy(wanderTargetObject);
+        }
     }
 } 
