@@ -2031,7 +2031,7 @@ GameObject:
   - component: {fileID: 1098438678}
   m_Layer: 0
   m_Name: Player
-  m_TagString: Untagged
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -2096,7 +2096,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1098438675}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -1.24, y: 3.61, z: 0}
+  m_LocalPosition: {x: -5.21, y: -0.61, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2853,7 +2853,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   version: 1073741824
   data:
-    dataString: UEsDBBQAAAgIAACQn+vhZJAXwgIAAPsFAAALACQAZ3JhcGgwLmpzb24KACAAAAAAAAEAGAAAgD7V3rGdAQCAPtXesZ0BAIA+1d6xnQFlVMtu2kAU/RU06xIZE5rQXQuEdJEElVRZlCwGzzUeMcxY8wiQKP/ee8c2NkSKxOTc1zn34Q8mtSsh88bOrRQPRgD70WP0Zt96rfEeDnxj9FK+Q+PzIoUvyIlHnz/cS4P4gMKc2YG3MvupN4qcEwSDlrmxu5nYwMQ47xDOuXKAJms8RWuEPnrsgD/9MYUc8ZXe0OsdX+Ok94nPDLQH27o2joOr0e0wSYfJTe1fuQedKb4rQRD3NmrUhI0qN42qao/kakRljFLS1aSYP5ZR9LIswAKpFpKjxkiEJBcgN4Unvt3Ypzx34GuSlh+n0mKrqqTsl6n6t+NuWxF74ypQmUF6G0lVSR++2PuDaM6t2d03dQcJ1fCFzLZ/+DHjznca3IWn58SD3nO15WsFLwXoRzO3JmiBRm8DhQYH6bT99yRtUkC2bfGK6gUYyq9jaqZJGj6j+sPSQ3nSkVxdt+hfB26pTOx9nZMsNRJ3BCxO7jfqiRvk6gqIEkmMf+ab7qrVhjtpnUdT3YQaJd8FTggE6AzqvvfJQRO9tQmWcrFZ5ErdCH5irIYI1wRL0Fz54wIz+ssVuLB1eF1Y7jhdXc2utjXHdBES4dY/SS5MC7M/DdsGBS4udPP690pDcIXZP4ArnoJXUne6TYZHbPDEaF1tbreZTdgy2JxnnTAPBx8sTLnnsRrSwQUT3VDsZYzQQSna5SggMkIB9PdK/S041lURZo9Gx8s7+430N0GK8wthI54naZryNM25SMS4P/6eDga36+tkOFwn61yweEJSY7u5WlT9qqeE26VbLRrPpfkm9uaWl/FoheX7uXzfmc7kpc7NMrMA+qnKcBILFovg10XMhESZS/Be6riX7GPFlMm2IFanRKvY2NnBW75qs6xYKd+MJ2TFJvEjuGIEn04SV/dNwp6KnyUDhaMD8SwV7HhJpuSTff4HUEsDBBQAAAgIAACQn+tBJbuXbAAAAHcAAAAJACQAbWV0YS5qc29uCgAgAAAAAAABABgAAIA+1d6xnQEAgD7V3rGdAQCAPtXesZ0Bq1YqSy0qzszPU7JSMNUz1jPRUVBKL0osyCgGChiCOKWZKSB2tJJpYpqBkZFRopFRWmKKQYqlrqWZkaGhRZKJgbFxkkFSWopSLFB9SWVBql9ibipET0BiSUZaZl5KZl66nntRZoo7yGil2FoAUEsBAi0AFAAACAgAAJCf6+FkkBfCAgAA+wUAAAsAJAAAAAAAAAAAAAAAAAAAAGdyYXBoMC5qc29uCgAgAAAAAAABABgAAIA+1d6xnQEAgD7V3rGdAQCAPtXesZ0BUEsBAi0AFAAACAgAAJCf60Elu5dsAAAAdwAAAAkAJAAAAAAAAAAAAAAADwMAAG1ldGEuanNvbgoAIAAAAAAAAQAYAACAPtXesZ0BAIA+1d6xnQEAgD7V3rGdAVBLBQYAAAAAAgACALgAAADGAwAAAAA=
+    dataString: UEsDBBQAAAgIAACQn+sphgpBwwIAAPwFAAALACQAZ3JhcGgwLmpzb24KACAAAAAAAAEAGAAAgD7V3rGdAQCAPtXesZ0BAIA+1d6xnQF1VE1v2kAQ/StozyWyHdKG3logpIckqKTKoeSweMd4xbJr7UeARPnvnVnb2CGqZMnrN1/vzc74jUntKsi9sXMrxZ0RwL4PGJ3Zl0FnvIUD3xi9lK/Q+jxJ4Uty4tHnN/fSIJ5SmDM78FbmP/RGkXOCYNCyMHY3ExuYGOcdwgVXDtBkjadojdDbgB3wNRxTyBFP2Tc6veJpnAze8ZiD9mA719Yxvbi6vkzScTpq/Gv3oHPFdxUI4t5FjdqwUe2mUVXjkVxkVMYoJV1DivljFUUvqxIskGohOWqMRK7wswS5KT3x7cc+FIUD35C0/DiVFltVJ2U/Td2/HXfbmtgLV4HKpNl1JFUnvftkH6bRXFizu23rpgnV8KXMt7/5MefO9xrch6cd8TT2Z8/Vlq8VPJWg783cmqAFGr0NFBocZNPu8yRtUkK+7fCa6hkYqs/X1N4maXiP6g9LD9VJR3Ix6tA/DtxSmdj7JidZGiTOCFi8uV+oJ06QayogSiQx/pFv+qPWGG6kdR5NTRMalHwXeEMgQOfQ9H1IDprorU2wlIvNIlfqRvATYzXYfokKNFf+uMCU/nwGzmz/j7rhtHYNvcbWbtNZSIQ7/yQ5My3M/nTbNihwcaLb099nugVXmv0duPIheCV1r91kuMcOT4zW9ej2pbZhy2ALnvfCPBx8sDDlnsdqSAcnTPRDsZkxQgelaJijgMgIBdDzTA0uOdZVEWb3RsfV+/CO9DdBio8rwq54kWRZxrOs4CIR4+H4a5am1+tRcnm5TtaFYHGHpMZ2c7Wo+9XcEo6X7rRo3Jf2pziYW17FrRWW7+fydWdc5yl1YZa5BdAPdYaTWLBYBH8vYiYkylyC91LHwWRvK6ZMvgWxOiVaxcbODt7yVZdlxSr5YjwhKzaJf8EVI/i0kzi7LxL2VPxDMlB4dSAepYIdr8iUvLP3f1BLAwQUAAAICAAAkJ/rQSW7l2wAAAB3AAAACQAkAG1ldGEuanNvbgoAIAAAAAAAAQAYAACAPtXesZ0BAIA+1d6xnQEAgD7V3rGdAatWKkstKs7Mz1OyUjDVM9Yz0VFQSi9KLMgoBgoYgjilmSkgdrSSaWKagZGRUaKRUVpiikGKpa6lmZGhoUWSiYGxcZJBUlqKUixQfUllQapfYm4qRE9AYklGWmZeSmZeup57UWaKO8hopdhaAFBLAQItABQAAAgIAACQn+sphgpBwwIAAPwFAAALACQAAAAAAAAAAAAAAAAAAABncmFwaDAuanNvbgoAIAAAAAAAAQAYAACAPtXesZ0BAIA+1d6xnQEAgD7V3rGdAVBLAQItABQAAAgIAACQn+tBJbuXbAAAAHcAAAAJACQAAAAAAAAAAAAAABADAABtZXRhLmpzb24KACAAAAAAAAEAGAAAgD7V3rGdAQCAPtXesZ0BAIA+1d6xnQFQSwUGAAAAAAIAAgC4AAAAxwMAAAAA
     file_cachedStartup: {fileID: 0}
     cacheStartup: 0
   showNavGraphs: 1
@@ -3202,10 +3202,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   target: {fileID: 1098438677}
-  activationDistance: 7
+  sightDistance: 5
   stoppingDistance: 1
+  obstacleLayer:
+    serializedVersion: 2
+    m_Bits: 128
   faceTarget: 1
   rotationSpeed: 10
+  wanderRadius: 3
+  wanderPauseDuration: 1
+  cornerCutDistance: 0.5
+  pathResetTime: 1
 --- !u!114 &2016256635
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3219,7 +3226,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   version: 1073741824
-  target: {fileID: 0}
+  target: {fileID: 1098438677}
   useRotation: 0
 --- !u!114 &2016256636
 MonoBehaviour:
@@ -3234,10 +3241,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   version: 1073741824
-  radius: 0.5
-  height: 2
+  radius: 5
+  height: 1
   canMove: 1
-  maxSpeed: 1
+  maxSpeed: 4
   gravity: {x: NaN, y: NaN, z: NaN}
   groundMask:
     serializedVersion: 2
@@ -3260,11 +3267,11 @@ MonoBehaviour:
     sensitivity: 10
     maximumPeriod: 2
     visualizeSensitivity: 0
-  maxAcceleration: -2.5
+  maxAcceleration: 1000
   rotationSpeed: 360
-  slowdownDistance: 0.6
+  slowdownDistance: 0.1
   pickNextWaypointDist: 2
-  alwaysDrawGizmos: 0
+  alwaysDrawGizmos: 1
   slowWhenNotFacingTarget: 1
   preventMovingBackwards: 0
   constrainInsideGraph: 0
@@ -3304,7 +3311,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2016256633}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -4.65, y: 0, z: 0}
+  m_LocalPosition: {x: -1.53, y: 1.57, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3376,7 +3383,7 @@ BoxCollider2D:
   m_IsTrigger: 0
   m_UsedByEffector: 0
   m_UsedByComposite: 0
-  m_Offset: {x: 0, y: 0}
+  m_Offset: {x: -0.0044443607, y: 0.009470373}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0.5}
@@ -3387,7 +3394,7 @@ BoxCollider2D:
     adaptiveTiling: 0
   m_AutoTiling: 0
   serializedVersion: 2
-  m_Size: {x: 1, y: 1}
+  m_Size: {x: 0.98315954, y: 0.99232084}
   m_EdgeRadius: 0
 --- !u!50 &2016256641
 Rigidbody2D:
@@ -3397,7 +3404,7 @@ Rigidbody2D:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2016256633}
-  m_BodyType: 0
+  m_BodyType: 1
   m_Simulated: 1
   m_UseFullKinematicContacts: 0
   m_UseAutoMass: 0
