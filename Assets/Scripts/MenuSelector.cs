@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
 using System.Linq;
+using System;
 
 public class MenuSelector : MonoBehaviour
 {
@@ -153,7 +154,8 @@ public class MenuSelector : MonoBehaviour
             return;
         }
 
-        Debug.Log($"[Target Selection] Current target: {currentTargetSelection} of {currentTargets.Count}");
+        Debug.Log($"[DEBUG TARGETING] HandleTargetSelection - Current target: {currentTargetSelection} of {currentTargets.Count}, " +
+                 $"Target: {currentTargets[currentTargetSelection].name}, isEnemy: {currentTargets[currentTargetSelection].isEnemy}");
 
         // Check for any key press to help debug
         if (Input.anyKeyDown)
@@ -218,26 +220,32 @@ public class MenuSelector : MonoBehaviour
         
         if (confirmPressed)
         {
-            Debug.Log($"[Target Selection] Confirm key pressed");
+            Debug.Log($"[DEBUG TARGETING] Confirm key pressed for target selection");
             CombatStats target = currentTargets[currentTargetSelection];
-            Debug.Log($"[Target Selection] Selected target: {target.name}");
+            Debug.Log($"[DEBUG TARGETING] Selected target: {target.name}, isEnemy: {target.isEnemy}");
             
             if (selectedSkill != null)
             {
                 // Store a local reference to the skill before ending target selection
                 SkillData skill = selectedSkill;
-                Debug.Log($"[Target Selection] Executing skill {skill.name} on target {target.name}");
+                Debug.Log($"[DEBUG TARGETING] Executing skill {skill.name} on target {target.name}");
                 EndTargetSelection();
                 combatUI.ExecuteSkill(skill, target);
             }
             else if (selectedItem != null)
             {
-                Debug.Log($"[Target Selection] Using item: {selectedItem.name} on target: {target.name}");
-                combatUI.ExecuteItem(selectedItem, target);
+                ItemData itemToUse = selectedItem; // Store reference before ending target selection
+                Debug.Log($"[DEBUG TARGETING] Using item: {itemToUse.name} on target: {target.name}, isEnemy: {target.isEnemy}");
+                
+                // We need to end target selection BEFORE executing the item to prevent references from getting null
+                EndTargetSelection();
+                
+                // Now use the stored reference
+                combatUI.ExecuteItem(itemToUse, target);
             }
             else
             {
-                Debug.Log($"[Target Selection] Executing attack on target {target.name}");
+                Debug.Log($"[DEBUG TARGETING] Executing attack on target {target.name}");
                 EndTargetSelection();
                 combatUI.OnTargetSelected(target);
             }
@@ -533,9 +541,12 @@ public class MenuSelector : MonoBehaviour
 
     public void StartTargetSelection()
     {
+        Debug.Log($"[DEBUG TARGETING] StartTargetSelection - SelectedSkill: {selectedSkill?.name ?? "none"}, SelectedItem: {selectedItem?.name ?? "none"}");
+
         // Check if we're selecting a target for ally-targeting skills
         if (selectedSkill != null && (selectedSkill.name == "Human Shield!" || selectedSkill.name == "Healing Words"))
         {
+            Debug.Log($"[DEBUG TARGETING] Detected ally-targeting SKILL: {selectedSkill.name}");
             // For ally-targeting skills, we target allies instead of enemies
             currentTargets = new List<CombatStats>(combatManager.players);
             
@@ -551,31 +562,50 @@ public class MenuSelector : MonoBehaviour
             }
         }
         // Check if we're selecting a target for ally-targeting items
-        else if (selectedItem != null && (selectedItem.name == "Super Espress-O" || selectedItem.name == "Fruit Juice"))
+        else if (selectedItem != null && 
+                 (string.Equals(selectedItem.name, "Super Espress-O", StringComparison.OrdinalIgnoreCase) || 
+                  string.Equals(selectedItem.name, "Fruit Juice", StringComparison.OrdinalIgnoreCase)))
         {
+            Debug.Log($"[DEBUG TARGETING] Detected ally-targeting ITEM: {selectedItem.name}");
             // For ally-targeting items, target allies instead of enemies
             currentTargets = new List<CombatStats>(combatManager.players);
             
             // Remove the active character (can't target yourself for certain items)
             // For SuperEspressO, allow self-targeting as its implementation supports it
-            if (selectedItem.name != "Super Espress-O")
+            if (!string.Equals(selectedItem.name, "Super Espress-O", StringComparison.OrdinalIgnoreCase))
             {
+                Debug.Log($"[DEBUG TARGETING] Removing active character from targets (not SuperEspressO)");
                 currentTargets.Remove(combatManager.ActiveCharacter);
             }
+            else
+            {
+                Debug.Log($"[DEBUG TARGETING] Allowing self-targeting for SuperEspressO");
+            }
             
-            Debug.Log($"[Ally Targeting] Starting ally selection with {currentTargets.Count} potential targets for item {selectedItem.name}");
+            Debug.Log($"[DEBUG TARGETING] Starting ally selection with {currentTargets.Count} potential targets for item {selectedItem.name}");
             
             // Add detailed logging for each potential target
             for (int i = 0; i < currentTargets.Count; i++)
             {
-                Debug.Log($"[Ally Targeting] Potential target {i}: {currentTargets[i].name}, isEnemy: {currentTargets[i].isEnemy}");
+                Debug.Log($"[DEBUG TARGETING] Potential ally target {i}: {currentTargets[i].name}, isEnemy: {currentTargets[i].isEnemy}");
             }
         }
         else
         {
             // Default behavior - target enemies
+            Debug.Log($"[DEBUG TARGETING] No ally-targeting skill/item detected, defaulting to ENEMY targeting");
+            if (selectedItem != null)
+            {
+                Debug.Log($"[DEBUG TARGETING] Selected item: {selectedItem.name} is targeting ENEMIES");
+            }
             currentTargets = combatManager.GetLivingEnemies();
-            Debug.Log($"[Target Selection] Starting enemy selection with {currentTargets.Count} potential targets");
+            Debug.Log($"[DEBUG TARGETING] Starting enemy selection with {currentTargets.Count} potential targets");
+            
+            // Add detailed logging for each potential target
+            for (int i = 0; i < currentTargets.Count; i++)
+            {
+                Debug.Log($"[DEBUG TARGETING] Potential enemy target {i}: {currentTargets[i].name}, isEnemy: {currentTargets[i].isEnemy}");
+            }
         }
         
         if (currentTargets.Count > 0)
@@ -898,6 +928,6 @@ public class MenuSelector : MonoBehaviour
     public void SetSelectedItem(ItemData item)
     {
         selectedItem = item;
-        Debug.Log($"[MenuSelector] Selected item set: {item.name}");
+        Debug.Log($"[DEBUG TARGETING] Selected item set: {item.name}, RequiresTarget: {item.requiresTarget}");
     }
 } 

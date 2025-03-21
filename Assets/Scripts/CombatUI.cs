@@ -1001,29 +1001,41 @@ public class CombatUI : MonoBehaviour
     
     public void OnItemButtonClicked(ItemData item)
     {
-        Debug.Log($"=== INVENTORY DEBUG: CombatUI.OnItemButtonClicked ===");
-        Debug.Log($"Item button clicked - Item: {item.name}, Amount: {item.amount}");
+        Debug.Log($"[DEBUG TARGETING] OnItemButtonClicked - Item: {item.name}, Amount: {item.amount}, RequiresTarget: {item.requiresTarget}");
         if (item.requiresTarget)
         {
-            Debug.Log($"Item requires target, starting target selection");
-            menuSelector.StartTargetSelection();
-            // Store the selected item for when target is selected
+            Debug.Log($"[DEBUG TARGETING] Item requires target, starting target selection for {item.name}");
+            // First set the selected item so StartTargetSelection can identify it correctly
             menuSelector.SetSelectedItem(item);
+            // Then start target selection
+            menuSelector.StartTargetSelection();
         }
         else
         {
-            Debug.Log($"Item does not require target, executing immediately");
+            Debug.Log($"[DEBUG TARGETING] Item does not require target, executing immediately: {item.name}");
             ExecuteItem(item, null);
         }
     }
     
     public void ExecuteItem(ItemData item, CombatStats target)
     {
-        Debug.Log($"[ItemButton Lifecycle] Executing item: {item.name}, Target: {target?.name ?? "none"}");
+        Debug.Log($"[DEBUG TARGETING] ExecuteItem - Item: {item.name}, Target: {target?.name ?? "none"}, TargetIsEnemy: {target?.isEnemy.ToString() ?? "N/A"}");
         
         // Get the active character
         var activeCharacter = combatManager.ActiveCharacter;
-        if (activeCharacter == null) return;
+        if (activeCharacter == null) 
+        {
+            Debug.LogError("[DEBUG TARGETING] ExecuteItem - Active character is null, cannot execute item");
+            return;
+        }
+        
+        // Double-check the target for ally-targeting items (defensive programming)
+        if (string.Equals(item.name, "Super Espress-O", StringComparison.OrdinalIgnoreCase) && target != null && target.isEnemy)
+        {
+            Debug.LogError($"[DEBUG TARGETING] ExecuteItem - ERROR: Tried to use {item.name} on enemy {target.name}! Redirecting to self.");
+            // Redirect to self instead of an enemy
+            target = activeCharacter;
+        }
         
         // Display item action message
         DisplayTurnAndActionMessage($"{activeCharacter.characterName} uses {item.name}!");
@@ -1034,8 +1046,7 @@ public class CombatUI : MonoBehaviour
     
     private IEnumerator ExecuteItemAfterMessage(ItemData item, CombatStats target, CombatStats activeCharacter)
     {
-        Debug.Log($"=== INVENTORY DEBUG: CombatUI.ExecuteItemAfterMessage ===");
-        Debug.Log($"Executing item effect for {item.name}, Amount before using: {item.amount}");
+        Debug.Log($"[DEBUG TARGETING] ExecuteItemAfterMessage - Item: {item.name}, Target: {target?.name ?? "none"}, TargetIsEnemy: {target?.isEnemy.ToString() ?? "N/A"}");
         
         yield return new WaitForSeconds(actionMessageDuration);
         
@@ -1043,14 +1054,17 @@ public class CombatUI : MonoBehaviour
         switch (item.name)
         {
             case "Fruit Juice":
+                Debug.Log($"[DEBUG TARGETING] Executing Fruit Juice effect");
                 if (target != null)
                 {
+                    Debug.Log($"[DEBUG TARGETING] Healing targeted player: {target.name}, isEnemy: {target.isEnemy}");
                     // Heal the targeted player
                     target.HealHealth(30f);
                     Debug.Log($"Healed {target.name} for 30 HP using Fruit Juice");
                 }
                 else
                 {
+                    Debug.Log($"[DEBUG TARGETING] No target, healing all party members");
                     // Heal all party members for 30 HP if no target selected
                     foreach (var player in combatManager.players)
                     {
@@ -1064,8 +1078,10 @@ public class CombatUI : MonoBehaviour
                 break;
                 
             case "Super Espress-O":
+                Debug.Log($"[DEBUG TARGETING] Executing Super Espress-O effect");
                 if (target != null && !target.isEnemy)
                 {
+                    Debug.Log($"[DEBUG TARGETING] Target is ally: {target.name}");
                     // Restore SP (sanity)
                     target.HealSanity(50f);
                     
@@ -1074,8 +1090,14 @@ public class CombatUI : MonoBehaviour
                     
                     Debug.Log($"Super Espress-O used: Restored 50 SP and boosted speed by 50% for {target.name} for 3 turns");
                 }
+                else if (target != null && target.isEnemy)
+                {
+                    Debug.Log($"[DEBUG TARGETING] ERROR: Target is enemy: {target.name} - Super Espress-O should only target allies!");
+                    // This should never happen with proper targeting
+                }
                 else if (target == null)
                 {
+                    Debug.Log($"[DEBUG TARGETING] No target specified, using Super Espress-O on self: {activeCharacter.name}");
                     // Use on self if no target
                     activeCharacter.HealSanity(50f);
                     activeCharacter.BoostActionSpeed(0.5f, 3);
@@ -1085,7 +1107,7 @@ public class CombatUI : MonoBehaviour
                 break;
                 
             default:
-                Debug.LogWarning($"Unknown item: {item.name}");
+                Debug.LogWarning($"[DEBUG TARGETING] Unknown item: {item.name}");
                 break;
         }
         
