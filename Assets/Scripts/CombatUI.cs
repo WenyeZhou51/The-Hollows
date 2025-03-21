@@ -40,6 +40,12 @@ public class CombatUI : MonoBehaviour
     [Tooltip("Amount of sanity restored by Healing Words")]
     [SerializeField] private float healingWordsSanityAmount = 30f;
 
+    [Header("Visual Effects")]
+    [Tooltip("Prefab for healing number popup")]
+    [SerializeField] private GameObject healingPopupPrefab;
+    [Tooltip("Prefab for damage number popup")]
+    [SerializeField] private GameObject damagePopupPrefab;
+
     private GameObject characterStatsPanel;
     private GameObject skillMenu;
     private GameObject itemMenu;
@@ -1226,5 +1232,96 @@ public class CombatUI : MonoBehaviour
         yield return new WaitForSeconds(actionMessageDuration);
         turnText.text = "";
         currentTextCoroutine = null;
+    }
+
+    /// <summary>
+    /// Populates the item menu with items from the player's inventory
+    /// </summary>
+    /// <param name="items">The items to populate the menu with</param>
+    public void PopulateItemMenu(List<ItemData> items)
+    {
+        if (itemMenu == null || items == null)
+        {
+            return;
+        }
+        
+        // Clear existing buttons
+        foreach (Transform child in itemMenu.transform)
+        {
+            Destroy(child.gameObject);
+        }
+        
+        // Add buttons for each item
+        foreach (ItemData item in items)
+        {
+            if (item.amount > 0)
+            {
+                GameObject buttonObj = Instantiate(buttonPrefab, itemMenu.transform);
+                ItemButtonData buttonData = buttonObj.AddComponent<ItemButtonData>();
+                buttonData.item = item;
+                
+                // Set button text
+                Text buttonText = buttonObj.GetComponentInChildren<Text>();
+                if (buttonText != null)
+                {
+                    buttonText.text = $"{item.name} x{item.amount}";
+                }
+                
+                // Add click listener
+                Button button = buttonObj.GetComponent<Button>();
+                if (button != null)
+                {
+                    button.onClick.AddListener(() => UseItem(item));
+                }
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Use an item in combat
+    /// </summary>
+    /// <param name="item">The item to use</param>
+    private void UseItem(ItemData item)
+    {
+        // Implement the item use logic based on your game's design
+        // This is a placeholder for demonstration purposes
+        
+        Debug.Log($"Using item: {item.name}");
+        
+        CombatStats activeCharacter = combatManager.ActiveCharacter;
+        if (activeCharacter != null)
+        {
+            // Example: If it's a health potion, heal the character
+            if (item.name.Contains("Potion") || item.name.Contains("Heal"))
+            {
+                activeCharacter.HealHealth(20f);
+                
+                // Show visual feedback
+                if (healingPopupPrefab != null)
+                {
+                    GameObject popup = Instantiate(healingPopupPrefab, activeCharacter.transform.position, Quaternion.identity);
+                    HealingPopup healingPopup = popup.GetComponent<HealingPopup>();
+                    if (healingPopup != null)
+                    {
+                        healingPopup.Setup(20f, false); // false = healing HP, not sanity
+                    }
+                }
+                
+                // Display action message
+                if (turnText != null)
+                {
+                    DisplayTurnAndActionMessage($"{activeCharacter.characterName} used {item.name}!");
+                }
+            }
+            
+            // Reduce item count
+            item.amount--;
+            
+            // End player turn
+            combatManager.EndPlayerTurn();
+            
+            // Refresh the item menu
+            PopulateItemMenu(combatManager.GetPlayerInventoryItems());
+        }
     }
 } 

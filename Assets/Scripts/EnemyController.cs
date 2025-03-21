@@ -30,7 +30,6 @@ public class EnemyController : MonoBehaviour
     private Seeker seeker;
     
     // State tracking
-    private bool isChasing = false;
     private bool hasLineOfSight = false;
     private float lostSightTimer = 0f;
     private float timeToLoseSight = 2f; // Time before forgetting player after losing sight
@@ -170,7 +169,7 @@ public class EnemyController : MonoBehaviour
         if (aiPath.canMove && pathUpdateTimer >= pathResetTime)
         {
             pathUpdateTimer = 0f;
-            seeker.StartPath(transform.position, aiDestinationSetter.target.position);
+            seeker.StartPath(transform.position, aiDestinationSetter.target.position, OnPathComplete);
         }
         
         // Check if the enemy is stuck
@@ -242,7 +241,7 @@ public class EnemyController : MonoBehaviour
         // Recalculate path
         if (seeker != null && aiDestinationSetter.target != null)
         {
-            seeker.StartPath(transform.position, aiDestinationSetter.target.position);
+            seeker.StartPath(transform.position, aiDestinationSetter.target.position, OnPathComplete);
         }
         
         // Re-enable movement if it was enabled before
@@ -385,7 +384,7 @@ public class EnemyController : MonoBehaviour
         // Force immediate path recalculation
         if (seeker != null)
         {
-            seeker.StartPath(transform.position, wanderTarget);
+            seeker.StartPath(transform.position, wanderTarget, OnPathComplete);
         }
     }
     
@@ -395,7 +394,7 @@ public class EnemyController : MonoBehaviour
         switch (currentState)
         {
             case EnemyState.Chasing:
-                isChasing = false;
+                // Nothing special to do when exiting chase state
                 break;
             case EnemyState.Wandering:
             case EnemyState.Paused:
@@ -409,7 +408,6 @@ public class EnemyController : MonoBehaviour
         switch (newState)
         {
             case EnemyState.Chasing:
-                isChasing = true;
                 Debug.Log("Enemy has spotted player, beginning chase");
                 break;
             case EnemyState.Wandering:
@@ -492,8 +490,9 @@ public class EnemyController : MonoBehaviour
                 }
             }
             
-            // Optional: Add any damage or gameplay logic here
-            // playerHealth.TakeDamage(damageAmount);
+            // Start combat when the enemy collides with the player
+            // Use the EnsureExists method to get or create the SceneTransitionManager
+            SceneTransitionManager.EnsureExists().StartCombat(gameObject, collision.gameObject);
         }
         else if (currentState == EnemyState.Wandering)
         {
@@ -547,6 +546,16 @@ public class EnemyController : MonoBehaviour
         if (wanderTargetObject != null)
         {
             Destroy(wanderTargetObject);
+        }
+    }
+    
+    // Add a callback method for path completion
+    private void OnPathComplete(Path p)
+    {
+        // Path completed - you can add logic here if needed
+        if (p.error)
+        {
+            Debug.LogWarning($"Path error: {p.errorLog}");
         }
     }
 } 

@@ -16,13 +16,20 @@ public class InkDialogueHandler : MonoBehaviour
     {
         if (inkJSON != null)
         {
+            // If already initialized and not set to reset, don't reinitialize
+            if (_isInitialized && !resetOnInteract)
+            {
+                Debug.Log($"Story already initialized for {gameObject.name}, not resetting due to resetOnInteract=false");
+                return;
+            }
+            
             _story = new Story(inkJSON.text);
             _isInitialized = true;
-            Debug.Log($"Initialized Ink story for {gameObject.name}");
+            Debug.Log($"Initialized Ink story for {gameObject.name} (resetOnInteract={resetOnInteract})");
         }
         else
         {
-            Debug.LogWarning($"No Ink JSON file assigned to {gameObject.name}");
+            Debug.LogError($"No Ink JSON file assigned to {gameObject.name}");
         }
     }
 

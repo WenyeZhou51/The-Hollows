@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;  // Add this for GridLayoutGroup
 using System.Linq;
+using System;
 
 public class CombatManager : MonoBehaviour
 {
@@ -25,9 +26,22 @@ public class CombatManager : MonoBehaviour
     public CombatStats ActiveCharacter => activeCharacter;
     private bool isCombatActive = true;
     private bool isWaitingForPlayerInput = false;
+    
+    // Event for when combat ends
+    public delegate void CombatEndHandler(bool playerWon);
+    public event CombatEndHandler OnCombatEnd;
+
+    // Player inventory for combat
+    private List<ItemData> playerInventoryItems;
 
     private void Start()
     {
+        // Initialize from SceneTransitionManager's inventory
+        if (SceneTransitionManager.Instance != null)
+        {
+            playerInventoryItems = SceneTransitionManager.Instance.GetPlayerInventory();
+        }
+
         // Find required components
         combatUI = GetComponent<CombatUI>();
         menuSelector = GetComponent<MenuSelector>();
@@ -272,15 +286,43 @@ public class CombatManager : MonoBehaviour
 
     private void CheckBattleEnd()
     {
-        if (players.All(p => p.IsDead()))
+        // Update SceneTransitionManager with current inventory before ending combat
+        if (SceneTransitionManager.Instance != null)
         {
-            isCombatActive = false;
-            Debug.Log("Game Over - Players Defeated");
+            SceneTransitionManager.Instance.SetPlayerInventory(playerInventoryItems);
         }
-        else if (enemies.All(e => e.IsDead()))
+
+        // Check if all enemies are defeated
+        bool allEnemiesDefeated = enemies.Count == 0 || enemies.All(e => e == null || e.IsDead());
+        
+        // Check if all players are defeated
+        bool allPlayersDefeated = players.Count == 0 || players.All(p => p == null || p.IsDead());
+        
+        if (allEnemiesDefeated || allPlayersDefeated)
         {
+            // End combat
             isCombatActive = false;
-            Debug.Log("Victory - All Enemies Defeated");
+            
+            // Determine winner
+            bool playerWon = allEnemiesDefeated;
+            
+            // Trigger combat end event
+            if (OnCombatEnd != null)
+            {
+                OnCombatEnd(playerWon);
+            }
+            else
+            {
+                // If no listeners are registered, use SceneTransitionManager
+                if (SceneTransitionManager.Instance != null)
+                {
+                    SceneTransitionManager.Instance.EndCombat(playerWon);
+                }
+                else
+                {
+                    Debug.LogWarning("Combat ended but no listeners or SceneTransitionManager found!");
+                }
+            }
         }
     }
 
@@ -289,5 +331,39 @@ public class CombatManager : MonoBehaviour
         // Combine players and enemies into a single array for UI update
         var allCharacters = players.Concat(enemies).ToArray();
         combatUI.UpdateCharacterUI(allCharacters, activeCharacter);
+    }
+
+    /// <summary>
+    /// Sets up the player's inventory for combat
+    /// </summary>
+    /// <param name="inventoryItems">The items in the player's inventory</param>
+    public void SetupPlayerInventory(List<ItemData> inventoryItems)
+    {
+        // Store a copy of the inventory items
+        playerInventoryItems = new List<ItemData>();
+        
+        if (inventoryItems != null)
+        {
+            foreach (ItemData item in inventoryItems)
+            {
+                playerInventoryItems.Add(item);
+            }
+            
+            Debug.Log($"Combat Manager received {playerInventoryItems.Count} items from player inventory");
+            
+            // Update the item menu if it exists
+            if (itemMenu != null && combatUI != null)
+            {
+                combatUI.PopulateItemMenu(playerInventoryItems);
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Gets the player's inventory items
+    /// </summary>
+    public List<ItemData> GetPlayerInventoryItems()
+    {
+        return playerInventoryItems;
     }
 } 

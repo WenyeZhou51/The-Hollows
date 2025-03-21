@@ -81,6 +81,9 @@ public class PlayerController : MonoBehaviour
             inventoryUI.SetInventory(inventory);
         }
         
+        // Ensure SceneTransitionManager exists
+        SceneTransitionManager.EnsureExists();
+        
         Debug.Log("PlayerController initialized. Interaction radius: " + interactionRadius + ", Layer mask: " + interactableLayers.value);
     }
 
