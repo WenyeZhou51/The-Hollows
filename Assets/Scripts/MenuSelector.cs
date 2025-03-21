@@ -4,6 +4,7 @@ using TMPro;
 using System.Collections.Generic;
 using System.Linq;
 using System;
+using System.Collections;
 
 public class MenuSelector : MonoBehaviour
 {
@@ -154,64 +155,74 @@ public class MenuSelector : MonoBehaviour
             return;
         }
 
-        Debug.Log($"[DEBUG TARGETING] HandleTargetSelection - Current target: {currentTargetSelection} of {currentTargets.Count}, " +
-                 $"Target: {currentTargets[currentTargetSelection].name}, isEnemy: {currentTargets[currentTargetSelection].isEnemy}");
-
-        // Check for any key press to help debug
-        if (Input.anyKeyDown)
-        {
-            Debug.Log($"[Target Selection] Key detected: {Input.inputString}");
-        }
-
-        // Check for arrow keys with more flexible detection
-        bool leftPressed = Input.GetKeyDown(KeyCode.LeftArrow);
-        bool rightPressed = Input.GetKeyDown(KeyCode.RightArrow);
+        // For Fruit Juice, we don't allow navigating between targets, but we still handle confirmation
+        bool isFruitJuice = selectedItem != null && string.Equals(selectedItem.name, "Fruit Juice", StringComparison.OrdinalIgnoreCase);
         
-        if (leftPressed || rightPressed)
+        if (!isFruitJuice)
         {
-            Debug.Log($"[Target Selection] Arrow key pressed: {(leftPressed ? "Left" : "Right")}");
-            int oldSelection = currentTargetSelection;
-            
-            // For left arrow, move backward in the list
-            if (leftPressed)
-            {
-                currentTargetSelection--;
-                if (currentTargetSelection < 0) 
-                    currentTargetSelection = currentTargets.Count - 1;
-            }
-            // For right arrow, move forward in the list
-            else
-            {
-                currentTargetSelection++;
-                if (currentTargetSelection >= currentTargets.Count) 
-                    currentTargetSelection = 0;
-            }
-            
-            Debug.Log($"[Target Selection] Changed target from {oldSelection} to {currentTargetSelection}");
-            HighlightSelectedTarget();
-        }
+            Debug.Log($"[DEBUG TARGETING] HandleTargetSelection - Current target: {currentTargetSelection} of {currentTargets.Count}, " +
+                    $"Target: {currentTargets[currentTargetSelection].name}, isEnemy: {currentTargets[currentTargetSelection].isEnemy}");
 
-        // Also allow up/down arrows for navigation
-        if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.DownArrow))
+            // Check for any key press to help debug
+            if (Input.anyKeyDown)
+            {
+                Debug.Log($"[Target Selection] Key detected: {Input.inputString}");
+            }
+
+            // Check for arrow keys with more flexible detection
+            bool leftPressed = Input.GetKeyDown(KeyCode.LeftArrow);
+            bool rightPressed = Input.GetKeyDown(KeyCode.RightArrow);
+            
+            if (leftPressed || rightPressed)
+            {
+                Debug.Log($"[Target Selection] Arrow key pressed: {(leftPressed ? "Left" : "Right")}");
+                int oldSelection = currentTargetSelection;
+                
+                // For left arrow, move backward in the list
+                if (leftPressed)
+                {
+                    currentTargetSelection--;
+                    if (currentTargetSelection < 0) 
+                        currentTargetSelection = currentTargets.Count - 1;
+                }
+                // For right arrow, move forward in the list
+                else
+                {
+                    currentTargetSelection++;
+                    if (currentTargetSelection >= currentTargets.Count) 
+                        currentTargetSelection = 0;
+                }
+                
+                Debug.Log($"[Target Selection] Changed target from {oldSelection} to {currentTargetSelection}");
+                HighlightSelectedTarget();
+            }
+
+            // Also allow up/down arrows for navigation
+            if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.DownArrow))
+            {
+                Debug.Log($"[Target Selection] Up/Down arrow pressed");
+                int oldSelection = currentTargetSelection;
+                
+                if (Input.GetKeyDown(KeyCode.UpArrow))
+                {
+                    currentTargetSelection--;
+                    if (currentTargetSelection < 0) 
+                        currentTargetSelection = currentTargets.Count - 1;
+                }
+                else
+                {
+                    currentTargetSelection++;
+                    if (currentTargetSelection >= currentTargets.Count) 
+                        currentTargetSelection = 0;
+                }
+                
+                Debug.Log($"[Target Selection] Changed target from {oldSelection} to {currentTargetSelection}");
+                HighlightSelectedTarget();
+            }
+        }
+        else
         {
-            Debug.Log($"[Target Selection] Up/Down arrow pressed");
-            int oldSelection = currentTargetSelection;
-            
-            if (Input.GetKeyDown(KeyCode.UpArrow))
-            {
-                currentTargetSelection--;
-                if (currentTargetSelection < 0) 
-                    currentTargetSelection = currentTargets.Count - 1;
-            }
-            else
-            {
-                currentTargetSelection++;
-                if (currentTargetSelection >= currentTargets.Count) 
-                    currentTargetSelection = 0;
-            }
-            
-            Debug.Log($"[Target Selection] Changed target from {oldSelection} to {currentTargetSelection}");
-            HighlightSelectedTarget();
+            Debug.Log($"[DEBUG TARGETING] Fruit Juice team targeting active - waiting for confirmation");
         }
 
         // Check for confirm/cancel with more detailed logging
@@ -220,34 +231,48 @@ public class MenuSelector : MonoBehaviour
         
         if (confirmPressed)
         {
-            Debug.Log($"[DEBUG TARGETING] Confirm key pressed for target selection");
-            CombatStats target = currentTargets[currentTargetSelection];
-            Debug.Log($"[DEBUG TARGETING] Selected target: {target.name}, isEnemy: {target.isEnemy}");
-            
-            if (selectedSkill != null)
+            if (isFruitJuice)
             {
-                // Store a local reference to the skill before ending target selection
-                SkillData skill = selectedSkill;
-                Debug.Log($"[DEBUG TARGETING] Executing skill {skill.name} on target {target.name}");
-                EndTargetSelection();
-                combatUI.ExecuteSkill(skill, target);
-            }
-            else if (selectedItem != null)
-            {
+                Debug.Log($"[DEBUG TARGETING] Confirm key pressed for team-wide Fruit Juice");
                 ItemData itemToUse = selectedItem; // Store reference before ending target selection
-                Debug.Log($"[DEBUG TARGETING] Using item: {itemToUse.name} on target: {target.name}, isEnemy: {target.isEnemy}");
                 
                 // We need to end target selection BEFORE executing the item to prevent references from getting null
                 EndTargetSelection();
                 
-                // Now use the stored reference
-                combatUI.ExecuteItem(itemToUse, target);
+                // Use Fruit Juice on entire team (null target indicates team-wide effect)
+                combatUI.ExecuteItem(itemToUse, null);
             }
             else
             {
-                Debug.Log($"[DEBUG TARGETING] Executing attack on target {target.name}");
-                EndTargetSelection();
-                combatUI.OnTargetSelected(target);
+                Debug.Log($"[DEBUG TARGETING] Confirm key pressed for target selection");
+                CombatStats target = currentTargets[currentTargetSelection];
+                Debug.Log($"[DEBUG TARGETING] Selected target: {target.name}, isEnemy: {target.isEnemy}");
+                
+                if (selectedSkill != null)
+                {
+                    // Store a local reference to the skill before ending target selection
+                    SkillData skill = selectedSkill;
+                    Debug.Log($"[DEBUG TARGETING] Executing skill {skill.name} on target {target.name}");
+                    EndTargetSelection();
+                    combatUI.ExecuteSkill(skill, target);
+                }
+                else if (selectedItem != null)
+                {
+                    ItemData itemToUse = selectedItem; // Store reference before ending target selection
+                    Debug.Log($"[DEBUG TARGETING] Using item: {itemToUse.name} on target: {target.name}, isEnemy: {target.isEnemy}");
+                    
+                    // We need to end target selection BEFORE executing the item to prevent references from getting null
+                    EndTargetSelection();
+                    
+                    // Now use the stored reference
+                    combatUI.ExecuteItem(itemToUse, target);
+                }
+                else
+                {
+                    Debug.Log($"[DEBUG TARGETING] Executing attack on target {target.name}");
+                    EndTargetSelection();
+                    combatUI.OnTargetSelected(target);
+                }
             }
         }
         else if (cancelPressed)
@@ -561,26 +586,34 @@ public class MenuSelector : MonoBehaviour
                 Debug.Log($"[Ally Targeting] Potential target {i}: {currentTargets[i].name}, isEnemy: {currentTargets[i].isEnemy}");
             }
         }
-        // Check if we're selecting a target for ally-targeting items
-        else if (selectedItem != null && 
-                 (string.Equals(selectedItem.name, "Super Espress-O", StringComparison.OrdinalIgnoreCase) || 
-                  string.Equals(selectedItem.name, "Fruit Juice", StringComparison.OrdinalIgnoreCase)))
+        // Check if we're selecting targets for Fruit Juice (team-wide effect)
+        else if (selectedItem != null && string.Equals(selectedItem.name, "Fruit Juice", StringComparison.OrdinalIgnoreCase))
+        {
+            Debug.Log($"[DEBUG TARGETING] Detected team-targeting item: {selectedItem.name}");
+            // For Fruit Juice, include all allies and highlight them all
+            currentTargets = new List<CombatStats>(combatManager.players);
+            
+            // No need to remove the active character since it affects everyone
+            Debug.Log($"[DEBUG TARGETING] Highlighting entire team for {selectedItem.name}");
+            
+            // Add detailed logging for each potential target
+            for (int i = 0; i < currentTargets.Count; i++)
+            {
+                Debug.Log($"[DEBUG TARGETING] Team target {i}: {currentTargets[i].name}, isEnemy: {currentTargets[i].isEnemy}");
+            }
+            
+            // Highlight all team members
+            HighlightAllTeamMembers();
+        }
+        // Check if we're selecting a target for ally-targeting item (Super Espress-O)
+        else if (selectedItem != null && string.Equals(selectedItem.name, "Super Espress-O", StringComparison.OrdinalIgnoreCase))
         {
             Debug.Log($"[DEBUG TARGETING] Detected ally-targeting ITEM: {selectedItem.name}");
             // For ally-targeting items, target allies instead of enemies
             currentTargets = new List<CombatStats>(combatManager.players);
             
-            // Remove the active character (can't target yourself for certain items)
             // For SuperEspressO, allow self-targeting as its implementation supports it
-            if (!string.Equals(selectedItem.name, "Super Espress-O", StringComparison.OrdinalIgnoreCase))
-            {
-                Debug.Log($"[DEBUG TARGETING] Removing active character from targets (not SuperEspressO)");
-                currentTargets.Remove(combatManager.ActiveCharacter);
-            }
-            else
-            {
-                Debug.Log($"[DEBUG TARGETING] Allowing self-targeting for SuperEspressO");
-            }
+            Debug.Log($"[DEBUG TARGETING] Allowing self-targeting for SuperEspressO");
             
             Debug.Log($"[DEBUG TARGETING] Starting ally selection with {currentTargets.Count} potential targets for item {selectedItem.name}");
             
@@ -614,9 +647,12 @@ public class MenuSelector : MonoBehaviour
             currentTargetSelection = 0;
             SetMenuItemsEnabled(false);
             
-            // Ensure the first target is highlighted
-            HighlightSelectedTarget();
-            Debug.Log($"[Target Selection] Initial target selected: {currentTargets[currentTargetSelection].name}");
+            // Only highlight the selected target if it's not a team-wide effect
+            if (selectedItem == null || !string.Equals(selectedItem.name, "Fruit Juice", StringComparison.OrdinalIgnoreCase))
+            {
+                HighlightSelectedTarget();
+                Debug.Log($"[Target Selection] Initial target selected: {currentTargets[currentTargetSelection].name}");
+            }
         }
         else
         {
@@ -635,6 +671,8 @@ public class MenuSelector : MonoBehaviour
         if (currentTargets != null)
         {
             Debug.Log($"[Target Selection] Clearing highlights for {currentTargets.Count} targets");
+            
+            // Always unhighlight all targets, regardless of team effect
             foreach (var target in currentTargets)
             {
                 if (target != null)
@@ -861,6 +899,14 @@ public class MenuSelector : MonoBehaviour
             return;
         }
         
+        // Special handling for team-wide effects like Fruit Juice
+        if (selectedItem != null && string.Equals(selectedItem.name, "Fruit Juice", StringComparison.OrdinalIgnoreCase))
+        {
+            // For team-wide effects, we don't unhighlight anyone
+            Debug.Log($"[DEBUG TARGETING] Maintaining team-wide highlighting for {selectedItem.name}");
+            return;
+        }
+        
         Debug.Log($"[Target Selection] Highlighting target {currentTargetSelection}: {currentTargets[currentTargetSelection].name}");
         
         // Reset highlight for all targets
@@ -929,5 +975,26 @@ public class MenuSelector : MonoBehaviour
     {
         selectedItem = item;
         Debug.Log($"[DEBUG TARGETING] Selected item set: {item.name}, RequiresTarget: {item.requiresTarget}");
+    }
+
+    // Highlight all team members for team-wide effects
+    private void HighlightAllTeamMembers()
+    {
+        Debug.Log($"[DEBUG TARGETING] Highlighting all team members for team effect");
+        
+        foreach (var target in currentTargets)
+        {
+            if (target != null)
+            {
+                // Ensure active character also gets highlighted for team effects
+                if (target == combatManager.ActiveCharacter)
+                {
+                    Debug.Log($"[DEBUG TARGETING] Highlighting active character {target.name} for team effect");
+                }
+                
+                target.HighlightCharacter(true);
+                Debug.Log($"[DEBUG TARGETING] Highlighted team member: {target.name}");
+            }
+        }
     }
 } 

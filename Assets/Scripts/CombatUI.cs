@@ -1055,24 +1055,14 @@ public class CombatUI : MonoBehaviour
         {
             case "Fruit Juice":
                 Debug.Log($"[DEBUG TARGETING] Executing Fruit Juice effect");
-                if (target != null)
+                // Always heal all party members, regardless of target
+                Debug.Log($"[DEBUG TARGETING] Healing all party members with Fruit Juice");
+                foreach (var player in combatManager.players)
                 {
-                    Debug.Log($"[DEBUG TARGETING] Healing targeted player: {target.name}, isEnemy: {target.isEnemy}");
-                    // Heal the targeted player
-                    target.HealHealth(30f);
-                    Debug.Log($"Healed {target.name} for 30 HP using Fruit Juice");
-                }
-                else
-                {
-                    Debug.Log($"[DEBUG TARGETING] No target, healing all party members");
-                    // Heal all party members for 30 HP if no target selected
-                    foreach (var player in combatManager.players)
+                    if (player != null && !player.IsDead())
                     {
-                        if (player != null && !player.IsDead())
-                        {
-                            player.HealHealth(30f);
-                            Debug.Log($"Healed {player.name} for 30 HP using Fruit Juice");
-                        }
+                        player.HealHealth(30f);
+                        Debug.Log($"Healed {player.name} for 30 HP using Fruit Juice");
                     }
                 }
                 break;

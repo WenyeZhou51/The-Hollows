@@ -276,8 +276,8 @@ public class CombatStats : MonoBehaviour
             actionFill.transform.localScale = new Vector3(actionPercent, 1, 1);
         }
         
-        // Handle blinking highlight effect - only if highlighted for targeting and not the active character
-        if (isHighlighted && !IsActiveCharacter)
+        // Handle blinking highlight effect - for any highlighted character, including active character
+        if (isHighlighted)
         {
             blinkTimer += Time.deltaTime;
             if (blinkTimer >= blinkInterval)
@@ -285,17 +285,44 @@ public class CombatStats : MonoBehaviour
                 blinkTimer = 0f;
                 isBlinkOn = !isBlinkOn;
                 
-                // Apply the appropriate color based on blink state
-                if (spriteRenderer != null)
+                if (IsActiveCharacter)
                 {
-                    // Alternate between highlight color and appropriate default color
-                    spriteRenderer.color = isBlinkOn ? highlightColor : (isEnemy ? originalColor : allyDefaultColor);
+                    // For active characters, blink between highlight color and a slightly different highlight
+                    Color alternateHighlight = new Color(
+                        highlightColor.r * 0.8f, 
+                        highlightColor.g * 0.8f, 
+                        highlightColor.b * 0.8f, 
+                        highlightColor.a
+                    );
+                    
+                    // Apply the blink effect
+                    if (spriteRenderer != null)
+                    {
+                        spriteRenderer.color = isBlinkOn ? highlightColor : alternateHighlight;
+                    }
+                    
+                    if (characterImage != null)
+                    {
+                        characterImage.color = isBlinkOn ? highlightColor : alternateHighlight;
+                    }
+                    
+                    Debug.Log($"[Character Highlight] Active character {name} blink state: {isBlinkOn}");
                 }
-                
-                if (characterImage != null)
+                else
                 {
-                    // Alternate between highlight color and appropriate default color
-                    characterImage.color = isBlinkOn ? highlightColor : (isEnemy ? enemyDefaultColor : allyDefaultColor);
+                    // For non-active characters, use the original behavior
+                    // Apply the appropriate color based on blink state
+                    if (spriteRenderer != null)
+                    {
+                        // Alternate between highlight color and appropriate default color
+                        spriteRenderer.color = isBlinkOn ? highlightColor : (isEnemy ? originalColor : allyDefaultColor);
+                    }
+                    
+                    if (characterImage != null)
+                    {
+                        // Alternate between highlight color and appropriate default color
+                        characterImage.color = isBlinkOn ? highlightColor : (isEnemy ? enemyDefaultColor : allyDefaultColor);
+                    }
                 }
             }
         }
@@ -558,12 +585,9 @@ public class CombatStats : MonoBehaviour
 
     public void HighlightCharacter(bool highlight)
     {
-        Debug.Log($"[Character Highlight] {name} highlight set to {highlight}, isEnemy: {isEnemy}");
+        Debug.Log($"[Character Highlight] {name} highlight set to {highlight}, isEnemy: {isEnemy}, isActiveCharacter: {IsActiveCharacter}");
         
-        // If this is the active character, don't change its appearance through highlighting
-        if (IsActiveCharacter) return;
-        
-        // Store the highlight state
+        // Store the highlight state regardless of active status
         isHighlighted = highlight;
         
         // Reset blink timer and state when highlight changes
@@ -572,33 +596,59 @@ public class CombatStats : MonoBehaviour
             blinkTimer = 0f;
             isBlinkOn = true;
             
-            // Set initial highlight colors
-            if (spriteRenderer != null)
+            // If not active character, set initial highlight immediately
+            // If active character, the Update() method will handle blinking
+            if (!IsActiveCharacter)
             {
-                spriteRenderer.color = highlightColor;
-                Debug.Log($"[Character Highlight] {name} spriteRenderer color set to highlight");
+                // Set initial highlight colors
+                if (spriteRenderer != null)
+                {
+                    spriteRenderer.color = highlightColor;
+                    Debug.Log($"[Character Highlight] {name} spriteRenderer color set to highlight");
+                }
+                
+                if (characterImage != null)
+                {
+                    characterImage.color = highlightColor;
+                    Debug.Log($"[Character Highlight] {name} characterImage color set to highlight");
+                }
             }
-            
-            if (characterImage != null)
+            else
             {
-                characterImage.color = highlightColor;
-                Debug.Log($"[Character Highlight] {name} characterImage color set to highlight");
+                Debug.Log($"[Character Highlight] {name} is active character and targeted - will blink in Update");
             }
         }
         else
         {
-            // Reset to appropriate colors when not highlighted
-            if (spriteRenderer != null)
+            // When unhighlighting, if this is the active character, restore to active highlight
+            if (IsActiveCharacter)
             {
-                // Use configurable colors
-                spriteRenderer.color = isEnemy ? originalColor : allyDefaultColor;
-                Debug.Log($"[Character Highlight] {name} spriteRenderer color reset to visible default");
+                if (spriteRenderer != null)
+                {
+                    spriteRenderer.color = highlightColor;
+                    Debug.Log($"[Character Highlight] {name} is active character - kept highlighted");
+                }
+                
+                if (characterImage != null)
+                {
+                    characterImage.color = highlightColor;
+                }
             }
-            
-            if (characterImage != null)
+            else
             {
-                characterImage.color = isEnemy ? enemyDefaultColor : allyDefaultColor;
-                Debug.Log($"[Character Highlight] {name} characterImage color reset to default");
+                // Reset to appropriate colors when not highlighted and not active
+                if (spriteRenderer != null)
+                {
+                    // Use configurable colors
+                    spriteRenderer.color = isEnemy ? originalColor : allyDefaultColor;
+                    Debug.Log($"[Character Highlight] {name} spriteRenderer color reset to visible default");
+                }
+                
+                if (characterImage != null)
+                {
+                    characterImage.color = isEnemy ? enemyDefaultColor : allyDefaultColor;
+                    Debug.Log($"[Character Highlight] {name} characterImage color reset to default");
+                }
             }
         }
     }
