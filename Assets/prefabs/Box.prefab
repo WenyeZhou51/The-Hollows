@@ -101,7 +101,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   hasBeenLooted: 0
   inkFile: {fileID: 4900000, guid: 1d01ea63f7ce75a4fb1aa70ec33db1d0, type: 3}
-  customLootTable: {fileID: 0}
+  lootTable: {fileID: 11400000, guid: 4ddf96799425f604688b1d3b701f8ed0, type: 2}
+  useDefaultItems: 1
+  customLootItems: []
+  dropRate: 1
 --- !u!61 &6235435522925187
 BoxCollider2D:
   m_ObjectHideFlags: 0

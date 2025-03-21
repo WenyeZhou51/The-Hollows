@@ -55,7 +55,7 @@ public class CombatStats : MonoBehaviour
     // Properties for the Piercing Shot skill
     [Header("Defense Reduction Settings")]
     [SerializeField] private int defenseReductionDefaultDuration = 2; // Default duration in turns
-    [SerializeField] private float defenseReductionDefaultMultiplier = 1.5f; // Default multiplier (1.5 = 50% more damage)
+    [SerializeField] private float defenseReductionMultiplier = 1.5f; // Default multiplier (1.5 = 50% more damage)
     [Tooltip("Position offset for the defense reduction icon")]
     [SerializeField] private Vector3 defenseReductionIconOffset = new Vector3(0, -1.2f, 0);
     
@@ -64,6 +64,13 @@ public class CombatStats : MonoBehaviour
     public float DefenseReductionMultiplier { get; private set; } = 1.0f; // 1.0 = normal damage, 1.5 = 50% more damage
     public GameObject DefenseReductionIcon { get; private set; } = null;
 
+    // Properties for Speed Boost effect
+    [Header("Speed Boost Settings")]
+    [Tooltip("The original action speed value before any boosts")]
+    private float baseActionSpeed;
+    private float speedBoostMultiplier = 1f;
+    private int speedBoostTurnsRemaining = 0;
+    
     // Add these fields for the blinking highlight effect
     private bool isHighlighted = false;
     private float blinkTimer = 0f;
@@ -71,7 +78,7 @@ public class CombatStats : MonoBehaviour
     private Color defaultColor = Color.white; // Default color for non-enemy characters
     
     // Track if this character is the active character (currently acting)
-    private bool isActiveCharacter = false;
+    private bool isActiveCharacter = false; // Private backing field
     public bool IsActiveCharacter 
     { 
         get { return isActiveCharacter; }
@@ -270,7 +277,7 @@ public class CombatStats : MonoBehaviour
         }
         
         // Handle blinking highlight effect - only if highlighted for targeting and not the active character
-        if (isHighlighted && !isActiveCharacter)
+        if (isHighlighted && !IsActiveCharacter)
         {
             blinkTimer += Time.deltaTime;
             if (blinkTimer >= blinkInterval)
@@ -554,7 +561,7 @@ public class CombatStats : MonoBehaviour
         Debug.Log($"[Character Highlight] {name} highlight set to {highlight}, isEnemy: {isEnemy}");
         
         // If this is the active character, don't change its appearance through highlighting
-        if (isActiveCharacter) return;
+        if (IsActiveCharacter) return;
         
         // Store the highlight state
         isHighlighted = highlight;
@@ -604,8 +611,8 @@ public class CombatStats : MonoBehaviour
     public void ApplyDefenseReduction()
     {
         HasReducedDefense = true;
-        DefenseReductionTurnsLeft = defenseReductionDefaultDuration; // Use the inspector-configurable duration
-        DefenseReductionMultiplier = defenseReductionDefaultMultiplier; // Use the inspector-configurable multiplier
+        DefenseReductionTurnsLeft = defenseReductionDefaultDuration;
+        DefenseReductionMultiplier = defenseReductionMultiplier;
         Debug.Log($"[Piercing Shot] {name} now has reduced defense. Turns left: {DefenseReductionTurnsLeft}, Multiplier: {DefenseReductionMultiplier}");
         
         // Create defense reduction icon
@@ -698,6 +705,56 @@ public class CombatStats : MonoBehaviour
             // Store the reference
             DefenseReductionIcon = fallbackIcon;
             Debug.Log("[Piercing Shot] Created fallback icon for defense reduction");
+        }
+    }
+
+    // Apply a speed boost effect
+    public void BoostActionSpeed(float boostMultiplier, int durationInTurns)
+    {
+        // Store original action speed if this is the first boost
+        if (speedBoostMultiplier == 1f)
+        {
+            baseActionSpeed = actionSpeed;
+        }
+        
+        // Apply the boost multiplier
+        speedBoostMultiplier = 1f + boostMultiplier;
+        speedBoostTurnsRemaining = durationInTurns;
+        
+        // Update the action speed
+        actionSpeed = baseActionSpeed * speedBoostMultiplier;
+        
+        Debug.Log($"{name}'s action speed boosted by {boostMultiplier * 100}% for {durationInTurns} turns. New speed: {actionSpeed}");
+    }
+    
+    // Remove speed boost effect
+    public void RemoveSpeedBoost()
+    {
+        if (speedBoostMultiplier != 1f)
+        {
+            speedBoostMultiplier = 1f;
+            speedBoostTurnsRemaining = 0;
+            actionSpeed = baseActionSpeed;
+            
+            Debug.Log($"{name}'s action speed returned to normal: {actionSpeed}");
+        }
+    }
+    
+    // Update speed boost duration at the end of this character's turn
+    public void UpdateSpeedBoostDuration()
+    {
+        if (speedBoostTurnsRemaining > 0)
+        {
+            speedBoostTurnsRemaining--;
+            
+            if (speedBoostTurnsRemaining <= 0)
+            {
+                RemoveSpeedBoost();
+            }
+            else
+            {
+                Debug.Log($"{name}'s speed boost remaining: {speedBoostTurnsRemaining} turns");
+            }
         }
     }
 } 

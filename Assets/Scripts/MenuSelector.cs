@@ -550,6 +550,27 @@ public class MenuSelector : MonoBehaviour
                 Debug.Log($"[Ally Targeting] Potential target {i}: {currentTargets[i].name}, isEnemy: {currentTargets[i].isEnemy}");
             }
         }
+        // Check if we're selecting a target for ally-targeting items
+        else if (selectedItem != null && (selectedItem.name == "Super Espress-O" || selectedItem.name == "Fruit Juice"))
+        {
+            // For ally-targeting items, target allies instead of enemies
+            currentTargets = new List<CombatStats>(combatManager.players);
+            
+            // Remove the active character (can't target yourself for certain items)
+            // For SuperEspressO, allow self-targeting as its implementation supports it
+            if (selectedItem.name != "Super Espress-O")
+            {
+                currentTargets.Remove(combatManager.ActiveCharacter);
+            }
+            
+            Debug.Log($"[Ally Targeting] Starting ally selection with {currentTargets.Count} potential targets for item {selectedItem.name}");
+            
+            // Add detailed logging for each potential target
+            for (int i = 0; i < currentTargets.Count; i++)
+            {
+                Debug.Log($"[Ally Targeting] Potential target {i}: {currentTargets[i].name}, isEnemy: {currentTargets[i].isEnemy}");
+            }
+        }
         else
         {
             // Default behavior - target enemies

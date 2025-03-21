@@ -1043,14 +1043,44 @@ public class CombatUI : MonoBehaviour
         switch (item.name)
         {
             case "Fruit Juice":
-                // Heal all party members for 30 HP
-                foreach (var player in combatManager.players)
+                if (target != null)
                 {
-                    if (player != null && !player.IsDead())
+                    // Heal the targeted player
+                    target.HealHealth(30f);
+                    Debug.Log($"Healed {target.name} for 30 HP using Fruit Juice");
+                }
+                else
+                {
+                    // Heal all party members for 30 HP if no target selected
+                    foreach (var player in combatManager.players)
                     {
-                        player.HealHealth(30f);
-                        Debug.Log($"Healed {player.name} for 30 HP using Fruit Juice");
+                        if (player != null && !player.IsDead())
+                        {
+                            player.HealHealth(30f);
+                            Debug.Log($"Healed {player.name} for 30 HP using Fruit Juice");
+                        }
                     }
+                }
+                break;
+                
+            case "Super Espress-O":
+                if (target != null && !target.isEnemy)
+                {
+                    // Restore SP (sanity)
+                    target.HealSanity(50f);
+                    
+                    // Boost action speed
+                    target.BoostActionSpeed(0.5f, 3); // 50% boost for 3 turns
+                    
+                    Debug.Log($"Super Espress-O used: Restored 50 SP and boosted speed by 50% for {target.name} for 3 turns");
+                }
+                else if (target == null)
+                {
+                    // Use on self if no target
+                    activeCharacter.HealSanity(50f);
+                    activeCharacter.BoostActionSpeed(0.5f, 3);
+                    
+                    Debug.Log($"Super Espress-O used: Restored 50 SP and boosted speed by 50% for {activeCharacter.name} for 3 turns");
                 }
                 break;
                 

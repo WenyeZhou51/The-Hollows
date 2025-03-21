@@ -199,6 +199,9 @@ public class CombatManager : MonoBehaviour
             target.TakeDamage(30f);
         }
 
+        // Update speed boost duration at the end of turn
+        enemy.UpdateSpeedBoostDuration();
+        
         enemy.currentAction = 0;
     }
 
@@ -268,6 +271,9 @@ public class CombatManager : MonoBehaviour
     {
         if (activeCharacter != null)
         {
+            // Update speed boost duration at the end of turn
+            activeCharacter.UpdateSpeedBoostDuration();
+            
             // Reset the active character property instead of using highlight
             activeCharacter.IsActiveCharacter = false;
             activeCharacter.currentAction = 0;

@@ -4,10 +4,9 @@ public class InteractableBox : MonoBehaviour, IInteractable
 {
     [SerializeField] private bool hasBeenLooted = false;
     [SerializeField] private TextAsset inkFile;
-    [SerializeField] private LootTable customLootTable;
+    [SerializeField] private LootTable lootTable;
     
     private InkDialogueHandler inkHandler;
-    private LootTable lootTable;
     
     private void Awake()
     {
@@ -22,21 +21,6 @@ public class InteractableBox : MonoBehaviour, IInteractable
         if (inkFile != null)
         {
             inkHandler.InkJSON = inkFile;
-        }
-        
-        // Set up the loot table
-        if (customLootTable != null)
-        {
-            lootTable = customLootTable;
-        }
-        else
-        {
-            // Add a loot table component if not assigned
-            lootTable = GetComponent<LootTable>();
-            if (lootTable == null)
-            {
-                lootTable = gameObject.AddComponent<LootTable>();
-            }
         }
     }
     
@@ -73,27 +57,41 @@ public class InteractableBox : MonoBehaviour, IInteractable
             if (!hasBeenLooted)
             {
                 // Generate random loot ONLY if not looted before
-                ItemData lootedItem = lootTable.GetRandomLoot();
-                
-                // Add to player inventory
-                PlayerController player = FindObjectOfType<PlayerController>();
-                if (player != null)
+                ItemData lootedItem = null;
+                if (lootTable != null)
                 {
-                    PlayerInventory inventory = player.GetComponent<PlayerInventory>();
-                    
-                    if (inventory == null)
-                    {
-                        inventory = player.gameObject.AddComponent<PlayerInventory>();
-                    }
-                    
-                    inventory.AddItem(lootedItem);
-                    hasBeenLooted = true;
-                    
-                    Debug.Log($"Player looted {lootedItem.name} from box");
+                    lootedItem = lootTable.GetRandomLoot();
                 }
                 
-                // Set the looted item in the Ink story
-                inkHandler.SetStoryVariable("itemName", lootedItem.name);
+                if (lootedItem != null)
+                {
+                    // Add to player inventory
+                    PlayerController player = FindObjectOfType<PlayerController>();
+                    if (player != null)
+                    {
+                        PlayerInventory inventory = player.GetComponent<PlayerInventory>();
+                        
+                        if (inventory == null)
+                        {
+                            inventory = player.gameObject.AddComponent<PlayerInventory>();
+                        }
+                        
+                        inventory.AddItem(lootedItem);
+                        Debug.Log($"Player looted {lootedItem.name} from box");
+                        
+                        // Set the looted item in the Ink story
+                        inkHandler.SetStoryVariable("itemName", lootedItem.name);
+                    }
+                }
+                else
+                {
+                    // No item was dropped
+                    inkHandler.SetStoryVariable("itemName", "nothing");
+                    Debug.Log("Box contained no items");
+                }
+                
+                // Mark as looted regardless of whether an item was found
+                hasBeenLooted = true;
             }
             
             // Start the ink dialogue
@@ -117,28 +115,42 @@ public class InteractableBox : MonoBehaviour, IInteractable
             else
             {
                 // Generate random loot
-                ItemData lootedItem = lootTable.GetRandomLoot();
-                
-                // Add to player inventory and mark as looted
-                PlayerController player = FindObjectOfType<PlayerController>();
-                if (player != null)
+                ItemData lootedItem = null;
+                if (lootTable != null)
                 {
-                    PlayerInventory inventory = player.GetComponent<PlayerInventory>();
-                    
-                    if (inventory == null)
-                    {
-                        inventory = player.gameObject.AddComponent<PlayerInventory>();
-                    }
-                    
-                    inventory.AddItem(lootedItem);
-                    hasBeenLooted = true;
-                    
-                    Debug.Log($"Player looted {lootedItem.name} from box");
+                    lootedItem = lootTable.GetRandomLoot();
                 }
                 
-                // Use dynamic message with actual item name
-                string message = $"You found <b>{lootedItem.name}!</b>";
-                DialogueManager.Instance.ShowDialogue(message);
+                if (lootedItem != null)
+                {
+                    // Add to player inventory and mark as looted
+                    PlayerController player = FindObjectOfType<PlayerController>();
+                    if (player != null)
+                    {
+                        PlayerInventory inventory = player.GetComponent<PlayerInventory>();
+                        
+                        if (inventory == null)
+                        {
+                            inventory = player.gameObject.AddComponent<PlayerInventory>();
+                        }
+                        
+                        inventory.AddItem(lootedItem);
+                        Debug.Log($"Player looted {lootedItem.name} from box");
+                        
+                        // Use dynamic message with actual item name
+                        string message = $"You found <b>{lootedItem.name}!</b>";
+                        DialogueManager.Instance.ShowDialogue(message);
+                    }
+                }
+                else
+                {
+                    // No item was dropped or no loot table assigned
+                    DialogueManager.Instance.ShowDialogue("The box is empty.");
+                    Debug.Log("Box contained no items");
+                }
+                
+                // Mark as looted regardless of whether an item was found
+                hasBeenLooted = true;
             }
         }
     }

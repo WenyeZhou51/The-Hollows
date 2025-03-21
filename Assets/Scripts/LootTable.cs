@@ -12,25 +12,36 @@ public class LootItem
     public Sprite icon;
 }
 
-public class LootTable : MonoBehaviour
+// Convert to ScriptableObject so it can be created as an asset
+[CreateAssetMenu(fileName = "New Loot Table", menuName = "Game/Loot Table")]
+public class LootTable : ScriptableObject
 {
+    [Header("Loot Settings")]
     [SerializeField] private List<LootItem> lootItems = new List<LootItem>();
+    [Tooltip("Whether to use the default items if no items are defined")]
     [SerializeField] private bool initializeDefaultLoot = true;
+    [Tooltip("The chance that this container will drop any loot (0-1)")]
+    [Range(0, 1)]
+    [SerializeField] private float dropRate = 1.0f;
     
     private float totalWeight = 0f;
     
-    private void Awake()
+    // Initialize when the asset is created or reset
+    private void OnEnable()
+    {
+        InitializeIfNeeded();
+        CalculateTotalWeight();
+    }
+    
+    public void InitializeIfNeeded()
     {
         if (initializeDefaultLoot && lootItems.Count == 0)
         {
             // Add default loot items
-            lootItems.Add(new LootItem { itemName = "Fruit Juice", description = "Heals 30 HP", weight = 0.8f });
-            lootItems.Add(new LootItem { itemName = "Warding Charm", description = "Protects against harm", weight = 0.1f });
-            lootItems.Add(new LootItem { itemName = "Shortsword", description = "A simple weapon", weight = 0.1f, itemType = ItemData.ItemType.Equipment });
+            lootItems.Add(new LootItem { itemName = "Fruit Juice", description = "Heals 30 HP", weight = 0.8f, requiresTarget = true });
+            lootItems.Add(new LootItem { itemName = "Shiny Bead", description = "Deals 20 damage to target enemy", weight = 0.1f, requiresTarget = true });
+            lootItems.Add(new LootItem { itemName = "Super Espress-O", description = "Restores 50 SP and increases ally speed by 50%", weight = 0.1f, requiresTarget = true });
         }
-        
-        // Calculate total weight
-        CalculateTotalWeight();
     }
     
     private void CalculateTotalWeight()
@@ -44,7 +55,8 @@ public class LootTable : MonoBehaviour
     
     public ItemData GetRandomLoot()
     {
-        if (lootItems.Count == 0)
+        // Check if we should drop anything based on drop rate
+        if (Random.value > dropRate || lootItems.Count == 0)
             return null;
             
         float randomValue = Random.Range(0f, totalWeight);
@@ -85,6 +97,12 @@ public class LootTable : MonoBehaviour
         };
         
         lootItems.Add(newItem);
+        CalculateTotalWeight();
+    }
+    
+    // Calculate weights after Unity Inspector changes
+    private void OnValidate()
+    {
         CalculateTotalWeight();
     }
 } 
