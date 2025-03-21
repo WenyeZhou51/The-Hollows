@@ -22,6 +22,8 @@ public class SceneTransitionManager : MonoBehaviour
     // Combat results
     private bool combatWon = false;
     
+    private List<ItemData> storedItems = new List<ItemData>();
+    
     private void Awake()
     {
         // Singleton setup
@@ -86,11 +88,33 @@ public class SceneTransitionManager : MonoBehaviour
         playerInventory = player.GetComponent<PlayerInventory>();
         playerPosition = player.transform.position;
         
+        // Debug log the exact player inventory contents
+        Debug.Log("=== INVENTORY DEBUG: StartCombat ===");
+        if (playerInventory != null && playerInventory.Items != null) 
+        {
+            Debug.Log($"Player inventory contains {playerInventory.Items.Count} items:");
+            foreach (var item in playerInventory.Items)
+            {
+                Debug.Log($"Item: {item.name}, Amount: {item.amount}");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("Player inventory is null or empty when starting combat!");
+        }
+        
+        storedItems.Clear();
+        foreach(var item in playerInventory.Items) {
+            // Create a new copy of each item
+            storedItems.Add(new ItemData(item.name, item.description, item.amount, item.requiresTarget));
+        }
+        
         // Load the combat scene
         SceneManager.LoadScene(combatSceneName);
         
         // Register for scene loaded event
         SceneManager.sceneLoaded += OnCombatSceneLoaded;
+        Debug.Log("SceneTransitionManager: Combat scene loaded");
     }
     
     /// <summary>
@@ -125,9 +149,39 @@ public class SceneTransitionManager : MonoBehaviour
     private void SetupCombatScene(CombatManager combatManager)
     {
         // Pass player inventory to combat manager
-        if (playerInventory != null)
+        if (storedItems.Count > 0)
         {
-            combatManager.SetupPlayerInventory(playerInventory.Items);
+            Debug.Log("=== INVENTORY DEBUG: SetupCombatScene ===");
+            Debug.Log($"Setting up combat scene with {storedItems.Count} player inventory items");
+            
+            // Log each item being passed to combat
+            foreach (var item in storedItems)
+            {
+                Debug.Log($"Passing to combat: {item.name}, Amount: {item.amount}");
+            }
+            
+            combatManager.SetupPlayerInventory(storedItems);
+            
+            // Also set up individual player character inventories
+            foreach (var player in combatManager.players)
+            {
+                if (player != null)
+                {
+                    // Clear existing inventory
+                    player.items.Clear();
+                    
+                    // Copy items to player's inventory
+                    foreach (var item in storedItems)
+                    {
+                        player.items.Add(item);
+                        Debug.Log($"Added {item.name} (x{item.amount}) to player character: {player.characterName}");
+                    }
+                }
+            }
+        }
+        else
+        {
+            Debug.LogWarning("No player inventory found when setting up combat scene");
         }
         
         // Listen for combat end event
@@ -201,10 +255,28 @@ public class SceneTransitionManager : MonoBehaviour
             PlayerInventory newInventory = player.GetComponent<PlayerInventory>();
             if (newInventory != null && playerInventory != null)
             {
+                Debug.Log("=== INVENTORY DEBUG: SetupOverworldAfterCombat ===");
+                Debug.Log("Stored inventory from combat:");
+                foreach (var item in storedItems)
+                {
+                    Debug.Log($"Stored item: {item.name}, Amount: {item.amount}");
+                }
+                
+                // Clear the old inventory first to prevent duplicating items
+                newInventory.ClearInventory();
+                
                 // Copy items from saved inventory to new inventory
-                foreach (ItemData item in playerInventory.Items)
+                foreach (ItemData item in storedItems)
                 {
                     newInventory.AddItem(item);
+                    Debug.Log($"Restored {item.name} (x{item.amount}) to overworld player inventory");
+                }
+                
+                // Log final overworld inventory
+                Debug.Log("Final overworld inventory:");
+                foreach (var item in newInventory.Items)
+                {
+                    Debug.Log($"Final overworld item: {item.name}, Amount: {item.amount}");
                 }
             }
             
@@ -218,6 +290,72 @@ public class SceneTransitionManager : MonoBehaviour
         else
         {
             Debug.LogError("Player not found in overworld scene!");
+        }
+    }
+    
+    /// <summary>
+    /// Gets the player's inventory for use in combat
+    /// </summary>
+    /// <returns>A list of items from the player's inventory</returns>
+    public List<ItemData> GetPlayerInventory()
+    {
+        if (storedItems.Count > 0)
+        {
+            Debug.Log($"SceneTransitionManager providing {storedItems.Count} items to combat");
+            return storedItems;
+        }
+        else
+        {
+            Debug.LogWarning("No player inventory found when requested by combat scene");
+            return new List<ItemData>();
+        }
+    }
+    
+    /// <summary>
+    /// Updates the stored player inventory with changes from combat
+    /// </summary>
+    /// <param name="updatedItems">The updated list of items after combat</param>
+    public void SetPlayerInventory(List<ItemData> updatedItems)
+    {
+        Debug.Log("=== INVENTORY DEBUG: SetPlayerInventory ===");
+        
+        if (storedItems != null && updatedItems != null)
+        {
+            // Log inventory before updating
+            Debug.Log("Current inventory before update:");
+            foreach (var item in storedItems)
+            {
+                Debug.Log($"Current item: {item.name}, Amount: {item.amount}");
+            }
+            
+            // Log incoming updated inventory
+            Debug.Log("Incoming updated inventory:");
+            foreach (var item in updatedItems)
+            {
+                Debug.Log($"Updated item: {item.name}, Amount: {item.amount}");
+            }
+            
+            // Clear existing inventory
+            storedItems.Clear();
+            
+            // Add all items from the updated list
+            foreach (ItemData item in updatedItems)
+            {
+                storedItems.Add(item);
+            }
+            
+            Debug.Log($"SceneTransitionManager updated player inventory with {updatedItems.Count} items from combat");
+            
+            // Log final inventory after update
+            Debug.Log("Final inventory after update:");
+            foreach (var item in storedItems)
+            {
+                Debug.Log($"Final item: {item.name}, Amount: {item.amount}");
+            }
+        }
+        else
+        {
+            Debug.LogError("No playerInventory available to update with combat items!");
         }
     }
 } 

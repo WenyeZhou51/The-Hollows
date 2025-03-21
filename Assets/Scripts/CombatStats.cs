@@ -161,21 +161,9 @@ public class CombatStats : MonoBehaviour
         // Debug log to check character name
         Debug.Log($"Character initialized: {characterName}, isEnemy: {isEnemy}, maxHealth: {maxHealth}, maxAction: {maxAction}, actionSpeed: {actionSpeed}");
 
-        // Add Fruit Juice items to the first player character only (to avoid duplicates)
+        // Add skills to the first player character only (to avoid duplicates)
         if (!isEnemy && characterName == "The Magician")
         {
-            // Add items to the party
-            Debug.Log("Adding items to the party");
-            
-            // Clear existing items to prevent duplicates
-            items.Clear();
-            
-            // Add 3 Fruit Juice items
-            ItemData fruitJuice = new ItemData("Fruit Juice", "Heals all party members for 30 HP", 3, false);
-            items.Add(fruitJuice);
-            
-            Debug.Log($"Added {fruitJuice.amount}x {fruitJuice.name} to the party inventory");
-            
             Debug.Log($"Adding skills for The Magician character");
             
             // Clear existing skills to prevent duplicates

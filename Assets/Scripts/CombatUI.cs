@@ -1,7 +1,8 @@
+using System.Collections.Generic;
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-using System.Collections.Generic;
 using UnityEditor;
 using System.Linq;
 using System.Collections;
@@ -549,7 +550,7 @@ public class CombatUI : MonoBehaviour
                 if (target != null)
                 {
                     // Determine number of hits (1-5 random)
-                    int hitCount = Random.Range(1, 6); // 1 to 5 inclusive
+                    int hitCount = UnityEngine.Random.Range(1, 6); // 1 to 5 inclusive
                     float totalDamage = 0;
                     
                     Debug.Log($"[Skill Execution] Fiend Fire hits {hitCount} times for {fiendFireDamage} damage each");
@@ -1000,17 +1001,18 @@ public class CombatUI : MonoBehaviour
     
     public void OnItemButtonClicked(ItemData item)
     {
-        Debug.Log($"[ItemButton Lifecycle] Item button clicked - Item: {item.name}");
+        Debug.Log($"=== INVENTORY DEBUG: CombatUI.OnItemButtonClicked ===");
+        Debug.Log($"Item button clicked - Item: {item.name}, Amount: {item.amount}");
         if (item.requiresTarget)
         {
-            Debug.Log($"[ItemButton Lifecycle] Item requires target, starting target selection");
+            Debug.Log($"Item requires target, starting target selection");
             menuSelector.StartTargetSelection();
             // Store the selected item for when target is selected
             menuSelector.SetSelectedItem(item);
         }
         else
         {
-            Debug.Log($"[ItemButton Lifecycle] Item does not require target, executing immediately");
+            Debug.Log($"Item does not require target, executing immediately");
             ExecuteItem(item, null);
         }
     }
@@ -1032,6 +1034,9 @@ public class CombatUI : MonoBehaviour
     
     private IEnumerator ExecuteItemAfterMessage(ItemData item, CombatStats target, CombatStats activeCharacter)
     {
+        Debug.Log($"=== INVENTORY DEBUG: CombatUI.ExecuteItemAfterMessage ===");
+        Debug.Log($"Executing item effect for {item.name}, Amount before using: {item.amount}");
+        
         yield return new WaitForSeconds(actionMessageDuration);
         
         // Implement item effects
@@ -1044,34 +1049,48 @@ public class CombatUI : MonoBehaviour
                     if (player != null && !player.IsDead())
                     {
                         player.HealHealth(30f);
-                        Debug.Log($"[ItemButton Lifecycle] Healed {player.name} for 30 HP using Fruit Juice");
+                        Debug.Log($"Healed {player.name} for 30 HP using Fruit Juice");
                     }
                 }
                 break;
                 
             default:
-                Debug.LogWarning($"[ItemButton Lifecycle] Unknown item: {item.name}");
+                Debug.LogWarning($"Unknown item: {item.name}");
                 break;
         }
         
         // Reduce item count
         item.amount--;
-        Debug.Log($"[ItemButton Lifecycle] {item.name} amount reduced to {item.amount}");
+        Debug.Log($"{item.name} amount reduced to {item.amount}");
         
         // Remove item if amount is 0
         if (item.amount <= 0)
         {
-            Debug.Log($"[ItemButton Lifecycle] {item.name} used up, removing from inventory");
+            Debug.Log($"{item.name} used up, removing from inventory");
             
-            // Remove from all players' inventories
+            // Get the combat manager's inventory
+            var playerInventory = combatManager.GetPlayerInventoryItems();
+            if (playerInventory != null)
+            {
+                Debug.Log($"Removing {item.name} from combat manager's inventory");
+                // Remove the item from the combat manager's inventory
+                playerInventory.RemoveAll(i => i.name == item.name && i.amount <= 0);
+            }
+            
+            // Also remove from all players' inventories
             foreach (var player in combatManager.players)
             {
                 if (player != null)
                 {
+                    Debug.Log($"Removing {item.name} from {player.characterName}'s inventory");
                     player.items.RemoveAll(i => i.name == item.name && i.amount <= 0);
                 }
             }
         }
+        
+        // Update the UI with the new inventory state
+        var updatedInventory = combatManager.GetPlayerInventoryItems();
+        PopulateItemMenu(updatedInventory);
         
         // Make sure we're not in target selection mode before ending the turn
         if (menuSelector.IsSelectingTarget())
@@ -1240,15 +1259,48 @@ public class CombatUI : MonoBehaviour
     /// <param name="items">The items to populate the menu with</param>
     public void PopulateItemMenu(List<ItemData> items)
     {
+        Debug.Log("=== INVENTORY DEBUG: CombatUI.PopulateItemMenu ===");
+        
         if (itemMenu == null || items == null)
         {
+            Debug.LogWarning("Cannot populate item menu: itemMenu or items list is null");
             return;
         }
+        
+        Debug.Log($"Populating item menu with {items.Count} items from combat inventory");
         
         // Clear existing buttons
         foreach (Transform child in itemMenu.transform)
         {
-            Destroy(child.gameObject);
+            // Don't destroy layout groups or other UI components
+            if (child.GetComponent<Button>() != null || child.name.Contains("button", StringComparison.OrdinalIgnoreCase))
+            {
+                Debug.Log($"Destroying existing item button: {child.name}");
+                Destroy(child.gameObject);
+            }
+        }
+        
+        // Find or create the container for buttons
+        Transform itemsContainer = itemMenu.transform.Find("ItemsContainer");
+        if (itemsContainer == null)
+        {
+            GameObject container = new GameObject("ItemsContainer");
+            container.transform.SetParent(itemMenu.transform, false);
+            RectTransform rectTransform = container.AddComponent<RectTransform>();
+            rectTransform.anchorMin = new Vector2(0, 0);
+            rectTransform.anchorMax = new Vector2(1, 1);
+            rectTransform.offsetMin = new Vector2(10, 10);
+            rectTransform.offsetMax = new Vector2(-10, -10);
+            
+            // Add grid layout
+            GridLayoutGroup grid = container.AddComponent<GridLayoutGroup>();
+            grid.cellSize = new Vector2(300, 40);
+            grid.spacing = new Vector2(30, 30);
+            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            grid.constraintCount = 2;
+            
+            itemsContainer = container.transform;
+            Debug.Log("Created new ItemsContainer with GridLayoutGroup");
         }
         
         // Add buttons for each item
@@ -1256,7 +1308,8 @@ public class CombatUI : MonoBehaviour
         {
             if (item.amount > 0)
             {
-                GameObject buttonObj = Instantiate(buttonPrefab, itemMenu.transform);
+                Debug.Log($"Creating button for item: {item.name} x{item.amount}");
+                GameObject buttonObj = Instantiate(buttonPrefab, itemsContainer);
                 ItemButtonData buttonData = buttonObj.AddComponent<ItemButtonData>();
                 buttonData.item = item;
                 
@@ -1265,6 +1318,18 @@ public class CombatUI : MonoBehaviour
                 if (buttonText != null)
                 {
                     buttonText.text = $"{item.name} x{item.amount}";
+                }
+                else
+                {
+                    TextMeshProUGUI tmpText = buttonObj.GetComponentInChildren<TextMeshProUGUI>();
+                    if (tmpText != null)
+                    {
+                        tmpText.text = $"{item.name} x{item.amount}";
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"No Text or TextMeshProUGUI found on button for item {item.name}");
+                    }
                 }
                 
                 // Add click listener
@@ -1283,45 +1348,9 @@ public class CombatUI : MonoBehaviour
     /// <param name="item">The item to use</param>
     private void UseItem(ItemData item)
     {
-        // Implement the item use logic based on your game's design
-        // This is a placeholder for demonstration purposes
-        
-        Debug.Log($"Using item: {item.name}");
-        
-        CombatStats activeCharacter = combatManager.ActiveCharacter;
-        if (activeCharacter != null)
-        {
-            // Example: If it's a health potion, heal the character
-            if (item.name.Contains("Potion") || item.name.Contains("Heal"))
-            {
-                activeCharacter.HealHealth(20f);
-                
-                // Show visual feedback
-                if (healingPopupPrefab != null)
-                {
-                    GameObject popup = Instantiate(healingPopupPrefab, activeCharacter.transform.position, Quaternion.identity);
-                    HealingPopup healingPopup = popup.GetComponent<HealingPopup>();
-                    if (healingPopup != null)
-                    {
-                        healingPopup.Setup(20f, false); // false = healing HP, not sanity
-                    }
-                }
-                
-                // Display action message
-                if (turnText != null)
-                {
-                    DisplayTurnAndActionMessage($"{activeCharacter.characterName} used {item.name}!");
-                }
-            }
-            
-            // Reduce item count
-            item.amount--;
-            
-            // End player turn
-            combatManager.EndPlayerTurn();
-            
-            // Refresh the item menu
-            PopulateItemMenu(combatManager.GetPlayerInventoryItems());
-        }
+        // Use the newer implementation that correctly manages inventory
+        Debug.Log($"=== INVENTORY DEBUG: CombatUI.UseItem ===");
+        Debug.Log($"Using item: {item.name}, Amount: {item.amount}");
+        OnItemButtonClicked(item);
     }
 } 

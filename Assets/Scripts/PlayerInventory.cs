@@ -58,4 +58,15 @@ public class PlayerInventory : MonoBehaviour
     {
         return items.Find(i => i.name == itemName);
     }
+    
+    /// <summary>
+    /// Clears all items from the inventory
+    /// </summary>
+    public void ClearInventory()
+    {
+        items.Clear();
+        
+        // Notify listeners that inventory has changed
+        OnInventoryChanged?.Invoke();
+    }
 } 

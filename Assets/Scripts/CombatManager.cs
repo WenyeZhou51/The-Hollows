@@ -286,12 +286,6 @@ public class CombatManager : MonoBehaviour
 
     private void CheckBattleEnd()
     {
-        // Update SceneTransitionManager with current inventory before ending combat
-        if (SceneTransitionManager.Instance != null)
-        {
-            SceneTransitionManager.Instance.SetPlayerInventory(playerInventoryItems);
-        }
-
         // Check if all enemies are defeated
         bool allEnemiesDefeated = enemies.Count == 0 || enemies.All(e => e == null || e.IsDead());
         
@@ -305,6 +299,13 @@ public class CombatManager : MonoBehaviour
             
             // Determine winner
             bool playerWon = allEnemiesDefeated;
+            
+            // Update SceneTransitionManager with current inventory before ending combat
+            if (SceneTransitionManager.Instance != null)
+            {
+                Debug.Log($"Combat ending: Saving {playerInventoryItems.Count} items to SceneTransitionManager");
+                SceneTransitionManager.Instance.SetPlayerInventory(playerInventoryItems);
+            }
             
             // Trigger combat end event
             if (OnCombatEnd != null)
@@ -342,11 +343,16 @@ public class CombatManager : MonoBehaviour
         // Store a copy of the inventory items
         playerInventoryItems = new List<ItemData>();
         
+        Debug.Log("=== INVENTORY DEBUG: CombatManager.SetupPlayerInventory ===");
+        
         if (inventoryItems != null)
         {
+            Debug.Log($"Received {inventoryItems.Count} items from SceneTransitionManager");
+            
             foreach (ItemData item in inventoryItems)
             {
                 playerInventoryItems.Add(item);
+                Debug.Log($"Added to combat inventory: {item.name}, Amount: {item.amount}");
             }
             
             Debug.Log($"Combat Manager received {playerInventoryItems.Count} items from player inventory");
@@ -354,8 +360,17 @@ public class CombatManager : MonoBehaviour
             // Update the item menu if it exists
             if (itemMenu != null && combatUI != null)
             {
+                Debug.Log("Populating item menu with current inventory items");
                 combatUI.PopulateItemMenu(playerInventoryItems);
             }
+            else
+            {
+                Debug.LogWarning("Could not populate item menu: itemMenu or combatUI is null");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("Received null inventory from SceneTransitionManager");
         }
     }
     
@@ -364,6 +379,18 @@ public class CombatManager : MonoBehaviour
     /// </summary>
     public List<ItemData> GetPlayerInventoryItems()
     {
+        if (playerInventoryItems == null)
+        {
+            Debug.LogWarning("Combat inventory is null when requested");
+            playerInventoryItems = new List<ItemData>();
+        }
+        
+        Debug.Log($"GetPlayerInventoryItems returning {playerInventoryItems.Count} items");
+        foreach (var item in playerInventoryItems)
+        {
+            Debug.Log($"Current combat inventory item: {item.name}, Amount: {item.amount}");
+        }
+        
         return playerInventoryItems;
     }
 } 
