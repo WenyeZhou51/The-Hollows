@@ -1037,6 +1037,24 @@ public class CombatUI : MonoBehaviour
             target = activeCharacter;
         }
         
+        // Double-check the target for enemy-targeting items (defensive programming)
+        if (string.Equals(item.name, "Shiny Bead", StringComparison.OrdinalIgnoreCase) && target != null && !target.isEnemy)
+        {
+            Debug.LogError($"[DEBUG TARGETING] ExecuteItem - ERROR: Tried to use {item.name} on ally {target.name}! Finding an enemy target instead.");
+            // Try to find an enemy target
+            var enemies = combatManager.GetLivingEnemies();
+            if (enemies.Count > 0)
+            {
+                target = enemies[0]; // Use the first available enemy
+                Debug.Log($"[DEBUG TARGETING] Redirected {item.name} to enemy target: {target.name}");
+            }
+            else
+            {
+                Debug.LogError($"[DEBUG TARGETING] No enemy targets available for {item.name}, cannot use item!");
+                return; // Cannot use item if no enemies
+            }
+        }
+        
         // Display item action message
         DisplayTurnAndActionMessage($"{activeCharacter.characterName} uses {item.name}!");
         
@@ -1093,6 +1111,26 @@ public class CombatUI : MonoBehaviour
                     activeCharacter.BoostActionSpeed(0.5f, 3);
                     
                     Debug.Log($"Super Espress-O used: Restored 50 SP and boosted speed by 50% for {activeCharacter.name} for 3 turns");
+                }
+                break;
+                
+            case "Shiny Bead":
+                Debug.Log($"[DEBUG TARGETING] Executing Shiny Bead effect");
+                if (target != null && target.isEnemy)
+                {
+                    // Deal damage to the enemy target
+                    float damage = 20f;
+                    target.TakeDamage(damage);
+                    Debug.Log($"[DEBUG TARGETING] Shiny Bead dealt {damage} damage to enemy: {target.name}");
+                }
+                else if (target != null && !target.isEnemy)
+                {
+                    Debug.Log($"[DEBUG TARGETING] ERROR: Target is ally: {target.name} - Shiny Bead should only target enemies!");
+                    // This should never happen with proper targeting
+                }
+                else
+                {
+                    Debug.LogWarning($"[DEBUG TARGETING] No target specified for Shiny Bead, cannot execute");
                 }
                 break;
                 

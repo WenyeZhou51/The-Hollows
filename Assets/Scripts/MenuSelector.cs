@@ -623,6 +623,21 @@ public class MenuSelector : MonoBehaviour
                 Debug.Log($"[DEBUG TARGETING] Potential ally target {i}: {currentTargets[i].name}, isEnemy: {currentTargets[i].isEnemy}");
             }
         }
+        // Check if we're selecting a target for enemy-targeting item (Shiny Bead)
+        else if (selectedItem != null && string.Equals(selectedItem.name, "Shiny Bead", StringComparison.OrdinalIgnoreCase))
+        {
+            Debug.Log($"[DEBUG TARGETING] Detected enemy-targeting ITEM: {selectedItem.name}");
+            // For enemy-targeting items, target enemies
+            currentTargets = combatManager.GetLivingEnemies();
+            
+            Debug.Log($"[DEBUG TARGETING] Starting enemy selection with {currentTargets.Count} potential targets for item {selectedItem.name}");
+            
+            // Add detailed logging for each potential target
+            for (int i = 0; i < currentTargets.Count; i++)
+            {
+                Debug.Log($"[DEBUG TARGETING] Potential enemy target {i}: {currentTargets[i].name}, isEnemy: {currentTargets[i].isEnemy}");
+            }
+        }
         else
         {
             // Default behavior - target enemies
