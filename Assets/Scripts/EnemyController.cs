@@ -28,6 +28,7 @@ public class EnemyController : MonoBehaviour
     private AIPath aiPath;
     private AIDestinationSetter aiDestinationSetter;
     private Seeker seeker;
+    private Animator animator;
     
     // State tracking
     private bool hasLineOfSight = false;
@@ -66,6 +67,7 @@ public class EnemyController : MonoBehaviour
         aiPath = GetComponent<AIPath>();
         aiDestinationSetter = GetComponent<AIDestinationSetter>();
         seeker = GetComponent<Seeker>();
+        animator = GetComponent<Animator>();
         
         // Check if components exist
         if (aiPath == null)
@@ -160,6 +162,9 @@ public class EnemyController : MonoBehaviour
                 HandlePaused();
                 break;
         }
+        
+        // Update animation based on movement
+        UpdateAnimation();
         
         // Handle sprite flipping for 2D games
         UpdateFacing();
@@ -409,13 +414,16 @@ public class EnemyController : MonoBehaviour
         {
             case EnemyState.Chasing:
                 Debug.Log("Enemy has spotted player, beginning chase");
+                if (animator != null) animator.SetTrigger("Chase");
                 break;
             case EnemyState.Wandering:
                 Debug.Log("Enemy is wandering");
+                if (animator != null) animator.SetTrigger("Wander");
                 break;
             case EnemyState.Paused:
                 aiPath.canMove = false;
                 Debug.Log("Enemy is paused");
+                if (animator != null) animator.SetTrigger("Pause");
                 break;
         }
         
@@ -462,6 +470,26 @@ public class EnemyController : MonoBehaviour
                 transform.localScale = new Vector3(-xScale, originalScale.y, originalScale.z);
             }
         }
+    }
+    
+    private void UpdateAnimation()
+    {
+        if (animator == null) return;
+        
+        // Set animation parameters based on state and movement
+        if (aiPath.velocity.magnitude > 0.1f)
+        {
+            // Play walking/running animation
+            animator.SetBool("IsMoving", true);
+        }
+        else
+        {
+            // Play idle animation
+            animator.SetBool("IsMoving", false);
+        }
+        
+        // Optionally set additional parameters based on state
+        animator.SetInteger("State", (int)currentState);
     }
     
     // Add collision handling to prevent thinning and disappearing
