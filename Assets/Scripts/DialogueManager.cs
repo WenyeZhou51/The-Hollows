@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using Ink.Runtime;
+using Pathfinding;
 
 public class DialogueManager : MonoBehaviour
 {
@@ -26,6 +27,10 @@ public class DialogueManager : MonoBehaviour
     [SerializeField] private Color highlightedButtonColor = new Color(0.4f, 0.6f, 1f, 1f);
     [SerializeField] private KeyCode interactKey = KeyCode.Z;
     
+    [Header("Game Pause Settings")]
+    [SerializeField] private bool pauseGameDuringDialogue = true;
+    [SerializeField] private bool affectEnemies = true;
+    
     private bool isDialogueActive = false;
     private InkDialogueHandler currentInkHandler;
     private List<GameObject> choiceButtons = new List<GameObject>();
@@ -35,6 +40,10 @@ public class DialogueManager : MonoBehaviour
     private bool canvasInitialized = false;
     private bool waitForKeyRelease = false;
     private bool textFullyRevealed = false; // Track if text has been revealed but not advanced
+
+    // Public event that other systems can subscribe to
+    public delegate void DialogueStateChanged(bool isActive);
+    public static event DialogueStateChanged OnDialogueStateChanged;
 
     /// <summary>
     /// Creates a DialogueManager instance if one doesn't exist already.
@@ -470,6 +479,18 @@ public class DialogueManager : MonoBehaviour
         
         // Show the first line of dialogue
         ContinueInkStory();
+        
+        // Set the flag for dialogue being active
+        isDialogueActive = true;
+        
+        // Pause the game if needed (this should be early in the method)
+        if (pauseGameDuringDialogue)
+        {
+            PauseGame(true);
+        }
+        
+        // Notify subscribers that dialogue has started
+        OnDialogueStateChanged?.Invoke(true);
     }
     
     public void ContinueInkStory()
@@ -755,6 +776,12 @@ public class DialogueManager : MonoBehaviour
         // Set dialogue inactive - this is what PlayerController checks
         isDialogueActive = false;
         
+        // Unpause the game
+        if (pauseGameDuringDialogue)
+        {
+            PauseGame(false);
+        }
+        
         // Try to find the player and enable movement
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
@@ -775,6 +802,9 @@ public class DialogueManager : MonoBehaviour
             }
         }
         
+        // Notify subscribers that dialogue has ended
+        OnDialogueStateChanged?.Invoke(false);
+        
         Debug.Log("Dialogue closed");
     }
 
@@ -793,49 +823,39 @@ public class DialogueManager : MonoBehaviour
     private IEnumerator TypeText(string text)
     {
         dialogueText.text = "";
-        string visibleText = "";
-        // Parse rich text tags to handle them properly
-        List<int> tagStarts = new List<int>();
-        List<int> tagEnds = new List<int>();
-        
-        // Find all tag positions
-        for (int i = 0; i < text.Length; i++)
+        textFullyRevealed = false;
+
+        // If not using typewriter effect, just set the text and return
+        if (!useTypewriterEffect)
         {
-            if (text[i] == '<')
-                tagStarts.Add(i);
-            else if (text[i] == '>')
-                tagEnds.Add(i);
+            dialogueText.text = text;
+            textFullyRevealed = true;
+            yield break;
         }
         
-        // Display text character by character
-        for (int i = 0; i < text.Length; i++)
+        // Use a time-independent approach that works even when Time.timeScale = 0
+        float timeSinceLastChar = 0f;
+        
+        foreach (char c in text)
         {
-            // Check if current position is inside a tag
-            bool insideTag = false;
-            for (int j = 0; j < tagStarts.Count; j++)
-            {
-                if (i >= tagStarts[j] && i <= tagEnds[j])
-                {
-                    insideTag = true;
-                    break;
-                }
-            }
+            // Use unscaledDeltaTime to ensure this works even when the game is paused
+            dialogueText.text += c;
             
-            // Add the current character
-            visibleText += text[i];
+            // Play typing sound if available
+            // ... existing sound code ...
             
-            // Only pause for visible characters (not tags)
-            if (!insideTag)
+            // Wait for the specified time
+            // This is the critical part that uses unscaledDeltaTime instead of deltaTime
+            timeSinceLastChar = 0f;
+            while (timeSinceLastChar < typingSpeed)
             {
-                dialogueText.text = visibleText;
-                yield return new WaitForSeconds(typingSpeed);
+                timeSinceLastChar += Time.unscaledDeltaTime;
+                yield return null;
             }
         }
         
-        // Ensure the final text is set correctly
-        dialogueText.text = text;
+        // Text is now fully revealed
         textFullyRevealed = true;
-        Debug.Log("Text typing completed naturally, marked as fully revealed");
     }
 
     public void Initialize(GameObject panel, TextMeshProUGUI text, GameObject choices, GameObject buttonPrefab)
@@ -885,5 +905,30 @@ public class DialogueManager : MonoBehaviour
         {
             Debug.LogError("Attempted to set null DialogueCanvas prefab");
         }
+    }
+
+    // New method to handle game pausing
+    private void PauseGame(bool pause)
+    {
+        // Don't change the time scale - this would break the typewriter effect
+        // Instead, directly disable enemy components
+        
+        if (affectEnemies)
+        {
+            // Find all enemies and pause/unpause them
+            EnemyController[] enemies = FindObjectsOfType<EnemyController>();
+            foreach (EnemyController enemy in enemies)
+            {
+                // Access the AIPath component directly
+                AIPath aiPath = enemy.GetComponent<AIPath>();
+                if (aiPath != null)
+                {
+                    aiPath.canMove = !pause;
+                }
+            }
+        }
+        
+        // Broadcast the pause state change in case other systems need to respond
+        Debug.Log($"Game {(pause ? "paused" : "unpaused")} due to dialogue");
     }
 } 

@@ -53,6 +53,10 @@ public class EnemyController : MonoBehaviour
     private Vector3 wanderTarget;
     private GameObject wanderTargetObject;
     
+    // Track our manual pause state
+    private bool isPausedByDialogue = false;
+    private EnemyState stateBeforePause;
+    
     private void Start()
     {
         // Store original scale and position
@@ -142,9 +146,62 @@ public class EnemyController : MonoBehaviour
         SetNewWanderTarget();
     }
     
+    private void OnEnable()
+    {
+        // Subscribe to dialogue events
+        DialogueManager.OnDialogueStateChanged += OnDialogueStateChanged;
+    }
+    
+    private void OnDisable()
+    {
+        // Unsubscribe from dialogue events
+        DialogueManager.OnDialogueStateChanged -= OnDialogueStateChanged;
+    }
+    
+    private void OnDialogueStateChanged(bool isDialogueActive)
+    {
+        if (isDialogueActive)
+        {
+            // Dialogue started - pause the enemy
+            isPausedByDialogue = true;
+            
+            // Remember our current state to restore it later
+            stateBeforePause = currentState;
+            
+            // Force AI path to stop moving
+            if (aiPath != null)
+            {
+                aiPath.canMove = false;
+            }
+            
+            // Set current state to paused
+            ChangeState(EnemyState.Paused);
+        }
+        else
+        {
+            // Dialogue ended - unpause the enemy
+            isPausedByDialogue = false;
+            
+            // Only restore AI path movement if we're not otherwise paused
+            if (aiPath != null)
+            {
+                aiPath.canMove = (stateBeforePause == EnemyState.Chasing || stateBeforePause == EnemyState.Wandering);
+            }
+            
+            // Restore previous state
+            ChangeState(stateBeforePause);
+        }
+    }
+    
     private void Update()
     {
         if (target == null) return;
+        
+        // Skip all update logic if paused by dialogue
+        if (isPausedByDialogue)
+        {
+            return;
+        }
         
         // Check line of sight to player
         CheckLineOfSight();
@@ -395,6 +452,12 @@ public class EnemyController : MonoBehaviour
     
     private void ChangeState(EnemyState newState)
     {
+        // Don't allow state changes if paused by dialogue, unless we're being paused
+        if (isPausedByDialogue && newState != EnemyState.Paused)
+        {
+            return;
+        }
+        
         // Exit previous state
         switch (currentState)
         {
