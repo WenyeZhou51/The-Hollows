@@ -1,23 +1,43 @@
 // NPC Dialogue Sample
 // This is a sample Ink script for NPC dialogue
 
+VAR hasInteractedBefore = false
+
 -> main
 
 === main ===
-Hello there, traveler! I'm the guardian of this entrance.
-What brings you to The Hollows?
-* [I'm exploring the area.]
-    Ah, an adventurer! Be careful as you venture deeper.
-    The creatures here can be quite dangerous.
-    -> more_info
-* [I'm looking for treasure.]
-    Treasure, you say? Well, there are rumors of ancient artifacts hidden within...
-    But many have entered seeking riches, and few have returned.
-    -> more_info
-* [Just passing through.]
-    Nobody just "passes through" The Hollows, stranger.
-    Everyone who enters has a purpose... or finds one.
-    -> more_info
+{hasInteractedBefore:
+    // This dialogue path is shown when the player has talked to this NPC before
+    Welcome back, traveler! Need something else?
+    * [Ask about the area again.]
+        As I said before, be careful as you venture deeper.
+        The creatures here can be quite dangerous.
+        -> more_info
+    * [Any new information?]
+        Well, I've heard rumors of strange lights deeper in the caverns.
+        Some say it's treasure... others think it's something worse.
+        -> END
+    * [Just checking in.]
+        Glad to see you're still in one piece. Good luck out there!
+        -> END
+    - -> END
+- else:
+    // First time dialogue - original conversation
+    Hello there, traveler! I'm the guardian of this entrance.
+    What brings you to The Hollows?
+    * [I'm exploring the area.]
+        Ah, an adventurer! Be careful as you venture deeper.
+        The creatures here can be quite dangerous.
+        -> more_info
+    * [I'm looking for treasure.]
+        Treasure, you say? Well, there are rumors of ancient artifacts hidden within...
+        But many have entered seeking riches, and few have returned.
+        -> more_info
+    * [Just passing through.]
+        Nobody just "passes through" The Hollows, stranger.
+        Everyone who enters has a purpose... or finds one.
+        -> more_info
+}
 
 === more_info ===
 Would you like to know more about this place?

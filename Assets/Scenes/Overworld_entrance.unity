@@ -1244,7 +1244,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 887411255}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 6.84, y: -3.83, z: 0}
+  m_LocalPosition: {x: 3.94, y: 6.69, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1290,7 +1290,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   npcName: NPC
-  inkFile: {fileID: 4900000, guid: c89e63466962fbb4d8c1b796435949dc, type: 3}
+  inkFile: {fileID: 4900000, guid: 97aac230fa640ee459f9bd1b8f9a2a26, type: 3}
+  resetOnInteract: 0
 --- !u!1 &888331044
 GameObject:
   m_ObjectHideFlags: 0
@@ -2551,6 +2552,8 @@ MonoBehaviour:
   normalButtonColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
   highlightedButtonColor: {r: 0.38871083, g: 0.38911957, b: 0.38993704, a: 1}
   interactKey: 122
+  pauseGameDuringDialogue: 1
+  affectEnemies: 1
 --- !u!1 &1725477569
 GameObject:
   m_ObjectHideFlags: 0

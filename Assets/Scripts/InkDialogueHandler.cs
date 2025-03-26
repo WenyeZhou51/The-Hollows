@@ -182,8 +182,21 @@ public class InkDialogueHandler : MonoBehaviour
     {
         if (_story != null)
         {
-            _story.variablesState[variableName] = value;
-            Debug.Log($"Set Ink variable {variableName} to {value}");
+            // Check if the variable exists in the story before setting it
+            if (_story.variablesState.GlobalVariableExistsWithName(variableName))
+            {
+                _story.variablesState[variableName] = value;
+                Debug.Log($"Set Ink variable {variableName} to {value}");
+            }
+            else
+            {
+                Debug.LogWarning($"Cannot set variable '{variableName}' - it doesn't exist in the Ink story for {gameObject.name}");
+                // Don't throw an exception, but log a warning
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"Cannot set variable '{variableName}' - story is null for {gameObject.name}");
         }
     }
 
@@ -191,8 +204,21 @@ public class InkDialogueHandler : MonoBehaviour
     {
         if (_story != null)
         {
-            _story.variablesState[variableName] = value;
-            Debug.Log($"Set Ink variable {variableName} to {value}");
+            // Check if the variable exists in the story before setting it
+            if (_story.variablesState.GlobalVariableExistsWithName(variableName))
+            {
+                _story.variablesState[variableName] = value;
+                Debug.Log($"Set Ink variable {variableName} to {value}");
+            }
+            else
+            {
+                Debug.LogWarning($"Cannot set variable '{variableName}' - it doesn't exist in the Ink story for {gameObject.name}");
+                // Don't throw an exception, but log a warning
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"Cannot set variable '{variableName}' - story is null for {gameObject.name}");
         }
     }
 

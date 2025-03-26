@@ -5,6 +5,8 @@ using UnityEngine.UI;
 using TMPro;
 using Ink.Runtime;
 using Pathfinding;
+using System.Text;
+using System.Text.RegularExpressions;
 
 public class DialogueManager : MonoBehaviour
 {
@@ -340,9 +342,77 @@ public class DialogueManager : MonoBehaviour
         }
     }
 
+    // Add new method to preprocess text with variables and HTML tags
+    private string PreprocessText(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return text;
+            
+        Debug.Log($"PreprocessText starting with: \"{text}\"");
+        
+        // Step 1: Process any Ink variables in the text - pattern: {variableName}
+        // This would usually be handled by Ink itself, but for direct dialogue we need to check
+        string processed = text;
+        
+        // Use regex to find all variable patterns {name}
+        Regex variablePattern = new Regex(@"\{([^{}]+)\}");
+        MatchCollection matches = variablePattern.Matches(text);
+        
+        if (matches.Count > 0)
+        {
+            Debug.Log($"Found {matches.Count} variable patterns in text");
+            
+            // If we have currentInkHandler and active story, we can try to resolve variables
+            if (currentInkHandler != null)
+            {
+                // Get the Story object using reflection
+                Story story = GetStoryFromHandler();
+                
+                if (story != null)
+                {
+                    foreach (Match match in matches)
+                    {
+                        string variableName = match.Groups[1].Value.Trim();
+                        Debug.Log($"Processing variable: {variableName}");
+                        
+                        // Try to get variable value from story
+                        try
+                        {
+                            if (story.variablesState.GlobalVariableExistsWithName(variableName))
+                            {
+                                object variableValue = story.variablesState[variableName];
+                                string replacement = variableValue?.ToString() ?? "";
+                                processed = processed.Replace(match.Value, replacement);
+                                Debug.Log($"Replaced {match.Value} with {replacement}");
+                            }
+                            else
+                            {
+                                Debug.LogWarning($"Variable {variableName} not found in Ink story");
+                            }
+                        }
+                        catch (System.Exception e)
+                        {
+                            Debug.LogError($"Error processing variable {variableName}: {e.Message}");
+                        }
+                    }
+                }
+            }
+        }
+        
+        Debug.Log($"PreprocessText result: \"{processed}\"");
+        return processed;
+    }
+
     public void ShowDialogue(string message)
     {
         Debug.Log("ShowDialogue called with message: " + message);
+        
+        // Check for null or empty messages
+        if (string.IsNullOrEmpty(message))
+        {
+            Debug.LogError("ShowDialogue received null or empty message");
+            return;
+        }
         
         // Reset the text fully revealed flag when starting a new dialogue
         textFullyRevealed = false;
@@ -375,35 +445,10 @@ public class DialogueManager : MonoBehaviour
             {
                 Debug.Log($"Panel RectTransform - AnchorMin: {panelRect.anchorMin}, AnchorMax: {panelRect.anchorMax}, " +
                          $"SizeDelta: {panelRect.sizeDelta}, Position: {panelRect.position}");
-                
-                // Make sure the panel is visible within the canvas
-                panelRect.anchorMin = new Vector2(0.1f, 0.1f);
-                panelRect.anchorMax = new Vector2(0.9f, 0.3f);
-                panelRect.offsetMin = Vector2.zero;
-                panelRect.offsetMax = Vector2.zero;
-                
-                Debug.Log($"Updated Panel RectTransform - AnchorMin: {panelRect.anchorMin}, AnchorMax: {panelRect.anchorMax}");
             }
             
-            // Debug the Image component
-            Image panelImage = dialoguePanel.GetComponent<Image>();
-            if (panelImage != null)
-            {
-                Debug.Log($"Panel Image - Color: {panelImage.color}, Enabled: {panelImage.enabled}");
-                
-                // Ensure the image is visible
-                if (panelImage.color.a < 0.1f)
-                {
-                    Color color = panelImage.color;
-                    color.a = 0.8f;
-                    panelImage.color = color;
-                    Debug.Log($"Updated Panel Image Color: {panelImage.color}");
-                }
-            }
-            
-            // Debug the text component
-            Debug.Log($"Text component - Color: {dialogueText.color}, Text: '{dialogueText.text}', " +
-                     $"Enabled: {dialogueText.enabled}, Font size: {dialogueText.fontSize}");
+            // IMPORTANT: Preprocess the text to handle variables and tags BEFORE starting typewriter effect
+            string preprocessedText = PreprocessText(message);
             
             // Set the text
             if (useTypewriterEffect)
@@ -411,14 +456,25 @@ public class DialogueManager : MonoBehaviour
                 if (typingCoroutine != null)
                 {
                     StopCoroutine(typingCoroutine);
+                    typingCoroutine = null;
                 }
-                Debug.Log("Starting typewriter effect for: " + message);
-                typingCoroutine = StartCoroutine(TypeText(message));
+                
+                // Important: For short messages like "Nothing Left", ensure the text component is properly prepared
+                if (preprocessedText.Length <= 15) // For short messages
+                {
+                    Debug.Log($"Short message detected: '{preprocessedText}' - Ensuring proper display");
+                    // Pre-set the text to ensure it's properly initialized
+                    dialogueText.text = "";
+                }
+                
+                Debug.Log("Starting typewriter effect for: " + preprocessedText);
+                typingCoroutine = StartCoroutine(TypeText(preprocessedText));
             }
             else
             {
-                Debug.Log("Setting text directly: " + message);
-                dialogueText.text = message;
+                Debug.Log("Setting text directly: " + preprocessedText);
+                dialogueText.text = preprocessedText;
+                textFullyRevealed = true;
             }
             
             isDialogueActive = true;
@@ -454,6 +510,7 @@ public class DialogueManager : MonoBehaviour
                      $"Panel: {dialoguePanel.name} (Active: {dialoguePanel.activeSelf})");
         }
         
+        // Store the reference to the ink handler - IMPORTANT: do this before any other calls
         currentInkHandler = inkHandler;
         
         if (inkHandler.InkJSON == null)
@@ -462,19 +519,14 @@ public class DialogueManager : MonoBehaviour
             return;
         }
         
-        // Reset the story if needed
-        if (inkHandler.GetComponent<InteractableBox>() != null || 
-            inkHandler.GetComponent<InteractableNPC>() != null)
+        // IMPORTANT: Always initialize the story before continuing
+        // This will handle respecting the resetOnInteract flag as needed
+        inkHandler.InitializeStory();
+        
+        // Make sure the dialogue panel is visible
+        if (dialoguePanel != null && !dialoguePanel.activeSelf)
         {
-            // Get the resetOnInteract value using reflection
-            System.Type type = inkHandler.GetType();
-            System.Reflection.FieldInfo resetField = type.GetField("resetOnInteract", 
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            
-            if (resetField != null && (bool)resetField.GetValue(inkHandler))
-            {
-                inkHandler.ResetStory();
-            }
+            dialoguePanel.SetActive(true);
         }
         
         // Show the first line of dialogue
@@ -483,7 +535,7 @@ public class DialogueManager : MonoBehaviour
         // Set the flag for dialogue being active
         isDialogueActive = true;
         
-        // Pause the game if needed (this should be early in the method)
+        // Pause the game if needed
         if (pauseGameDuringDialogue)
         {
             PauseGame(true);
@@ -498,6 +550,7 @@ public class DialogueManager : MonoBehaviour
         if (currentInkHandler == null)
         {
             Debug.LogError("No active ink story to continue");
+            CloseDialogue(); // Properly close the dialogue if there's no handler
             return;
         }
         
@@ -509,34 +562,46 @@ public class DialogueManager : MonoBehaviour
         // Clear any existing choice buttons
         ClearChoices();
         
+        // IMPORTANT: Check if the story is initialized before continuing
+        if (!currentInkHandler.IsInitialized())
+        {
+            Debug.LogWarning("Ink story not initialized, initializing now");
+            currentInkHandler.InitializeStory();
+        }
+        
         // Check if there's more content
         bool hasNextLine = currentInkHandler.HasNextLine();
         Debug.Log($"HasNextLine returned: {hasNextLine}");
         
         if (hasNextLine)
         {
-          
-            // Get the next line of dialogue
-            string nextLine = currentInkHandler.GetNextDialogueLine();
-            Debug.Log($"GetNextDialogueLine returned: \"{nextLine.Substring(0, Mathf.Min(50, nextLine.Length))}...\"");
-            
-            // Show the dialogue
-            ShowDialogue(nextLine);
-            
-            // Set waitForKeyRelease to true when new dialogue is shown
-            waitForKeyRelease = true;
-            
-            // Check if we need to show choices
-            Story story = GetStoryFromHandler();
-            if (story != null)
-            {
-                Debug.Log($"Story state after getting dialogue: canContinue={story.canContinue}, choiceCount={story.currentChoices.Count}");
+            try {
+                // Get the next line of dialogue
+                string nextLine = currentInkHandler.GetNextDialogueLine();
+                Debug.Log($"GetNextDialogueLine returned: \"{nextLine.Substring(0, Mathf.Min(50, nextLine.Length))}...\"");
                 
-                if (story.currentChoices.Count > 0)
+                // Show the dialogue
+                ShowDialogue(nextLine);
+                
+                // Set waitForKeyRelease to true when new dialogue is shown
+                waitForKeyRelease = true;
+                
+                // Check if we need to show choices
+                Story story = GetStoryFromHandler();
+                if (story != null)
                 {
-                    Debug.Log($"Starting coroutine to show {story.currentChoices.Count} choices after delay");
-                    StartCoroutine(ShowChoicesAfterDelay(0.5f));
+                    Debug.Log($"Story state after getting dialogue: canContinue={story.canContinue}, choiceCount={story.currentChoices.Count}");
+                    
+                    if (story.currentChoices.Count > 0)
+                    {
+                        Debug.Log($"Starting coroutine to show {story.currentChoices.Count} choices after delay");
+                        StartCoroutine(ShowChoicesAfterDelay(0.5f));
+                    }
                 }
+            }
+            catch (System.Exception e) {
+                Debug.LogError($"Error getting next dialogue line: {e.Message}");
+                CloseDialogue(); // Close dialogue if there's an error
             }
         }
         else
@@ -822,40 +887,124 @@ public class DialogueManager : MonoBehaviour
     
     private IEnumerator TypeText(string text)
     {
+        if (string.IsNullOrEmpty(text))
+        {
+            Debug.LogWarning("TypeText received empty or null text");
+            dialogueText.text = "";
+            textFullyRevealed = true;
+            yield break;
+        }
+        
+        // Debug the text being displayed
+        Debug.Log($"TypeText starting with text: \"{text}\"");
+        
         dialogueText.text = "";
         textFullyRevealed = false;
+        
+        // Make sure the dialogueText component is valid
+        if (dialogueText == null)
+        {
+            Debug.LogError("dialogueText component is null in TypeText coroutine");
+            textFullyRevealed = true;
+            yield break;
+        }
 
         // If not using typewriter effect, just set the text and return
         if (!useTypewriterEffect)
         {
             dialogueText.text = text;
             textFullyRevealed = true;
+            Debug.Log($"TypeText completed (no effect): \"{text}\"");
             yield break;
+        }
+        
+        // CRITICAL FIX: Pre-set rich text tags for TextMeshPro
+        // Allow rich text tags to be fully rendered from the start
+        List<TagInfo> tags = ExtractRichTextTags(text);
+        if (tags.Count > 0)
+        {
+            Debug.Log($"Found {tags.Count} rich text tags in dialogue");
+            foreach (TagInfo tag in tags)
+            {
+                Debug.Log($"Tag: {tag.tag}, Start: {tag.startIndex}, End: {tag.endIndex}, Opening: {tag.isOpening}");
+            }
+            
+            // Preload the text with all tags but no content
+            StringBuilder preload = new StringBuilder();
+            int currentPos = 0;
+            
+            foreach (TagInfo tag in tags)
+            {
+                // Add empty characters up to the tag position
+                while (currentPos < tag.startIndex)
+                {
+                    preload.Append(' ');
+                    currentPos++;
+                }
+                
+                // Add the tag
+                preload.Append(tag.tag);
+                currentPos = tag.endIndex + 1;
+            }
+            
+            // Set the preloaded text with all tags but empty content
+            dialogueText.text = preload.ToString();
         }
         
         // Use a time-independent approach that works even when Time.timeScale = 0
         float timeSinceLastChar = 0f;
+        StringBuilder displayedText = new StringBuilder();
         
-        foreach (char c in text)
+        // Skip tags when typing
+        int visibleCharIndex = 0;
+        
+        for (int i = 0; i < text.Length; i++)
         {
-            // Use unscaledDeltaTime to ensure this works even when the game is paused
-            dialogueText.text += c;
+            char c = text[i];
             
-            // Play typing sound if available
-            // ... existing sound code ...
-            
-            // Wait for the specified time
-            // This is the critical part that uses unscaledDeltaTime instead of deltaTime
-            timeSinceLastChar = 0f;
-            while (timeSinceLastChar < typingSpeed)
+            // Skip displaying rich text tags entirely - they're preloaded
+            bool isInTag = false;
+            foreach (TagInfo tag in tags)
             {
-                timeSinceLastChar += Time.unscaledDeltaTime;
-                yield return null;
+                if (i >= tag.startIndex && i <= tag.endIndex)
+                {
+                    isInTag = true;
+                    break;
+                }
+            }
+            
+            // Skip updating text when inside a tag
+            if (!isInTag)
+            {
+                // Add the character to our display text and update the UI
+                displayedText.Append(c);
+                visibleCharIndex++;
+                
+                // Only update the text with visible characters (not tags)
+                dialogueText.text = displayedText.ToString();
+                
+                // Debug for this specific case - "Nothing Left"
+                if (text == "Nothing Left")
+                {
+                    Debug.Log($"Nothing Left progress: {displayedText.ToString()}");
+                }
+                
+                // Wait for the specified time
+                timeSinceLastChar = 0f;
+                while (timeSinceLastChar < typingSpeed)
+                {
+                    timeSinceLastChar += Time.unscaledDeltaTime;
+                    yield return null;
+                }
             }
         }
         
+        // Ensure the complete text is shown at the end
+        dialogueText.text = text;
+        
         // Text is now fully revealed
         textFullyRevealed = true;
+        Debug.Log($"TypeText completed: \"{text}\"");
     }
 
     public void Initialize(GameObject panel, TextMeshProUGUI text, GameObject choices, GameObject buttonPrefab)
@@ -930,5 +1079,40 @@ public class DialogueManager : MonoBehaviour
         
         // Broadcast the pause state change in case other systems need to respond
         Debug.Log($"Game {(pause ? "paused" : "unpaused")} due to dialogue");
+    }
+
+    // Helper class to store tag information
+    private class TagInfo
+    {
+        public string tag;
+        public int startIndex;
+        public int endIndex;
+        public bool isOpening;
+        
+        public TagInfo(string tag, int startIndex, int endIndex, bool isOpening)
+        {
+            this.tag = tag;
+            this.startIndex = startIndex;
+            this.endIndex = endIndex;
+            this.isOpening = isOpening;
+        }
+    }
+    
+    // Helper method to extract rich text tags from text
+    private List<TagInfo> ExtractRichTextTags(string text)
+    {
+        List<TagInfo> tags = new List<TagInfo>();
+        
+        // Regular expression to match rich text tags
+        Regex tagRegex = new Regex(@"</?[a-zA-Z][^>]*>");
+        MatchCollection matches = tagRegex.Matches(text);
+        
+        foreach (Match match in matches)
+        {
+            bool isOpening = !match.Value.StartsWith("</");
+            tags.Add(new TagInfo(match.Value, match.Index, match.Index + match.Length - 1, isOpening));
+        }
+        
+        return tags;
     }
 } 

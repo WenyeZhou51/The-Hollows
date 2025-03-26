@@ -4,8 +4,10 @@ public class InteractableNPC : MonoBehaviour, IInteractable
 {
     [SerializeField] private string npcName = "NPC";
     [SerializeField] private TextAsset inkFile;
+    [SerializeField] private bool resetOnInteract = true;
     
     private InkDialogueHandler inkHandler;
+    private bool hasInteractedBefore = false;
     
     private void Awake()
     {
@@ -37,7 +39,7 @@ public class InteractableNPC : MonoBehaviour, IInteractable
     
     public void Interact()
     {
-        Debug.Log("NPC interaction triggered! NPC: " + npcName);
+        Debug.Log($"NPC interaction triggered! NPC: {npcName}, resetOnInteract={resetOnInteract}");
         
         if (inkFile != null)
         {
@@ -48,10 +50,36 @@ public class InteractableNPC : MonoBehaviour, IInteractable
                 inkHandler.InkJSON = inkFile;
             }
             
-            // Explicitly initialize the story before starting dialogue
-            inkHandler.InitializeStory();
+            // For NPC dialogue, we need to ALWAYS reset the story when interacting again
+            // to avoid the "no active ink story" error
+            if (resetOnInteract || hasInteractedBefore)
+            {
+                Debug.Log($"Resetting story for NPC {npcName}");
+                inkHandler.ResetStory();
+            }
+            else
+            {
+                // Only initialize if not already initialized
+                inkHandler.InitializeStory();
+            }
             
-            // Start the ink dialogue
+            try
+            {
+                // Set the hasInteractedBefore variable in the Ink story
+                // Use try-catch to handle case where variable doesn't exist in the Ink file
+                inkHandler.SetStoryVariable("hasInteractedBefore", hasInteractedBefore);
+                Debug.Log($"Set hasInteractedBefore to {hasInteractedBefore} for NPC {npcName}");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"Variable 'hasInteractedBefore' not found in Ink story for {npcName}: {e.Message}");
+                // This is fine - not all dialogue files need this variable
+            }
+            
+            // Update the interaction state for future interactions
+            hasInteractedBefore = true;
+            
+            // Start the ink dialogue - this will properly initialize the dialogue
             if (DialogueManager.Instance != null)
             {
                 DialogueManager.Instance.StartInkDialogue(inkHandler);
@@ -65,12 +93,17 @@ public class InteractableNPC : MonoBehaviour, IInteractable
         else
         {
             // Fallback to simple dialogue if no ink file is assigned
-            string message = $"Starting dialogue with {npcName}";
+            string message = hasInteractedBefore ? 
+                $"Talking to {npcName} again." : 
+                $"Starting dialogue with {npcName}";
             
             if (DialogueManager.Instance != null)
             {
                 DialogueManager.Instance.ShowDialogue(message);
                 Debug.Log("Dialogue shown: " + message);
+                
+                // Update the interaction state for future interactions
+                hasInteractedBefore = true;
             }
             else
             {

@@ -5,6 +5,7 @@
 VAR player_health = 100
 VAR player_max_sanity = 100
 VAR has_glass_key = false
+VAR hasInteractedBefore = false
 -> start
 === start ===
 A tall man sits in the chair, a deck of cards in his hand.  
