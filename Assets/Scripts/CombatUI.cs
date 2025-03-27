@@ -23,6 +23,14 @@ public class CombatUI : MonoBehaviour
     [SerializeField] private float actionMessageDuration = 1f;
     private Coroutine currentTextCoroutine;
 
+    [Header("Action Display")]
+    [Tooltip("Reference to the label that displays player actions")]
+    public GameObject actionDisplayLabel;
+    [Tooltip("Reference to the TextMeshProUGUI component in the action display label")]
+    public TextMeshProUGUI actionDisplayText;
+    [Tooltip("How long to pause the game when displaying action")]
+    [SerializeField] private float actionDisplayDuration = 0.5f;
+
     [Header("Skill UI")]
     public GameObject skillPanel; // Assign this in the Inspector
     public RectTransform skillButtonsContainer; // Assign this in the Inspector
@@ -75,7 +83,21 @@ public class CombatUI : MonoBehaviour
             
         if (turnText == null)
             Debug.LogWarning("Turn text not found! Make sure TextPanel has a TextMeshProUGUI component.");
-        
+            
+        // Initialize action display label if not assigned
+        if (actionDisplayLabel == null)
+            actionDisplayLabel = GameObject.Find("ActionDisplayLabel");
+            
+        if (actionDisplayLabel != null && actionDisplayText == null)
+            actionDisplayText = actionDisplayLabel.GetComponentInChildren<TextMeshProUGUI>();
+            
+        if (actionDisplayText == null)
+            Debug.LogWarning("Action display text not found! Make sure ActionDisplayLabel has a TextMeshProUGUI component.");
+            
+        // Hide the action display label at start - only show during actions
+        if (actionDisplayLabel != null)
+            actionDisplayLabel.SetActive(false);
+            
         // Don't try to find skillPanel by name if it's already assigned
         // Don't overwrite existing reference
         skillMenu = combatManager.skillMenu;
@@ -525,16 +547,21 @@ public class CombatUI : MonoBehaviour
             return;
         }
 
-        // Display skill action message
-        DisplayTurnAndActionMessage($"{activeCharacter.characterName} uses {skill.name}!");
+        // Display just the skill name in the action display label
+        DisplayActionLabel(skill.name);
         
-        // Execute skill after message duration
+        // Execute skill after action label is shown
         StartCoroutine(ExecuteSkillAfterMessage(skill, target, activeCharacter));
     }
     
     private IEnumerator ExecuteSkillAfterMessage(SkillData skill, CombatStats target, CombatStats activeCharacter)
     {
-        yield return new WaitForSeconds(actionMessageDuration);
+        // Wait a tiny amount just to ensure the action label coroutine has started
+        yield return null;
+        
+        // Wait for the game to resume (after action display is done)
+        while (Time.timeScale == 0)
+            yield return null;
         
         switch (skill.name)
         {
@@ -1055,10 +1082,10 @@ public class CombatUI : MonoBehaviour
             }
         }
         
-        // Display item action message
-        DisplayTurnAndActionMessage($"{activeCharacter.characterName} uses {item.name}!");
+        // Display just the item name in the action display label
+        DisplayActionLabel(item.name);
         
-        // Execute item after message duration
+        // Execute item after action label is shown
         StartCoroutine(ExecuteItemAfterMessage(item, target, activeCharacter));
     }
     
@@ -1066,7 +1093,12 @@ public class CombatUI : MonoBehaviour
     {
         Debug.Log($"[DEBUG TARGETING] ExecuteItemAfterMessage - Item: {item.name}, Target: {target?.name ?? "none"}, TargetIsEnemy: {target?.isEnemy.ToString() ?? "N/A"}");
         
-        yield return new WaitForSeconds(actionMessageDuration);
+        // Wait a tiny amount just to ensure the action label coroutine has started
+        yield return null;
+        
+        // Wait for the game to resume (after action display is done)
+        while (Time.timeScale == 0)
+            yield return null;
         
         // Implement item effects
         switch (item.name)
@@ -1279,17 +1311,22 @@ public class CombatUI : MonoBehaviour
         
         if (activeCharacter != null && !activeCharacter.isEnemy)
         {
-            // Display action message
-            DisplayTurnAndActionMessage($"{activeCharacter.characterName} guards...");
+            // Display just "Guard" in the action display label
+            DisplayActionLabel("Guard");
             
-            // Activate guard stance after the message duration
+            // Activate guard stance after the action label is shown
             StartCoroutine(GuardAfterMessage(activeCharacter));
         }
     }
     
     private IEnumerator GuardAfterMessage(CombatStats character)
     {
-        yield return new WaitForSeconds(actionMessageDuration);
+        // Wait a tiny amount just to ensure the action label coroutine has started
+        yield return null;
+        
+        // Wait for the game to resume (after action display is done)
+        while (Time.timeScale == 0)
+            yield return null;
         
         // Activate guard stance
         character.ActivateGuard();
@@ -1327,9 +1364,24 @@ public class CombatUI : MonoBehaviour
 
     private IEnumerator DisplayMessage(string message)
     {
+        // Ensure the text panel is visible
+        if (textPanel != null)
+            textPanel.SetActive(true);
+            
         turnText.text = message;
-        yield return new WaitForSeconds(actionMessageDuration);
+        
+        // Pause game for exactly 0.5 seconds
+        Time.timeScale = 0;
+        yield return new WaitForSecondsRealtime(0.5f);
+        Time.timeScale = 1;
+        
+        // Clear the message
         turnText.text = "";
+        
+        // Hide the text panel when not in use
+        if (textPanel != null)
+            textPanel.SetActive(false);
+            
         currentTextCoroutine = null;
     }
 
@@ -1432,5 +1484,51 @@ public class CombatUI : MonoBehaviour
         Debug.Log($"=== INVENTORY DEBUG: CombatUI.UseItem ===");
         Debug.Log($"Using item: {item.name}, Amount: {item.amount}");
         OnItemButtonClicked(item);
+    }
+
+    public bool IsDisplayingMessage()
+    {
+        return currentTextCoroutine != null;
+    }
+    
+    public void DisplayActionLabel(string actionText)
+    {
+        if (actionDisplayLabel == null || actionDisplayText == null)
+        {
+            Debug.LogWarning("Action display label or text not found!");
+            return;
+        }
+        
+        StartCoroutine(ShowActionLabel(actionText));
+    }
+    
+    private IEnumerator ShowActionLabel(string actionText)
+    {
+        // Show the action display label
+        actionDisplayLabel.SetActive(true);
+        
+        // Set the text
+        actionDisplayText.text = actionText;
+        
+        // Set alpha to 1 (fully opaque)
+        Image labelBackground = actionDisplayLabel.GetComponent<Image>();
+        if (labelBackground != null)
+        {
+            Color color = labelBackground.color;
+            color.a = 1f;
+            labelBackground.color = color;
+        }
+        
+        // Pause the game
+        Time.timeScale = 0;
+        
+        // Wait for 0.5 seconds in real time (not affected by time scale)
+        yield return new WaitForSecondsRealtime(actionDisplayDuration);
+        
+        // Resume the game
+        Time.timeScale = 1;
+        
+        // Hide the action display label
+        actionDisplayLabel.SetActive(false);
     }
 } 

@@ -788,6 +788,9 @@ MonoBehaviour:
   textPanel: {fileID: 2090843263}
   turnText: {fileID: 2127834882}
   actionMessageDuration: 0.2
+  actionDisplayLabel: {fileID: 0}
+  actionDisplayText: {fileID: 0}
+  actionDisplayDuration: 0.5
   skillPanel: {fileID: 820284072}
   skillButtonsContainer: {fileID: 61287668}
   menuButtonTemplate: {fileID: 887365937}
@@ -880,8 +883,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10907, guid: 0000000000000000f000000000000000, type: 0}
-  m_Type: 1
+  m_Sprite: {fileID: 21300000, guid: a83c9cbb1655e294e900eeb659648ec2, type: 3}
+  m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -2657,8 +2660,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: asdfasdf
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 930c6a60d24bf2e4194a5323c2df31a9, type: 2}
-  m_sharedMaterial: {fileID: 4053211975015742970, guid: 930c6a60d24bf2e4194a5323c2df31a9, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: e776bd28021e5cd4c85a26c5cc0be637, type: 2}
+  m_sharedMaterial: {fileID: 1287024118427876035, guid: e776bd28021e5cd4c85a26c5cc0be637, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -2682,8 +2685,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 40
-  m_fontSizeBase: 40
+  m_fontSize: 36
+  m_fontSizeBase: 36
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18

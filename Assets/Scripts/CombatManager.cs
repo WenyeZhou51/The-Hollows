@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;  // Add this for GridLayoutGroup
 using System.Linq;
 using System;
+using System.Collections;
 
 public class CombatManager : MonoBehaviour
 {
@@ -221,19 +222,14 @@ public class CombatManager : MonoBehaviour
             case "attack":
                 if (target != null)
                 {
-                    // Display action message
-                    if (combatUI != null && combatUI.turnText != null)
+                    // Display just "Attack" in the action display label
+                    if (combatUI != null)
                     {
-                        combatUI.DisplayTurnAndActionMessage($"{activeCharacter.characterName} attacks!");
+                        combatUI.DisplayActionLabel("Attack");
                     }
                     
-                    target.TakeDamage(10f);
-                    if (target.IsDead())
-                    {
-                        // Remove the enemy from the list and destroy it
-                        enemies.Remove(target);
-                        Destroy(target.gameObject);
-                    }
+                    // Start a coroutine to wait for the message to complete before dealing damage
+                    StartCoroutine(ExecuteAttackAfterMessage(target));
                     actionExecuted = true;
                 }
                 break;
@@ -241,30 +237,61 @@ public class CombatManager : MonoBehaviour
             case "heal":
                 if (activeCharacter.currentSanity >= 10f)
                 {
-                    // Display action message
-                    if (combatUI != null && combatUI.turnText != null)
+                    // Display just "Heal" in the action display label
+                    if (combatUI != null)
                     {
-                        combatUI.DisplayTurnAndActionMessage($"{activeCharacter.characterName} heals!");
+                        combatUI.DisplayActionLabel("Heal");
                     }
                     
-                    activeCharacter.HealHealth(10f);
-                    activeCharacter.UseSanity(10f);
+                    // Start a coroutine to wait for the message to complete before healing
+                    StartCoroutine(ExecuteHealAfterMessage());
                     actionExecuted = true;
                 }
                 break;
         }
 
-        // Only end the turn if an action was actually executed
-        if (actionExecuted)
-        {
-            EndPlayerTurn();
-        }
-        else
+        // Only end the turn if an action was executed (and will be handled by the coroutines)
+        if (!actionExecuted)
         {
             // If no action was executed, reset the menu state
             menuSelector.ResetMenuState();
             combatUI.ShowActionMenu(activeCharacter);
         }
+    }
+    
+    private IEnumerator ExecuteAttackAfterMessage(CombatStats target)
+    {
+        // Wait a tiny amount just to ensure the action label coroutine has started
+        yield return null;
+        
+        // Wait for the game to resume (after action display is done)
+        while (Time.timeScale == 0)
+            yield return null;
+            
+        target.TakeDamage(10f);
+        if (target.IsDead())
+        {
+            // Remove the enemy from the list and destroy it
+            enemies.Remove(target);
+            Destroy(target.gameObject);
+        }
+        
+        EndPlayerTurn();
+    }
+    
+    private IEnumerator ExecuteHealAfterMessage()
+    {
+        // Wait a tiny amount just to ensure the action label coroutine has started
+        yield return null;
+        
+        // Wait for the game to resume (after action display is done)
+        while (Time.timeScale == 0)
+            yield return null;
+            
+        activeCharacter.HealHealth(10f);
+        activeCharacter.UseSanity(10f);
+        
+        EndPlayerTurn();
     }
 
     public void EndPlayerTurn()
