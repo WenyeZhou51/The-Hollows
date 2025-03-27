@@ -28,6 +28,9 @@ public class CombatManager : MonoBehaviour
     private bool isCombatActive = true;
     private bool isWaitingForPlayerInput = false;
     
+    // Add a turn counter to track player turns
+    private int playerTurnCount = 0;
+    
     // Event for when combat ends
     public delegate void CombatEndHandler(bool playerWon);
     public event CombatEndHandler OnCombatEnd;
@@ -161,20 +164,44 @@ public class CombatManager : MonoBehaviour
         // Update UI
         UpdateUI();
         
-        // Display turn message
-        if (combatUI != null && combatUI.turnText != null)
-        {
-            combatUI.turnText.text = $"It's {character.characterName}'s Turn";
-        }
-        
         // Handle turn based on character type
         if (character.isEnemy)
         {
+            // Enemy turn - show the text panel with the obelisk message
+            if (combatUI != null)
+            {
+                combatUI.ShowTextPanel("The obelisk focuses on you", 0.5f);
+            }
+            
             // Enemy turn
             ExecuteEnemyTurn(character);
         }
         else
         {
+            // Player turn - increment turn counter
+            playerTurnCount++;
+            
+            // Display different messages based on the turn count
+            string turnMessage;
+            if (playerTurnCount == 1)
+            {
+                turnMessage = "You've reached the end.";
+            }
+            else if (playerTurnCount == 2)
+            {
+                turnMessage = "The Obelisk towers over you";
+            }
+            else
+            {
+                turnMessage = "The Obelisk looms";
+            }
+            
+            // Show the text panel with the appropriate message
+            if (combatUI != null)
+            {
+                combatUI.ShowTextPanel(turnMessage, 0.5f);
+            }
+            
             // Player turn - show action menu
             isWaitingForPlayerInput = true;
             combatUI.ShowActionMenu(character);
@@ -222,6 +249,12 @@ public class CombatManager : MonoBehaviour
             case "attack":
                 if (target != null)
                 {
+                    // Hide the text panel when player selects an action
+                    if (combatUI != null)
+                    {
+                        combatUI.HideTextPanel();
+                    }
+                    
                     // Display just "Attack" in the action display label
                     if (combatUI != null)
                     {
@@ -237,6 +270,12 @@ public class CombatManager : MonoBehaviour
             case "heal":
                 if (activeCharacter.currentSanity >= 10f)
                 {
+                    // Hide the text panel when player selects an action
+                    if (combatUI != null)
+                    {
+                        combatUI.HideTextPanel();
+                    }
+                    
                     // Display just "Heal" in the action display label
                     if (combatUI != null)
                     {

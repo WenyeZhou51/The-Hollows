@@ -84,6 +84,10 @@ public class CombatUI : MonoBehaviour
         if (turnText == null)
             Debug.LogWarning("Turn text not found! Make sure TextPanel has a TextMeshProUGUI component.");
             
+        // Hide the text panel at start - only show during specific turns
+        if (textPanel != null)
+            textPanel.SetActive(false);
+            
         // Initialize action display label if not assigned
         if (actionDisplayLabel == null)
             actionDisplayLabel = GameObject.Find("ActionDisplayLabel");
@@ -547,6 +551,9 @@ public class CombatUI : MonoBehaviour
             return;
         }
 
+        // Hide the text panel when player selects an action
+        HideTextPanel();
+        
         // Display just the skill name in the action display label
         DisplayActionLabel(skill.name);
         
@@ -1082,6 +1089,9 @@ public class CombatUI : MonoBehaviour
             }
         }
         
+        // Hide the text panel when player selects an action
+        HideTextPanel();
+        
         // Display just the item name in the action display label
         DisplayActionLabel(item.name);
         
@@ -1300,6 +1310,9 @@ public class CombatUI : MonoBehaviour
 
     public void OnSkillSelected()
     {
+        // Hide the text panel when player selects an action
+        HideTextPanel();
+        
         // Show the skill menu
         ShowSkillMenu();
     }
@@ -1311,6 +1324,9 @@ public class CombatUI : MonoBehaviour
         
         if (activeCharacter != null && !activeCharacter.isEnemy)
         {
+            // Hide the text panel when player selects an action
+            HideTextPanel();
+            
             // Display just "Guard" in the action display label
             DisplayActionLabel("Guard");
             
@@ -1364,10 +1380,6 @@ public class CombatUI : MonoBehaviour
 
     private IEnumerator DisplayMessage(string message)
     {
-        // Ensure the text panel is visible
-        if (textPanel != null)
-            textPanel.SetActive(true);
-            
         turnText.text = message;
         
         // Pause game for exactly 0.5 seconds
@@ -1378,10 +1390,6 @@ public class CombatUI : MonoBehaviour
         // Clear the message
         turnText.text = "";
         
-        // Hide the text panel when not in use
-        if (textPanel != null)
-            textPanel.SetActive(false);
-            
         currentTextCoroutine = null;
     }
 
@@ -1530,5 +1538,37 @@ public class CombatUI : MonoBehaviour
         
         // Hide the action display label
         actionDisplayLabel.SetActive(false);
+    }
+
+    public void ShowTextPanel(string message, float opacity = 0.5f)
+    {
+        if (textPanel == null || turnText == null)
+        {
+            Debug.LogWarning("Text panel or turn text not found!");
+            return;
+        }
+        
+        // Show the text panel
+        textPanel.SetActive(true);
+        
+        // Set the text
+        turnText.text = message;
+        
+        // Set the opacity of the text panel
+        Image panelImage = textPanel.GetComponent<Image>();
+        if (panelImage != null)
+        {
+            Color color = panelImage.color;
+            color.a = opacity;
+            panelImage.color = color;
+        }
+    }
+    
+    public void HideTextPanel()
+    {
+        if (textPanel != null)
+        {
+            textPanel.SetActive(false);
+        }
     }
 } 

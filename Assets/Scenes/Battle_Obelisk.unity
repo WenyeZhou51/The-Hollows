@@ -883,7 +883,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: a83c9cbb1655e294e900eeb659648ec2, type: 3}
+  m_Sprite: {fileID: 21300000, guid: c3ad298b0c1b13143ade9ce28b647fae, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -1483,6 +1483,10 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 1195803888}
     m_Modifications:
+    - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
+      propertyPath: actionSpeed
+      value: 20
+      objectReference: {fileID: 0}
     - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
       propertyPath: characterName
       value: The Fighter
@@ -2130,6 +2134,10 @@ PrefabInstance:
     m_TransformParent: {fileID: 1195803888}
     m_Modifications:
     - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
+      propertyPath: actionSpeed
+      value: 40
+      objectReference: {fileID: 0}
+    - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
       propertyPath: characterName
       value: The Bard
       objectReference: {fileID: 0}
@@ -2514,7 +2522,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5636393689027812741, guid: 12e87dde88b77b045aba13d4a39ba856, type: 3}
       propertyPath: actionSpeed
-      value: 80
+      value: 70
+      objectReference: {fileID: 0}
+    - target: {fileID: 5636393689027812741, guid: 12e87dde88b77b045aba13d4a39ba856, type: 3}
+      propertyPath: characterName
+      value: Obelisk
       objectReference: {fileID: 0}
     - target: {fileID: 5636393689027812741, guid: 12e87dde88b77b045aba13d4a39ba856, type: 3}
       propertyPath: highlightColor.b
@@ -2905,6 +2917,10 @@ PrefabInstance:
     m_TransformParent: {fileID: 1195803888}
     m_Modifications:
     - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
+      propertyPath: actionSpeed
+      value: 30
+      objectReference: {fileID: 0}
+    - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
       propertyPath: highlightColor.b
       value: 1
       objectReference: {fileID: 0}
@@ -3226,8 +3242,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10907, guid: 0000000000000000f000000000000000, type: 0}
-  m_Type: 1
+  m_Sprite: {fileID: 21300000, guid: af5322bbeb39dfa4090f42e19a255543, type: 3}
+  m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -3365,8 +3381,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: New Text
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: e776bd28021e5cd4c85a26c5cc0be637, type: 2}
+  m_sharedMaterial: {fileID: 1287024118427876035, guid: e776bd28021e5cd4c85a26c5cc0be637, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -3390,8 +3406,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 14
-  m_fontSizeBase: 14
+  m_fontSize: 30
+  m_fontSizeBase: 30
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
