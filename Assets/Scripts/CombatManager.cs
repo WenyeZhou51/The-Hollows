@@ -379,6 +379,9 @@ public class CombatManager : MonoBehaviour
                 SceneTransitionManager.Instance.SetPlayerInventory(playerInventoryItems);
             }
             
+            // Make sure we have a PersistentGameManager for tracking defeated enemies
+            PersistentGameManager.EnsureExists();
+            
             // Trigger combat end event
             if (OnCombatEnd != null)
             {

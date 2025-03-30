@@ -38,6 +38,10 @@ public class EnemyController : MonoBehaviour
     private SpriteRenderer spriteRenderer; // Reference to sprite renderer
     private Vector3 startingPosition; // Original position for wandering reference
     
+    // Add collision cooldown timer
+    private float collisionCooldownTimer = 0f;
+    private const float COLLISION_COOLDOWN = 1.0f; // 1 second cooldown after scene load
+    
     // Path recalculation
     private float pathUpdateTimer = 0f;
     private bool stuckDetected = false;
@@ -64,6 +68,9 @@ public class EnemyController : MonoBehaviour
         startingPosition = transform.position;
         lastPosition = transform.position;
         
+        // Start with a collision cooldown to prevent immediate combat after scene load
+        collisionCooldownTimer = COLLISION_COOLDOWN;
+        
         // Get sprite renderer
         spriteRenderer = GetComponent<SpriteRenderer>();
         
@@ -72,6 +79,9 @@ public class EnemyController : MonoBehaviour
         aiDestinationSetter = GetComponent<AIDestinationSetter>();
         seeker = GetComponent<Seeker>();
         animator = GetComponent<Animator>();
+        
+        // Make sure this enemy has an identifier
+        EnsureEnemyIdentifier();
         
         // Check if components exist
         if (aiPath == null)
@@ -146,6 +156,20 @@ public class EnemyController : MonoBehaviour
         SetNewWanderTarget();
     }
     
+    /// <summary>
+    /// Ensures the enemy has an EnemyIdentifier component
+    /// </summary>
+    private void EnsureEnemyIdentifier()
+    {
+        // Check if this enemy already has an identifier
+        if (GetComponent<EnemyIdentifier>() == null)
+        {
+            // Add the EnemyIdentifier component if it doesn't exist
+            gameObject.AddComponent<EnemyIdentifier>();
+            Debug.Log($"Added EnemyIdentifier to {gameObject.name}");
+        }
+    }
+    
     private void OnEnable()
     {
         // Subscribe to dialogue events
@@ -201,6 +225,12 @@ public class EnemyController : MonoBehaviour
         if (isPausedByDialogue)
         {
             return;
+        }
+        
+        // Update collision cooldown timer if active
+        if (collisionCooldownTimer > 0)
+        {
+            collisionCooldownTimer -= Time.deltaTime;
         }
         
         // Check line of sight to player
@@ -560,6 +590,29 @@ public class EnemyController : MonoBehaviour
     {
         if (collision.gameObject.CompareTag("Player"))
         {
+            // Make sure we have an EnemyIdentifier component
+            EnemyIdentifier identifier = GetComponent<EnemyIdentifier>();
+            if (identifier == null)
+            {
+                Debug.LogError("Enemy missing EnemyIdentifier component!");
+                return;
+            }
+            
+            // Check if this enemy has already been defeated
+            if (PersistentGameManager.Instance != null && 
+                PersistentGameManager.Instance.IsEnemyDefeated(identifier.GetEnemyId()))
+            {
+                Debug.Log("Enemy has already been defeated, ignoring collision");
+                return;
+            }
+            
+            // Check if we're still in the cooldown period after scene load
+            if (collisionCooldownTimer > 0)
+            {
+                Debug.Log($"Ignoring collision with player during cooldown period ({collisionCooldownTimer:F1}s remaining)");
+                return;
+            }
+            
             // Stop the enemy from moving when it collides with the player
             if (aiPath != null)
             {

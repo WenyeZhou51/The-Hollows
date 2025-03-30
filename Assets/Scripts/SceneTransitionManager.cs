@@ -15,6 +15,9 @@ public class SceneTransitionManager : MonoBehaviour
     // Enemy that initiated the combat
     private GameObject enemyThatInitiatedCombat;
     
+    // Store the enemy's unique ID that initiated combat
+    private string enemyIdThatInitiatedCombat;
+    
     // Player data to persist between scenes
     private PlayerInventory playerInventory;
     private Vector3 playerPosition;
@@ -84,6 +87,19 @@ public class SceneTransitionManager : MonoBehaviour
         // Store the enemy that initiated combat
         enemyThatInitiatedCombat = enemy;
         
+        // Get and store the enemy's unique ID
+        EnemyIdentifier enemyIdentifier = enemy.GetComponent<EnemyIdentifier>();
+        if (enemyIdentifier != null)
+        {
+            enemyIdThatInitiatedCombat = enemyIdentifier.GetEnemyId();
+            Debug.Log($"Combat initiated by enemy with ID: {enemyIdThatInitiatedCombat}");
+        }
+        else
+        {
+            Debug.LogWarning("Enemy is missing EnemyIdentifier component. Enemy won't be tracked for defeat.");
+            enemyIdThatInitiatedCombat = null;
+        }
+        
         // Store player inventory and position
         playerInventory = player.GetComponent<PlayerInventory>();
         playerPosition = player.transform.position;
@@ -108,6 +124,21 @@ public class SceneTransitionManager : MonoBehaviour
             // Create a new copy of each item
             storedItems.Add(new ItemData(item.name, item.description, item.amount, item.requiresTarget));
         }
+        
+        // Make sure ScreenFader exists
+        ScreenFader.EnsureExists();
+        
+        // Start the transition with fade effect
+        StartCoroutine(TransitionToCombat());
+    }
+    
+    /// <summary>
+    /// Handle the transition to combat scene with fade effect
+    /// </summary>
+    private IEnumerator TransitionToCombat()
+    {
+        // Fade to black
+        yield return StartCoroutine(ScreenFader.Instance.FadeToBlack());
         
         // Load the combat scene
         SceneManager.LoadScene(combatSceneName);
@@ -137,6 +168,9 @@ public class SceneTransitionManager : MonoBehaviour
             {
                 Debug.LogError("CombatManager not found in combat scene!");
             }
+            
+            // Fade from black once the scene is set up
+            StartCoroutine(ScreenFader.Instance.FadeFromBlack());
         }
         
         // Unregister the event to prevent multiple calls
@@ -213,6 +247,35 @@ public class SceneTransitionManager : MonoBehaviour
         // Store combat result
         combatWon = won;
         
+        // If the player won, mark the enemy as defeated in the persistent manager
+        if (won && !string.IsNullOrEmpty(enemyIdThatInitiatedCombat))
+        {
+            // Make sure the persistent game manager exists
+            PersistentGameManager.EnsureExists();
+            
+            // Mark this enemy as defeated in the persistent game manager
+            PersistentGameManager.Instance.MarkEnemyDefeated(enemyIdThatInitiatedCombat);
+            Debug.Log($"Marked enemy {enemyIdThatInitiatedCombat} as defeated");
+            
+            // Log all defeated enemies for debugging
+            PersistentGameManager.Instance.LogDefeatedEnemies();
+        }
+        
+        // Make sure ScreenFader exists
+        ScreenFader.EnsureExists();
+        
+        // Start the transition with fade effect
+        StartCoroutine(TransitionToOverworld());
+    }
+    
+    /// <summary>
+    /// Handle the transition to overworld scene with fade effect
+    /// </summary>
+    private IEnumerator TransitionToOverworld()
+    {
+        // Fade to black
+        yield return StartCoroutine(ScreenFader.Instance.FadeToBlack());
+        
         // Load the overworld scene
         SceneManager.LoadScene(overworldSceneName);
         
@@ -243,13 +306,54 @@ public class SceneTransitionManager : MonoBehaviour
         // Wait for a frame to make sure all objects are initialized
         yield return null;
         
+        // Make sure the persistent game manager exists for enemy removal
+        PersistentGameManager.EnsureExists();
+        
+        // If combat was won, find and destroy any enemies with the ID that initiated combat
+        if (combatWon && !string.IsNullOrEmpty(enemyIdThatInitiatedCombat))
+        {
+            // Log that we're attempting to destroy enemies
+            Debug.Log($"Searching for enemy with ID {enemyIdThatInitiatedCombat} to destroy after combat");
+            
+            // Find all enemies in the scene
+            EnemyIdentifier[] allEnemies = FindObjectsOfType<EnemyIdentifier>();
+            
+            // Check each enemy
+            foreach (EnemyIdentifier enemy in allEnemies)
+            {
+                string currentEnemyId = enemy.GetEnemyId();
+                Debug.Log($"Checking enemy {enemy.gameObject.name} with ID {currentEnemyId}");
+                
+                if (currentEnemyId == enemyIdThatInitiatedCombat)
+                {
+                    Debug.Log($"FOUND THE ENEMY TO DESTROY: {enemy.gameObject.name} with ID {currentEnemyId}");
+                    DestroyImmediate(enemy.gameObject);
+                    break;
+                }
+            }
+            
+            // Double-check with the PersistentGameManager
+            PersistentGameManager.Instance.LogDefeatedEnemies();
+        }
+        
         // Find the player in the scene
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         
         if (player != null)
         {
-            // Restore player position
-            player.transform.position = playerPosition;
+            // Calculate a safe position that's slightly offset from where combat was initiated
+            // This prevents immediate re-collision with enemies
+            Vector3 safePosition = playerPosition;
+            
+            // If the player won combat, apply a small offset to avoid immediate collision
+            if (combatWon)
+            {
+                // Offset the player by 0.5 units in the -Y direction (backing away from the enemy)
+                safePosition += new Vector3(0, -0.5f, 0);
+            }
+            
+            // Restore player position with the safe offset
+            player.transform.position = safePosition;
             
             // Restore player inventory
             PlayerInventory newInventory = player.GetComponent<PlayerInventory>();
@@ -280,16 +384,15 @@ public class SceneTransitionManager : MonoBehaviour
                 }
             }
             
-            // If combat was won, destroy the enemy
-            if (combatWon && enemyThatInitiatedCombat != null)
-            {
-                Destroy(enemyThatInitiatedCombat);
-                enemyThatInitiatedCombat = null;
-            }
+            // Fade from black after setup is complete
+            StartCoroutine(ScreenFader.Instance.FadeFromBlack());
         }
         else
         {
             Debug.LogError("Player not found in overworld scene!");
+            
+            // Fade from black even if player wasn't found to prevent screen staying black
+            StartCoroutine(ScreenFader.Instance.FadeFromBlack());
         }
     }
     
