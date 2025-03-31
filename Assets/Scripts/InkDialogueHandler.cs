@@ -55,19 +55,16 @@ public class InkDialogueHandler : MonoBehaviour
             string text = _story.Continue();
             text = text.Trim();
             
-            // Check if the text is empty or just "..." and there are tags and the story can continue BEFORE processing tags
-            bool hasTags = _story.currentTags.Count > 0;
-            if ((text == "" || text == "...") && hasTags && _story.canContinue)
-            {
-                Debug.Log($"GetNextDialogueLine: Found empty node with tags ({_story.currentTags.Count}), skipping to next content...");
-                // Process tags before skipping
-                ProcessTags();
-                // Skip to next content
-                return GetNextDialogueLine();
-            }
-            
-            // Process any tags
+            // Process any tags before checking the text
             ProcessTags();
+            
+            // Check if the text is empty or just "..." - if so, consider it as an end of dialogue marker
+            if (text == "" || text == "...")
+            {
+                Debug.Log("GetNextDialogueLine: Found empty node or '...' marker - treating as end of dialogue");
+                // Return a special end-of-dialogue signal that DialogueManager will recognize
+                return "END_OF_DIALOGUE";
+            }
             
             Debug.Log($"GetNextDialogueLine: Returning text: \"{text.Substring(0, Mathf.Min(50, text.Length))}...\"");
             return text;
@@ -86,7 +83,7 @@ public class InkDialogueHandler : MonoBehaviour
         }
 
         Debug.Log("GetNextDialogueLine: No more content, returning end message");
-        return "End of dialogue.";
+        return "END_OF_DIALOGUE";
     }
 
     public void MakeChoice(int choiceIndex)

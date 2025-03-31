@@ -612,6 +612,14 @@ public class DialogueManager : MonoBehaviour
                 string nextLine = currentInkHandler.GetNextDialogueLine();
                 Debug.Log($"GetNextDialogueLine returned: \"{nextLine.Substring(0, Mathf.Min(50, nextLine.Length))}...\"");
                 
+                // Check for special end-of-dialogue marker
+                if (nextLine == "END_OF_DIALOGUE")
+                {
+                    Debug.Log("Received END_OF_DIALOGUE marker - closing dialogue");
+                    CloseDialogue();
+                    return;
+                }
+                
                 // Show the dialogue
                 ShowDialogue(nextLine);
                 

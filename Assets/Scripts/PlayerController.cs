@@ -133,18 +133,17 @@ public class PlayerController : MonoBehaviour
                     }
                 }
                 
-                // If no choices are active, try to continue the Ink story
-                // Use reflection to access the private currentInkHandler field
-                System.Reflection.FieldInfo inkHandlerField = type.GetField("currentInkHandler", 
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                
-                if (inkHandlerField != null)
+                // Check if we can advance the dialogue using the proper method
+                if (dialogueManager.CanAdvanceDialogue())
                 {
-                    InkDialogueHandler inkHandler = (InkDialogueHandler)inkHandlerField.GetValue(dialogueManager);
+                    // Use reflection to access the private currentInkHandler field
+                    System.Reflection.FieldInfo inkHandlerField = type.GetField("currentInkHandler", 
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                     
-                    // Check if dialogue can be advanced (text fully revealed and not waiting for key release)
-                    if (dialogueManager.CanAdvanceDialogue())
+                    if (inkHandlerField != null)
                     {
+                        InkDialogueHandler inkHandler = (InkDialogueHandler)inkHandlerField.GetValue(dialogueManager);
+                        
                         if (inkHandler != null && inkHandler.HasNextLine())
                         {
                             // Continue the Ink story
@@ -160,53 +159,43 @@ public class PlayerController : MonoBehaviour
                             canMove = true;
                         }
                     }
-                    else
-                    {
-                        // If the text isn't fully revealed yet or waiting for key release
-                        // Get the waitForKeyRelease flag using reflection to see what's preventing advancement
-                        System.Reflection.FieldInfo waitForKeyReleaseField = type.GetField("waitForKeyRelease", 
-                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                        System.Reflection.FieldInfo textFullyRevealedField = type.GetField("textFullyRevealed", 
-                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                            
-                        bool waitForKeyRelease = false;
-                        bool textFullyRevealed = false;
-                        
-                        if (waitForKeyReleaseField != null)
-                            waitForKeyRelease = (bool)waitForKeyReleaseField.GetValue(dialogueManager);
-                            
-                        if (textFullyRevealedField != null)
-                            textFullyRevealed = (bool)textFullyRevealedField.GetValue(dialogueManager);
-                            
-                        Debug.Log("[DEBUG NEW] Cannot advance dialogue: textFullyRevealed=" + textFullyRevealed + 
-                            ", waitForKeyRelease=" + waitForKeyRelease);
-                            
-                        // CRITICAL FIX: If we're at the end of dialogue (no more text) and the only thing
-                        // blocking us is the waitForKeyRelease flag, force the dialogue to close
-                        if (textFullyRevealed && waitForKeyRelease && inkHandler != null && !inkHandler.HasNextLine())
-                        {
-                            Debug.Log("[DEBUG NEW] FIXING: End of dialogue detected with waitForKeyRelease blocking closure. Forcing close.");
-                            
-                            // Manually reset the flag
-                            if (waitForKeyReleaseField != null)
-                                waitForKeyReleaseField.SetValue(dialogueManager, false);
-                                
-                            // Close the dialogue
-                            dialogueManager.CloseDialogue();
-                            canMove = true;
-                        }
-                        else
-                        {
-                            // If the text isn't fully revealed, let DialogueManager handle skipping typing
-                            Debug.Log("skipping typing effect");
-                        }
-                    }
                 }
                 else
                 {
-                    // If we can't access the ink handler, just close the dialogue
-                    dialogueManager.CloseDialogue();
-                    canMove = true;
+                    // The text isn't fully revealed yet or we're waiting for key release
+                    // Check what's preventing advancement for debugging
+                    System.Reflection.FieldInfo textFullyRevealedField = type.GetField("textFullyRevealed", 
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    System.Reflection.FieldInfo waitForKeyReleaseField = type.GetField("waitForKeyRelease", 
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    
+                    bool textFullyRevealed = (bool)textFullyRevealedField.GetValue(dialogueManager);
+                    bool waitForKeyRelease = (bool)waitForKeyReleaseField.GetValue(dialogueManager);
+                    
+                    Debug.Log("[DEBUG NEW] Cannot advance dialogue: textFullyRevealed=" + textFullyRevealed + 
+                        ", waitForKeyRelease=" + waitForKeyRelease);
+                    
+                    // If the text isn't fully revealed, skip typing effect
+                    if (!textFullyRevealed)
+                    {
+                        Debug.Log("skipping typing effect");
+                    }
+                    // If we're just waiting for key release, allow closure if there's no more dialogue
+                    else if (waitForKeyRelease)
+                    {
+                        // Reset waitForKeyRelease flag
+                        waitForKeyReleaseField.SetValue(dialogueManager, false);
+                        
+                        // Try to advance dialogue if possible
+                        System.Reflection.MethodInfo continueMethod = type.GetMethod("ContinueInkStory", 
+                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                        
+                        if (continueMethod != null)
+                        {
+                            Debug.Log("[DEBUG NEW] Resetting waitForKeyRelease and trying to continue");
+                            continueMethod.Invoke(dialogueManager, null);
+                        }
+                    }
                 }
             }
             
