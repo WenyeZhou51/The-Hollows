@@ -89,13 +89,14 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
-        Debug.Log("dialogue manager is:"+DialogueManager.Instance != null);
         // Check if dialogue is active
         if (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive())
         {
+            Debug.Log("dialogue is active");
             // If Z key is pressed while dialogue is active
             if (Input.GetKeyDown(KeyCode.Z))
             {
+                Debug.Log("Z key pressed while dialogue is active");
                 DialogueManager dialogueManager = DialogueManager.Instance;
                 
                 // CRITICAL FIX: Check if there are active choices first
@@ -129,10 +130,6 @@ public class PlayerController : MonoBehaviour
                                 makeChoiceMethod.Invoke(dialogueManager, new object[] { currentChoiceIndex });
                             }
                         }
-                        
-                        // Don't continue processing - we've handled the choice selection
-                        movement = Vector2.zero;
-                        return;
                     }
                 }
                 
@@ -151,20 +148,58 @@ public class PlayerController : MonoBehaviour
                         if (inkHandler != null && inkHandler.HasNextLine())
                         {
                             // Continue the Ink story
+                            Debug.Log("[DEBUG NEW] Continuing Ink story - more dialogue available");
                             dialogueManager.ContinueInkStory();
                         }
                         else
                         {
                             // Close the dialogue if there's no more content
+                            Debug.Log("[DEBUG NEW] No more dialogue - closing dialogue");
                             dialogueManager.CloseDialogue();
+                            Debug.Log("Dialogue closed");
                             canMove = true;
                         }
                     }
                     else
                     {
-                        // If the text isn't fully revealed yet, let DialogueManager handle skipping typing
-                        // We don't need to do anything here as DialogueManager will handle it
-                        Debug.Log("Player pressed Z, but dialogue not ready to advance - letting DialogueManager handle it");
+                        // If the text isn't fully revealed yet or waiting for key release
+                        // Get the waitForKeyRelease flag using reflection to see what's preventing advancement
+                        System.Reflection.FieldInfo waitForKeyReleaseField = type.GetField("waitForKeyRelease", 
+                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        System.Reflection.FieldInfo textFullyRevealedField = type.GetField("textFullyRevealed", 
+                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                            
+                        bool waitForKeyRelease = false;
+                        bool textFullyRevealed = false;
+                        
+                        if (waitForKeyReleaseField != null)
+                            waitForKeyRelease = (bool)waitForKeyReleaseField.GetValue(dialogueManager);
+                            
+                        if (textFullyRevealedField != null)
+                            textFullyRevealed = (bool)textFullyRevealedField.GetValue(dialogueManager);
+                            
+                        Debug.Log("[DEBUG NEW] Cannot advance dialogue: textFullyRevealed=" + textFullyRevealed + 
+                            ", waitForKeyRelease=" + waitForKeyRelease);
+                            
+                        // CRITICAL FIX: If we're at the end of dialogue (no more text) and the only thing
+                        // blocking us is the waitForKeyRelease flag, force the dialogue to close
+                        if (textFullyRevealed && waitForKeyRelease && inkHandler != null && !inkHandler.HasNextLine())
+                        {
+                            Debug.Log("[DEBUG NEW] FIXING: End of dialogue detected with waitForKeyRelease blocking closure. Forcing close.");
+                            
+                            // Manually reset the flag
+                            if (waitForKeyReleaseField != null)
+                                waitForKeyReleaseField.SetValue(dialogueManager, false);
+                                
+                            // Close the dialogue
+                            dialogueManager.CloseDialogue();
+                            canMove = true;
+                        }
+                        else
+                        {
+                            // If the text isn't fully revealed, let DialogueManager handle skipping typing
+                            Debug.Log("skipping typing effect");
+                        }
                     }
                 }
                 else
@@ -177,12 +212,10 @@ public class PlayerController : MonoBehaviour
             
             // Don't process movement while dialogue is active
             movement = Vector2.zero;
-            return;
+            return; // IMPORTANT: Always return here to prevent further processing when dialogue is active
         }
         else
         {
-            // FIX: If dialogue is not active, ensure player can move
-            // This fixes the bug where player can't move after dialogue ends
             canMove = !isInventoryOpen; // Only allow movement if inventory is closed
         }
         
@@ -209,10 +242,18 @@ public class PlayerController : MonoBehaviour
             movement.Normalize();
         }
         
-        // Check for interaction input
+        // Check for Z key press - handle both dialogue and interaction exclusively
         if (Input.GetKeyDown(KeyCode.Z))
         {
-            TryInteract();
+            // First check if DialogueManager exists and is actually active
+            bool isDialogueActive = (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive());
+            
+            if (!isDialogueActive)
+            {
+                Debug.Log("Z pressed, dialogue NOT active - trying to interact");
+                TryInteract();
+            }
+            // Note: If dialogue is active, it's already handled at the beginning of this Update method
         }
     }
     
@@ -253,7 +294,19 @@ public class PlayerController : MonoBehaviour
     
     private void TryInteract()
     {
-        Debug.Log("Trying to interact. Radius: " + interactionRadius);
+        // SAFETY CHECK: Double-check that dialogue is not active before attempting interaction
+        // This catches any case where dialogue might become active between the Update check and this method
+        if (DialogueManager.Instance != null)
+        {
+            bool dialogueActive = DialogueManager.Instance.IsDialogueActive();
+            if (dialogueActive)
+            {
+                Debug.Log("SAFETY: TryInteract caught active dialogue, aborting interaction");
+                return;
+            }
+        }
+        
+        Debug.Log("TryInteract proceeding - dialogue confirmed inactive");
         
         // First try with the specified layer mask
         if (interactableLayers.value != 0 && interactableLayers.value != -1)

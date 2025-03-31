@@ -77,6 +77,9 @@ public class DialogueManager : MonoBehaviour
             Instance = this;
             Debug.Log("DialogueManager instance created");
             
+            // Register for scene loaded events to reset state when a new scene is loaded
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
+            
             // Try to load prefabs from Resources if not assigned in inspector
             if (dialogueCanvasPrefab == null)
             {
@@ -112,6 +115,32 @@ public class DialogueManager : MonoBehaviour
             Destroy(gameObject);
         }
     }
+    
+    private void OnDestroy()
+    {
+        // Unregister scene loaded event when DialogueManager is destroyed
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+    
+    // Add a new method to handle scene loading and reset dialogue state
+    private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+    {
+        Debug.Log("[DEBUG NEW] Scene loaded: " + scene.name + " - Resetting dialogue state");
+        
+        // Reset critical dialogue state flags
+        waitForKeyRelease = false;
+        textFullyRevealed = false;
+        
+        // If dialogue was still active, force close it
+        if (isDialogueActive)
+        {
+            Debug.Log("[DEBUG NEW] Dialogue was still active during scene change - forcing close");
+            CloseDialogue();
+        }
+        
+        Debug.Log("[DEBUG NEW] Dialogue state after scene load - isDialogueActive: " + isDialogueActive + 
+                  ", waitForKeyRelease: " + waitForKeyRelease + ", textFullyRevealed: " + textFullyRevealed);
+    }
 
     private void Update()
     {
@@ -119,7 +148,7 @@ public class DialogueManager : MonoBehaviour
         if (waitForKeyRelease && Input.GetKeyUp(interactKey))
         {
             waitForKeyRelease = false;
-            Debug.Log("Interact key released, ready for next input");
+            Debug.Log("[DEBUG NEW] Interact key released, flag reset: waitForKeyRelease = false");
         }
 
         // Handle choice navigation with keyboard
@@ -157,7 +186,7 @@ public class DialogueManager : MonoBehaviour
         // Continue dialogue with interact key ONLY if no choices are displayed
         else if (isDialogueActive && choiceButtons.Count == 0 && Input.GetKeyDown(interactKey) && !waitForKeyRelease)
         {
-            Debug.Log("DialogueManager.Update - Continuing dialogue via keyboard (no choices active)");
+            Debug.Log("[DEBUG NEW] Continuing dialogue via keyboard (no choices active)");
             if (typingCoroutine != null)
             {
                 // Skip typing animation - only reveal the text, don't advance
@@ -172,6 +201,7 @@ public class DialogueManager : MonoBehaviour
                 }
                 typingCoroutine = null;
                 waitForKeyRelease = true; // Wait for key release after skipping typing
+                Debug.Log("[DEBUG NEW] Set waitForKeyRelease = true after skipping typing");
                 textFullyRevealed = true; // Mark that text is now fully revealed
                 Debug.Log("Text fully revealed, waiting for next input to continue");
             }
@@ -180,6 +210,7 @@ public class DialogueManager : MonoBehaviour
                 // If text is already fully revealed, advance to next dialogue
                 textFullyRevealed = false; // Reset flag
                 waitForKeyRelease = true; // Wait for key release after continuing dialogue
+                Debug.Log("[DEBUG NEW] Set waitForKeyRelease = true before continuing to next dialogue");
                 Debug.Log("Text was already revealed, now continuing to next dialogue");
                 ContinueInkStory();
             }
@@ -187,6 +218,7 @@ public class DialogueManager : MonoBehaviour
             {
                 // If this is a fresh dialogue line (no coroutine and not revealed), continue
                 waitForKeyRelease = true; // Wait for key release after continuing dialogue
+                Debug.Log("[DEBUG NEW] Set waitForKeyRelease = true for fresh dialogue line");
                 ContinueInkStory();
             }
         }
@@ -806,7 +838,8 @@ public class DialogueManager : MonoBehaviour
 
     public void CloseDialogue()
     {
-        Debug.Log("CloseDialogue called");
+        Debug.Log("[DEBUG NEW] CloseDialogue called - State before closing: isDialogueActive=" + isDialogueActive + 
+                  ", waitForKeyRelease=" + waitForKeyRelease + ", textFullyRevealed=" + textFullyRevealed);
         
         // Stop any typing coroutine
         if (typingCoroutine != null)
@@ -815,8 +848,9 @@ public class DialogueManager : MonoBehaviour
             typingCoroutine = null;
         }
         
-        // Reset typing state
+        // Reset ALL state variables
         textFullyRevealed = false;
+        waitForKeyRelease = false; // CRITICAL FIX: Make sure this flag is reset when dialogue is closed
         
         // Clear any choices
         ClearChoices();
@@ -870,11 +904,13 @@ public class DialogueManager : MonoBehaviour
         // Notify subscribers that dialogue has ended
         OnDialogueStateChanged?.Invoke(false);
         
-        Debug.Log("Dialogue closed");
+        Debug.Log("[DEBUG NEW] Dialogue closed - Final state: isDialogueActive=" + isDialogueActive + 
+                  ", waitForKeyRelease=" + waitForKeyRelease + ", textFullyRevealed=" + textFullyRevealed);
     }
 
     public bool IsDialogueActive()
     {
+        Debug.Log($"IsDialogueActive called, returning: {isDialogueActive}");
         return isDialogueActive;
     }
     
