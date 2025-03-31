@@ -89,6 +89,7 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
+        Debug.Log("dialogue manager is:"+DialogueManager.Instance != null);
         // Check if dialogue is active
         if (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive())
         {
