@@ -464,11 +464,11 @@ public class CombatManager : MonoBehaviour
                 // Display victory message
                 if (combatUI != null)
                 {
-                    combatUI.ShowTextPanel("Victory!", 2f);
+                    combatUI.ShowTextPanel("You are victorious", 1f);
                 }
                 
                 // Trigger the combat end event after a delay
-                Invoke("TriggerVictory", 2f);
+                Invoke("TriggerVictory", 1f);
             }
         }
     }

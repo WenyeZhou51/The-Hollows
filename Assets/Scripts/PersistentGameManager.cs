@@ -16,6 +16,9 @@ public class PersistentGameManager : MonoBehaviour
     // Singleton pattern
     public static PersistentGameManager Instance { get; private set; }
     
+    // Track if application is quitting
+    private static bool isQuitting = false;
+    
     // List of defeated enemy IDs
     private HashSet<string> defeatedEnemyIds = new HashSet<string>();
     
@@ -98,6 +101,12 @@ public class PersistentGameManager : MonoBehaviour
     {
         // Unregister when destroyed
         SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+    
+    private void OnApplicationQuit()
+    {
+        // Set flag to avoid creating objects during application exit
+        isQuitting = true;
     }
     
     private void Update()
@@ -363,9 +372,15 @@ public class PersistentGameManager : MonoBehaviour
     /// <returns>The PersistentGameManager instance</returns>
     public static PersistentGameManager EnsureExists()
     {
+        // Don't create a new instance if the application is quitting or we're switching scenes
+        if (isQuitting || SceneManager.GetActiveScene().isLoaded == false)
+        {
+            return Instance;
+        }
+        
         if (Instance == null)
         {
-            // Look for existing instance
+            // Look for existing instance first
             PersistentGameManager[] managers = FindObjectsOfType<PersistentGameManager>();
             
             if (managers.Length > 0)
@@ -383,7 +398,7 @@ public class PersistentGameManager : MonoBehaviour
             }
             else
             {
-                // Create new instance
+                // Only create a new instance if we're not during scene unloading
                 GameObject managerObj = new GameObject("PersistentGameManager");
                 Instance = managerObj.AddComponent<PersistentGameManager>();
                 Debug.Log("Created new PersistentGameManager");

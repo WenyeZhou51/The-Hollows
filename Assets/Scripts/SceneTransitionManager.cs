@@ -8,6 +8,9 @@ public class SceneTransitionManager : MonoBehaviour
     // Singleton pattern
     public static SceneTransitionManager Instance { get; private set; }
     
+    // Track if application is quitting
+    private static bool isQuitting = false;
+    
     // Scene names
     [SerializeField] private string overworldSceneName = "Overworld_entrance";
     [SerializeField] private string combatSceneName = "Battle_Obelisk";
@@ -24,6 +27,9 @@ public class SceneTransitionManager : MonoBehaviour
     
     // Combat results
     private bool combatWon = false;
+    
+    // Store the current scene name to return to after combat
+    private string currentSceneName;
     
     private List<ItemData> storedItems = new List<ItemData>();
     
@@ -46,12 +52,24 @@ public class SceneTransitionManager : MonoBehaviour
         }
     }
     
+    private void OnApplicationQuit()
+    {
+        // Set flag to avoid creating objects during application exit
+        isQuitting = true;
+    }
+    
     /// <summary>
     /// Ensures an instance of SceneTransitionManager exists in the scene
     /// </summary>
     /// <returns>The SceneTransitionManager instance</returns>
     public static SceneTransitionManager EnsureExists()
     {
+        // Don't create a new instance if the application is quitting or we're switching scenes
+        if (isQuitting || SceneManager.GetActiveScene().isLoaded == false)
+        {
+            return Instance;
+        }
+        
         if (Instance == null)
         {
             // Look for existing instance
@@ -72,7 +90,7 @@ public class SceneTransitionManager : MonoBehaviour
             }
             else
             {
-                // Create new instance
+                // Only create a new instance if we're not during scene unloading
                 GameObject managerObj = new GameObject("SceneTransitionManager");
                 Instance = managerObj.AddComponent<SceneTransitionManager>();
                 Debug.Log("Created new SceneTransitionManager");
@@ -89,6 +107,10 @@ public class SceneTransitionManager : MonoBehaviour
     /// <param name="player">The player GameObject</param>
     public void StartCombat(GameObject enemy, GameObject player)
     {
+        // Store the current scene name to return to after combat
+        currentSceneName = SceneManager.GetActiveScene().name;
+        Debug.Log($"Combat initiated in scene: {currentSceneName}. Will return here after combat.");
+        
         // Store the enemy that initiated combat
         enemyThatInitiatedCombat = enemy;
         
@@ -273,15 +295,21 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     private IEnumerator TransitionToOverworld()
     {
-        Debug.Log($"Beginning transition to overworld scene: {overworldSceneName}");
+        Debug.Log($"Beginning transition back to scene: {currentSceneName}");
         
         // Validate the scene name before attempting transition
-        if (!IsSceneValid(overworldSceneName))
+        if (!IsSceneValid(currentSceneName))
         {
-            Debug.LogError($"Overworld scene '{overworldSceneName}' does not exist in build settings. Make sure to add it in File > Build Settings.");
-            // Fade back from black since we're not transitioning
-            StartCoroutine(ScreenFader.Instance.FadeFromBlack());
-            yield break;
+            Debug.LogError($"Scene '{currentSceneName}' does not exist in build settings. Falling back to entrance scene.");
+            // Fall back to the entrance scene if the current scene is invalid
+            currentSceneName = overworldSceneName;
+            
+            if (!IsSceneValid(overworldSceneName)) {
+                Debug.LogError($"Fallback scene '{overworldSceneName}' also does not exist. Make sure to add it in File > Build Settings.");
+                // Fade back from black since we're not transitioning
+                StartCoroutine(ScreenFader.Instance.FadeFromBlack());
+                yield break;
+            }
         }
         
         // Fade to black
@@ -290,9 +318,9 @@ public class SceneTransitionManager : MonoBehaviour
         // IMPORTANT: Register for scene loaded event BEFORE loading scene
         SceneManager.sceneLoaded += OnOverworldSceneLoaded;
         
-        // Load the overworld scene
-        Debug.Log($"Now loading overworld scene: {overworldSceneName}");
-        SceneManager.LoadScene(overworldSceneName);
+        // Load the scene we came from
+        Debug.Log($"Now loading scene: {currentSceneName}");
+        SceneManager.LoadScene(currentSceneName);
     }
     
     /// <summary>
@@ -300,8 +328,8 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     private void OnOverworldSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        // Only execute this for the overworld scene
-        if (scene.name == overworldSceneName)
+        // Only execute this if we loaded the correct scene
+        if (scene.name == currentSceneName || scene.name == overworldSceneName)
         {
             StartCoroutine(SetupOverworldAfterCombat());
         }

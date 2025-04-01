@@ -2,11 +2,15 @@ using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 
 public class ScreenFader : MonoBehaviour
 {
     // Singleton pattern
     public static ScreenFader Instance { get; private set; }
+
+    // Track if application is quitting
+    private static bool isQuitting = false;
 
     [Header("Fade Settings")]
     [SerializeField] private float fadeDuration = 0.5f;
@@ -31,6 +35,12 @@ public class ScreenFader : MonoBehaviour
         {
             Destroy(gameObject);
         }
+    }
+
+    private void OnApplicationQuit()
+    {
+        // Set flag to avoid creating objects during application exit
+        isQuitting = true;
     }
 
     /// <summary>
@@ -74,6 +84,12 @@ public class ScreenFader : MonoBehaviour
     /// <returns>The ScreenFader instance</returns>
     public static ScreenFader EnsureExists()
     {
+        // Don't create a new instance if the application is quitting or we're switching scenes
+        if (isQuitting || SceneManager.GetActiveScene().isLoaded == false)
+        {
+            return Instance;
+        }
+        
         if (Instance == null)
         {
             // Look for existing instance
@@ -94,7 +110,7 @@ public class ScreenFader : MonoBehaviour
             }
             else
             {
-                // Create new instance
+                // Only create a new instance if we're not during scene unloading
                 GameObject faderObj = new GameObject("ScreenFader");
                 Instance = faderObj.AddComponent<ScreenFader>();
                 Debug.Log("Created new ScreenFader");
