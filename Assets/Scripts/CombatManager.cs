@@ -38,6 +38,19 @@ public class CombatManager : MonoBehaviour
     // Player inventory for combat
     private List<ItemData> playerInventoryItems;
 
+    private void Awake()
+    {
+        // Initialize lists
+        if (players == null) players = new List<CombatStats>();
+        if (enemies == null) enemies = new List<CombatStats>();
+        
+        players.RemoveAll(p => p == null);
+        enemies.RemoveAll(e => e == null);
+
+        // Initialize character stats from PersistentGameManager BEFORE Start() is called
+        InitializeCharacterStats();
+    }
+
     private void Start()
     {
         // Initialize from SceneTransitionManager's inventory
@@ -85,19 +98,58 @@ public class CombatManager : MonoBehaviour
             }
             itemMenu.SetActive(false);
         }
-
-        // Initialize lists
-        if (players == null) players = new List<CombatStats>();
-        if (enemies == null) enemies = new List<CombatStats>();
-        
-        players.RemoveAll(p => p == null);
-        enemies.RemoveAll(e => e == null);
         
         // Initial UI setup
         if (combatUI != null)
         {
             combatUI.actionMenu.SetActive(true);
             menuSelector.SetMenuItemsEnabled(false);
+        }
+    }
+
+    // Initialize character health and mind values from PersistentGameManager
+    private void InitializeCharacterStats()
+    {
+        // Make sure PersistentGameManager exists
+        if (PersistentGameManager.Instance == null)
+        {
+            Debug.LogWarning("PersistentGameManager not found when initializing combat stats");
+            return;
+        }
+
+        Debug.Log("===== INITIALIZING CHARACTER STATS FROM PERSISTENT MANAGER =====");
+        foreach (var playerStat in players)
+        {
+            if (playerStat == null) continue;
+
+            // Log default values from CombatStats before modification
+            Debug.Log($"Default values for {playerStat.characterName ?? "unnamed character"} before initialization: Health {playerStat.currentHealth}/{playerStat.maxHealth}, Mind {playerStat.currentSanity}/{playerStat.maxSanity}");
+
+            string characterId = playerStat.characterName;
+            if (string.IsNullOrEmpty(characterId))
+            {
+                Debug.LogWarning($"Character has no name, cannot retrieve persistent stats");
+                continue;
+            }
+
+            // Get health values from PersistentGameManager
+            float currentHealth = PersistentGameManager.Instance.GetCharacterHealth(characterId, (int)playerStat.maxHealth);
+            float maxHealth = PersistentGameManager.Instance.GetCharacterMaxHealth(characterId);
+            
+            // Get mind/sanity values from PersistentGameManager
+            float currentMind = PersistentGameManager.Instance.GetCharacterMind(characterId, (int)playerStat.maxSanity);
+            float maxMind = PersistentGameManager.Instance.GetCharacterMaxMind(characterId);
+
+            Debug.Log($"Retrieved values from PersistentGameManager for {characterId}: Health {currentHealth}/{maxHealth}, Mind {currentMind}/{maxMind}");
+
+            // Apply values to combat stats - force the values to be applied
+            playerStat.maxHealth = maxHealth;
+            playerStat.currentHealth = currentHealth;
+            playerStat.maxSanity = maxMind;
+            playerStat.currentSanity = currentMind;
+
+            // Log the final values after setting them
+            Debug.Log($"Final initialized stats for {characterId}: Health {playerStat.currentHealth}/{playerStat.maxHealth}, Mind {playerStat.currentSanity}/{playerStat.maxSanity}");
         }
     }
 
@@ -358,47 +410,124 @@ public class CombatManager : MonoBehaviour
 
     private void CheckBattleEnd()
     {
-        // Check if all enemies are defeated
-        bool allEnemiesDefeated = enemies.Count == 0 || enemies.All(e => e == null || e.IsDead());
+        // Check if all players are dead (lose condition)
+        bool allPlayersDead = players.All(p => p == null || p.IsDead());
         
-        // Check if all players are defeated
-        bool allPlayersDefeated = players.Count == 0 || players.All(p => p == null || p.IsDead());
+        // Check if all enemies are dead (win condition)
+        bool allEnemiesDead = enemies.All(e => e == null || e.IsDead());
         
-        if (allEnemiesDefeated || allPlayersDefeated)
+        if (allPlayersDead || allEnemiesDead)
         {
-            // End combat
+            // Stop the combat
             isCombatActive = false;
             
+            // Save character stats before ending combat
+            SaveCharacterStats();
+            
             // Determine winner
-            bool playerWon = allEnemiesDefeated;
+            bool playerWon = allEnemiesDead;
             
             // Update SceneTransitionManager with current inventory before ending combat
             if (SceneTransitionManager.Instance != null)
             {
-                Debug.Log($"Combat ending: Saving {playerInventoryItems.Count} items to SceneTransitionManager");
-                SceneTransitionManager.Instance.SetPlayerInventory(playerInventoryItems);
+                // Get inventory items from each player character's items
+                List<ItemData> combinedInventory = new List<ItemData>();
+                
+                // Only get items from the first character since all characters share the same inventory
+                if (players.Count > 0 && players[0] != null)
+                {
+                    foreach (var item in players[0].items)
+                    {
+                        combinedInventory.Add(item);
+                    }
+                }
+                
+                SceneTransitionManager.Instance.SetPlayerInventory(combinedInventory);
             }
             
-            // Make sure we have a PersistentGameManager for tracking defeated enemies
-            PersistentGameManager.EnsureExists();
-            
-            // Trigger combat end event
-            if (OnCombatEnd != null)
+            // Trigger the appropriate combat end event
+            if (allPlayersDead)
             {
-                OnCombatEnd(playerWon);
+                Debug.Log("Combat ended: All players are defeated!");
+                // Display defeat message
+                if (combatUI != null)
+                {
+                    combatUI.ShowTextPanel("Defeat!", 2f);
+                }
+                
+                // Trigger the combat end event after a delay
+                Invoke("TriggerDefeat", 2f);
             }
             else
             {
-                // If no listeners are registered, use SceneTransitionManager
-                if (SceneTransitionManager.Instance != null)
+                Debug.Log("Combat ended: All enemies are defeated!");
+                // Display victory message
+                if (combatUI != null)
                 {
-                    SceneTransitionManager.Instance.EndCombat(playerWon);
+                    combatUI.ShowTextPanel("Victory!", 2f);
                 }
-                else
-                {
-                    Debug.LogWarning("Combat ended but no listeners or SceneTransitionManager found!");
-                }
+                
+                // Trigger the combat end event after a delay
+                Invoke("TriggerVictory", 2f);
             }
+        }
+    }
+
+    private void TriggerVictory()
+    {
+        if (OnCombatEnd != null)
+        {
+            OnCombatEnd(true);
+        }
+        else if (SceneTransitionManager.Instance != null)
+        {
+            SceneTransitionManager.Instance.EndCombat(true);
+        }
+    }
+    
+    private void TriggerDefeat()
+    {
+        if (OnCombatEnd != null)
+        {
+            OnCombatEnd(false);
+        }
+        else if (SceneTransitionManager.Instance != null)
+        {
+            SceneTransitionManager.Instance.EndCombat(false);
+        }
+    }
+
+    // Save character stats to PersistentGameManager
+    private void SaveCharacterStats()
+    {
+        // Make sure PersistentGameManager exists
+        if (PersistentGameManager.Instance == null)
+        {
+            Debug.LogWarning("PersistentGameManager not found when saving combat stats");
+            return;
+        }
+
+        foreach (var playerStat in players)
+        {
+            if (playerStat == null || playerStat.IsDead()) continue;
+
+            string characterId = playerStat.characterName;
+            if (string.IsNullOrEmpty(characterId))
+            {
+                Debug.LogWarning($"Character has no name, cannot save persistent stats");
+                continue;
+            }
+
+            // Save character stats using SaveCharacterStats method
+            PersistentGameManager.Instance.SaveCharacterStats(
+                characterId,
+                (int)playerStat.currentHealth,
+                (int)playerStat.maxHealth,
+                (int)playerStat.currentSanity,
+                (int)playerStat.maxSanity
+            );
+
+            Debug.Log($"Saved combat stats for {characterId}: Health {playerStat.currentHealth}/{playerStat.maxHealth}, Mind {playerStat.currentSanity}/{playerStat.maxSanity}");
         }
     }
 

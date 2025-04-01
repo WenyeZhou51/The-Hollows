@@ -160,9 +160,26 @@ public class CombatStats : MonoBehaviour
             }
         }
         
-        // Initialize current values based on max values from inspector
-        currentHealth = maxHealth;
-        currentSanity = maxSanity;
+        // Check if current values are already initialized (non-zero)
+        // This could mean they were set by CombatManager.InitializeCharacterStats
+        bool healthInitialized = currentHealth > 0;
+        bool sanityInitialized = currentSanity > 0;
+        
+        // Only initialize values that haven't been set
+        if (!healthInitialized) {
+            currentHealth = maxHealth;
+            Debug.Log($"CombatStats.Start: Setting default health for {characterName}: {currentHealth}/{maxHealth}");
+        } else {
+            Debug.Log($"CombatStats.Start: Health already initialized for {characterName}: {currentHealth}/{maxHealth}");
+        }
+        
+        if (!sanityInitialized) {
+            currentSanity = maxSanity;
+            Debug.Log($"CombatStats.Start: Setting default sanity for {characterName}: {currentSanity}/{maxSanity}");
+        } else {
+            Debug.Log($"CombatStats.Start: Sanity already initialized for {characterName}: {currentSanity}/{maxSanity}");
+        }
+        
         currentAction = 0f; // Always start with empty action bar
 
         // Debug log to check character name

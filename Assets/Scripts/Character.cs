@@ -12,6 +12,9 @@ public class Character : MonoBehaviour
     
     [Tooltip("Unique ID for this character across scenes. Leave empty to use characterName.")]
     [SerializeField] private string characterId;
+    
+    [Tooltip("Whether this is one of the four main characters (The Magician, The Fighter, The Bard, The Ranger)")]
+    [SerializeField] private bool isMainCharacter = false;
 
     private void Awake()
     {
@@ -19,6 +22,19 @@ public class Character : MonoBehaviour
         if (string.IsNullOrEmpty(characterId))
         {
             characterId = characterName;
+        }
+        
+        // Auto-detect if this is a main character
+        if (!isMainCharacter && PersistentGameManager.Instance != null)
+        {
+            foreach (string mainCharName in PersistentGameManager.Instance.mainCharacters)
+            {
+                if (characterName == mainCharName || characterId == mainCharName)
+                {
+                    isMainCharacter = true;
+                    break;
+                }
+            }
         }
     }
 
@@ -31,7 +47,16 @@ public class Character : MonoBehaviour
     private void OnDestroy()
     {
         // Save character stats when destroyed
-        if (isPlayer && gameObject.scene.isLoaded)
+        if ((isPlayer || isMainCharacter) && gameObject.scene.isLoaded)
+        {
+            SaveStats();
+        }
+    }
+    
+    private void OnDisable()
+    {
+        // Save character stats when disabled
+        if ((isPlayer || isMainCharacter) && gameObject.scene.isLoaded)
         {
             SaveStats();
         }
@@ -45,14 +70,18 @@ public class Character : MonoBehaviour
         // Make sure PersistentGameManager exists
         PersistentGameManager.EnsureExists();
         
-        // Only load stats for player characters
-        if (isPlayer)
+        // Only load stats for player characters or main characters
+        if (isPlayer || isMainCharacter)
         {
+            // First get max values (may override inspector values)
+            maxHealth = PersistentGameManager.Instance.GetCharacterMaxHealth(characterId);
+            maxSanity = PersistentGameManager.Instance.GetCharacterMaxMind(characterId);
+            
             // Get saved health and sanity values
             currentHealth = PersistentGameManager.Instance.GetCharacterHealth(characterId, maxHealth);
             currentSanity = PersistentGameManager.Instance.GetCharacterMind(characterId, maxSanity);
             
-            Debug.Log($"Loaded stats for {characterId}: Health={currentHealth}, Mind={currentSanity}");
+            Debug.Log($"Loaded stats for {characterId}: HP={currentHealth}/{maxHealth}, Mind={currentSanity}/{maxSanity}");
         }
         else
         {
@@ -70,13 +99,19 @@ public class Character : MonoBehaviour
         // Make sure PersistentGameManager exists
         PersistentGameManager.EnsureExists();
         
-        // Only save stats for player characters
-        if (isPlayer)
+        // Only save stats for player characters or main characters
+        if (isPlayer || isMainCharacter)
         {
-            // Save current health and sanity values
-            PersistentGameManager.Instance.SaveCharacterStats(characterId, currentHealth, currentSanity);
+            // Save current and max health and sanity values
+            PersistentGameManager.Instance.SaveCharacterStats(
+                characterId, 
+                currentHealth, 
+                maxHealth, 
+                currentSanity, 
+                maxSanity
+            );
             
-            Debug.Log($"Saved stats for {characterId}: Health={currentHealth}, Mind={currentSanity}");
+            Debug.Log($"Saved stats for {characterId}: HP={currentHealth}/{maxHealth}, Mind={currentSanity}/{maxSanity}");
         }
     }
     
@@ -86,6 +121,14 @@ public class Character : MonoBehaviour
     public string GetCharacterId()
     {
         return characterId;
+    }
+    
+    /// <summary>
+    /// Check if this is one of the main characters
+    /// </summary>
+    public bool IsMainCharacter()
+    {
+        return isMainCharacter;
     }
 
     public bool IsDead()
@@ -104,7 +147,7 @@ public class Character : MonoBehaviour
         currentSanity = Mathf.Clamp(currentSanity, 0, maxSanity);
         
         // Save stats after taking damage to ensure state is preserved
-        if (isPlayer)
+        if (isPlayer || isMainCharacter)
         {
             SaveStats();
         }
@@ -128,7 +171,7 @@ public class Character : MonoBehaviour
         currentSanity = Mathf.Clamp(currentSanity, 0, maxSanity);
         
         // Save stats after healing to ensure state is preserved
-        if (isPlayer)
+        if (isPlayer || isMainCharacter)
         {
             SaveStats();
         }

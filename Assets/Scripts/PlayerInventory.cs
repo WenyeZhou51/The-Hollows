@@ -10,6 +10,70 @@ public class PlayerInventory : MonoBehaviour
     
     public List<ItemData> Items => items;
     
+    private void Start()
+    {
+        // Load inventory from PersistentGameManager if it exists
+        LoadFromPersistentManager();
+    }
+    
+    private void OnDisable()
+    {
+        // Save inventory to PersistentGameManager when disabled
+        SaveToPersistentManager();
+    }
+    
+    private void LoadFromPersistentManager()
+    {
+        // Make sure PersistentGameManager exists
+        if (PersistentGameManager.EnsureExists() != null)
+        {
+            Dictionary<string, int> persistentInventory = PersistentGameManager.Instance.GetPlayerInventory();
+            
+            // Only load if we have saved inventory data
+            if (persistentInventory.Count > 0)
+            {
+                // Clear current inventory
+                items.Clear();
+                
+                // Add each item from the persistent inventory
+                foreach (var pair in persistentInventory)
+                {
+                    ItemData item = new ItemData(pair.Key, "", pair.Value, false);
+                    items.Add(item);
+                }
+                
+                Debug.Log($"Loaded {items.Count} items from PersistentGameManager");
+                
+                // Notify listeners
+                OnInventoryChanged?.Invoke();
+            }
+            else
+            {
+                Debug.Log("No inventory data found in PersistentGameManager");
+            }
+        }
+    }
+    
+    private void SaveToPersistentManager()
+    {
+        // Make sure PersistentGameManager exists
+        if (PersistentGameManager.EnsureExists() != null)
+        {
+            // Convert items to dictionary format
+            Dictionary<string, int> inventoryDict = new Dictionary<string, int>();
+            
+            foreach (ItemData item in items)
+            {
+                inventoryDict[item.name] = item.amount;
+            }
+            
+            // Update persistent manager
+            PersistentGameManager.Instance.UpdatePlayerInventory(inventoryDict);
+            
+            Debug.Log($"Saved {items.Count} items to PersistentGameManager");
+        }
+    }
+    
     public void AddItem(ItemData item)
     {
         // Check if the item already exists in inventory
@@ -24,6 +88,12 @@ public class PlayerInventory : MonoBehaviour
         {
             // Add new item
             items.Add(item);
+        }
+        
+        // Update persistent manager
+        if (PersistentGameManager.Instance != null)
+        {
+            PersistentGameManager.Instance.AddItemToInventory(item.name, item.amount);
         }
         
         // Notify listeners that inventory has changed
@@ -42,6 +112,12 @@ public class PlayerInventory : MonoBehaviour
             if (existingItem.amount <= 0)
             {
                 items.Remove(existingItem);
+            }
+            
+            // Update persistent manager
+            if (PersistentGameManager.Instance != null)
+            {
+                PersistentGameManager.Instance.RemoveItemFromInventory(item.name, item.amount);
             }
             
             // Notify listeners that inventory has changed

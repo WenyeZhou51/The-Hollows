@@ -605,21 +605,49 @@ public class SceneTransitionManager : MonoBehaviour
             
             // Restore player inventory if needed
             PlayerInventory newInventory = player.GetComponent<PlayerInventory>();
-            if (playerInventory != null && newInventory != null && newInventory != playerInventory)
+            if (newInventory != null)
             {
                 // Ensure PersistentGameManager exists
                 PersistentGameManager.EnsureExists();
                 
-                // Transfer items from original inventory to new inventory
-                newInventory.ClearInventory();
+                // If we have a stored inventory in the PersistentGameManager, use that
+                Dictionary<string, int> persistentInventory = PersistentGameManager.Instance.GetPlayerInventory();
                 
-                foreach (ItemData item in playerInventory.Items)
+                if (persistentInventory.Count > 0)
                 {
-                    newInventory.AddItem(item);
-                    Debug.Log($"Restored {item.name} (x{item.amount}) to player inventory in new scene");
+                    // Clear current inventory
+                    newInventory.ClearInventory();
+                    
+                    // Add each item from the persistent inventory
+                    foreach (var pair in persistentInventory)
+                    {
+                        // Create a new item with the stored data
+                        ItemData item = new ItemData(pair.Key, "", pair.Value, false);
+                        newInventory.AddItem(item);
+                        Debug.Log($"Restored {pair.Key} (x{pair.Value}) to player inventory in new scene");
+                    }
+                    
+                    Debug.Log("Player inventory restored from PersistentGameManager");
                 }
-                
-                Debug.Log("Player inventory restored after scene transition");
+                // If no persistent inventory but we have the original inventory from before transition
+                else if (playerInventory != null && playerInventory != newInventory)
+                {
+                    // Clear current inventory
+                    newInventory.ClearInventory();
+                    
+                    // Add items from the original inventory (fallback)
+                    foreach (ItemData item in playerInventory.Items)
+                    {
+                        newInventory.AddItem(item);
+                        
+                        // Also update the persistent manager
+                        PersistentGameManager.Instance.AddItemToInventory(item.name, item.amount);
+                        
+                        Debug.Log($"Restored {item.name} (x{item.amount}) to player inventory in new scene");
+                    }
+                    
+                    Debug.Log("Player inventory restored from original inventory and saved to PersistentGameManager");
+                }
             }
             
             // Character stats are automatically loaded by the Character component

@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -24,9 +25,23 @@ public class PersistentGameManager : MonoBehaviour
     // Character stats persistence
     private Dictionary<string, int> characterHealth = new Dictionary<string, int>();
     private Dictionary<string, int> characterMind = new Dictionary<string, int>();
+    private Dictionary<string, int> characterMaxHealth = new Dictionary<string, int>();
+    private Dictionary<string, int> characterMaxMind = new Dictionary<string, int>();
     
     // Interactable object states
     private Dictionary<string, bool> interactableStates = new Dictionary<string, bool>();
+    
+    // Player inventory persistence - key: itemName, value: amount
+    private Dictionary<string, int> playerInventory = new Dictionary<string, int>();
+    
+    // Main characters (hardcoded for easy reference)
+    public readonly string[] mainCharacters = new string[] 
+    {
+        "The Magician", 
+        "The Fighter", 
+        "The Bard", 
+        "The Ranger"
+    };
     
     // Custom variables
     [System.Serializable]
@@ -46,15 +61,21 @@ public class PersistentGameManager : MonoBehaviour
     private Vector2 characterStatsScroll = Vector2.zero;
     private Vector2 interactableScroll = Vector2.zero;
     private Vector2 enemyScroll = Vector2.zero;
+    private Vector2 inventoryScroll = Vector2.zero;
     private bool showCharacterStats = true;
     private bool showInteractableStates = true;
     private bool showDefeatedEnemies = true;
+    private bool showInventory = true;
     private GUIStyle headerStyle;
     private GUIStyle valueStyle;
     private GUIStyle boxStyle;
     
     // Timer for reset confirmation
     private float resetConfirmationTime = 0;
+    
+    // Default values for main characters
+    private const int DEFAULT_MAX_HEALTH = 100;
+    private const int DEFAULT_MAX_MIND = 100;
     
     private void Awake()
     {
@@ -152,19 +173,75 @@ public class PersistentGameManager : MonoBehaviour
         {
             GUILayout.BeginVertical(GUI.skin.box);
             
-            if (characterHealth.Count == 0 && characterMind.Count == 0)
+            // Display main character stats
+            foreach (string character in mainCharacters)
             {
-                GUILayout.Label("No character data stored", valueStyle);
+                int health = GetCharacterHealth(character, DEFAULT_MAX_HEALTH);
+                int maxHealth = GetCharacterMaxHealth(character);
+                int mind = GetCharacterMind(character, DEFAULT_MAX_MIND);
+                int maxMind = GetCharacterMaxMind(character);
+                
+                GUILayout.BeginHorizontal();
+                GUILayout.Label($"{character}:", GUILayout.Width(120));
+                GUILayout.Label($"HP: {health}/{maxHealth}", GUILayout.Width(100));
+                GUILayout.Label($"Mind: {mind}/{maxMind}");
+                GUILayout.EndHorizontal();
+            }
+            
+            // Show other characters if there are any not in the main list
+            if (characterHealth.Count > 0)
+            {
+                bool hasOthers = false;
+                foreach (var pair in characterHealth)
+                {
+                    if (!mainCharacters.Contains(pair.Key))
+                    {
+                        if (!hasOthers)
+                        {
+                            GUILayout.Space(10);
+                            GUILayout.Label("Other Characters:", valueStyle);
+                            hasOthers = true;
+                            
+                            characterStatsScroll = GUILayout.BeginScrollView(characterStatsScroll, GUILayout.Height(100));
+                        }
+                        
+                        int mind = 0;
+                        characterMind.TryGetValue(pair.Key, out mind);
+                        GUILayout.Label($"{pair.Key}: Health={pair.Value}, Mind={mind}", valueStyle);
+                    }
+                }
+                
+                if (hasOthers)
+                {
+                    GUILayout.EndScrollView();
+                }
+            }
+            
+            GUILayout.EndVertical();
+        }
+        
+        GUILayout.Space(5);
+        
+        // Player Inventory section
+        showInventory = GUILayout.Toggle(showInventory, "Player Inventory", GUI.skin.button);
+        if (showInventory)
+        {
+            GUILayout.BeginVertical(GUI.skin.box);
+            
+            if (playerInventory.Count == 0)
+            {
+                GUILayout.Label("Inventory is empty", valueStyle);
             }
             else
             {
-                characterStatsScroll = GUILayout.BeginScrollView(characterStatsScroll, GUILayout.Height(100));
+                inventoryScroll = GUILayout.BeginScrollView(inventoryScroll, GUILayout.Height(100));
                 
-                foreach (var pair in characterHealth)
+                foreach (var pair in playerInventory)
                 {
-                    int mind = 0;
-                    characterMind.TryGetValue(pair.Key, out mind);
-                    GUILayout.Label($"{pair.Key}: Health={pair.Value}, Mind={mind}", valueStyle);
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label(pair.Key, GUILayout.Width(150));
+                    GUILayout.Label($"x{pair.Value}");
+                    GUILayout.EndHorizontal();
                 }
                 
                 GUILayout.EndScrollView();
@@ -444,9 +521,11 @@ public class PersistentGameManager : MonoBehaviour
     /// Save a character's health and mind values
     /// </summary>
     /// <param name="characterId">Unique ID for the character</param>
-    /// <param name="health">Current health value</param>
-    /// <param name="mind">Current mind/sanity value</param>
-    public void SaveCharacterStats(string characterId, int health, int mind)
+    /// <param name="currentHealth">Current health value</param>
+    /// <param name="maxHealth">Maximum health value</param>
+    /// <param name="currentMind">Current mind value</param>
+    /// <param name="maxMind">Maximum mind value</param>
+    public void SaveCharacterStats(string characterId, int currentHealth, int maxHealth, int currentMind, int maxMind)
     {
         if (string.IsNullOrEmpty(characterId))
         {
@@ -454,10 +533,12 @@ public class PersistentGameManager : MonoBehaviour
             return;
         }
         
-        characterHealth[characterId] = health;
-        characterMind[characterId] = mind;
+        characterHealth[characterId] = currentHealth;
+        characterMaxHealth[characterId] = maxHealth;
+        characterMind[characterId] = currentMind;
+        characterMaxMind[characterId] = maxMind;
         
-        Debug.Log($"Saved stats for {characterId}: Health={health}, Mind={mind}");
+        Debug.Log($"Saved stats for {characterId}: Health={currentHealth}/{maxHealth}, Mind={currentMind}/{maxMind}");
     }
     
     /// <summary>
@@ -476,6 +557,20 @@ public class PersistentGameManager : MonoBehaviour
     }
     
     /// <summary>
+    /// Try to get a character's maximum health value
+    /// </summary>
+    /// <param name="characterId">Unique ID for the character</param>
+    /// <returns>The stored maximum health value or the default value if not found</returns>
+    public int GetCharacterMaxHealth(string characterId)
+    {
+        if (characterMaxHealth.TryGetValue(characterId, out int maxHealth))
+        {
+            return maxHealth;
+        }
+        return DEFAULT_MAX_HEALTH;
+    }
+    
+    /// <summary>
     /// Try to get a character's mind value
     /// </summary>
     /// <param name="characterId">Unique ID for the character</param>
@@ -488,6 +583,20 @@ public class PersistentGameManager : MonoBehaviour
             return mind;
         }
         return defaultMind;
+    }
+    
+    /// <summary>
+    /// Try to get a character's maximum mind value
+    /// </summary>
+    /// <param name="characterId">Unique ID for the character</param>
+    /// <returns>The stored maximum mind value or the default value if not found</returns>
+    public int GetCharacterMaxMind(string characterId)
+    {
+        if (characterMaxMind.TryGetValue(characterId, out int maxMind))
+        {
+            return maxMind;
+        }
+        return DEFAULT_MAX_MIND;
     }
     
     #endregion
@@ -577,6 +686,112 @@ public class PersistentGameManager : MonoBehaviour
     
     #endregion
     
+    #region Player Inventory Persistence
+    
+    /// <summary>
+    /// Update the player's inventory with the current items
+    /// </summary>
+    /// <param name="items">Dictionary of items where the key is the item name and the value is the amount</param>
+    public void UpdatePlayerInventory(Dictionary<string, int> items)
+    {
+        playerInventory.Clear();
+        
+        foreach (var pair in items)
+        {
+            playerInventory[pair.Key] = pair.Value;
+        }
+        
+        Debug.Log($"Updated player inventory with {playerInventory.Count} items");
+    }
+    
+    /// <summary>
+    /// Update the player's inventory from a list of ItemData objects
+    /// </summary>
+    /// <param name="items">List of ItemData objects</param>
+    public void UpdatePlayerInventory(List<ItemData> items)
+    {
+        playerInventory.Clear();
+        
+        foreach (var item in items)
+        {
+            playerInventory[item.name] = item.amount;
+        }
+        
+        Debug.Log($"Updated player inventory with {playerInventory.Count} items from ItemData list");
+    }
+    
+    /// <summary>
+    /// Add an item to the player's inventory
+    /// </summary>
+    /// <param name="itemName">Name of the item</param>
+    /// <param name="amount">Amount to add</param>
+    public void AddItemToInventory(string itemName, int amount)
+    {
+        if (playerInventory.ContainsKey(itemName))
+        {
+            playerInventory[itemName] += amount;
+        }
+        else
+        {
+            playerInventory[itemName] = amount;
+        }
+        
+        Debug.Log($"Added {amount}x {itemName} to player inventory");
+    }
+    
+    /// <summary>
+    /// Remove an item from the player's inventory
+    /// </summary>
+    /// <param name="itemName">Name of the item</param>
+    /// <param name="amount">Amount to remove</param>
+    public void RemoveItemFromInventory(string itemName, int amount)
+    {
+        if (playerInventory.ContainsKey(itemName))
+        {
+            playerInventory[itemName] -= amount;
+            
+            if (playerInventory[itemName] <= 0)
+            {
+                playerInventory.Remove(itemName);
+                Debug.Log($"Removed {itemName} from player inventory (amount reached zero)");
+            }
+            else
+            {
+                Debug.Log($"Removed {amount}x {itemName} from player inventory, {playerInventory[itemName]} remaining");
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Get the entire player inventory
+    /// </summary>
+    /// <returns>Dictionary of item names to amounts</returns>
+    public Dictionary<string, int> GetPlayerInventory()
+    {
+        return new Dictionary<string, int>(playerInventory);
+    }
+    
+    /// <summary>
+    /// Convert the persistent inventory to a list of ItemData objects
+    /// </summary>
+    /// <returns>List of ItemData objects</returns>
+    public List<ItemData> GetPlayerInventoryAsItemData()
+    {
+        List<ItemData> result = new List<ItemData>();
+        
+        foreach (var pair in playerInventory)
+        {
+            // Create a new ItemData object for each item
+            // Note: This only sets name and amount; other properties will be default
+            ItemData item = new ItemData(pair.Key, "", pair.Value, false);
+            result.Add(item);
+        }
+        
+        return result;
+    }
+    
+    #endregion
+    
     /// <summary>
     /// Reset all persistent data - FOR DEBUGGING ONLY
     /// </summary>
@@ -585,8 +800,11 @@ public class PersistentGameManager : MonoBehaviour
         // Reset all dictionaries
         characterHealth.Clear();
         characterMind.Clear();
+        characterMaxHealth.Clear();
+        characterMaxMind.Clear();
         interactableStates.Clear();
         defeatedEnemyIds.Clear();
+        playerInventory.Clear();
         
         // Reset custom variables
         variables.chestsLooted = 0;
