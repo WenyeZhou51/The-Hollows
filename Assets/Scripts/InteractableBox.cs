@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class InteractableBox : MonoBehaviour, IInteractable
 {
@@ -33,11 +34,75 @@ public class InteractableBox : MonoBehaviour, IInteractable
             Debug.Log("Added BoxCollider2D to " + gameObject.name);
         }
         
+        // Load saved state from PersistentGameManager
+        LoadState();
+        
         Debug.Log("InteractableBox initialized on " + gameObject.name);
+    }
+    
+    /// <summary>
+    /// Loads the box state from the persistent manager
+    /// </summary>
+    private void LoadState()
+    {
+        // Make sure the manager exists
+        PersistentGameManager.EnsureExists();
+        
+        // Get the current scene name
+        string currentScene = SceneManager.GetActiveScene().name;
+        
+        // Get the saved state for this box
+        hasBeenLooted = PersistentGameManager.Instance.GetInteractableState(
+            currentScene, 
+            gameObject.name, 
+            hasBeenLooted // Use the inspector value as the default
+        );
+        
+        Debug.Log($"Loaded state for box {gameObject.name} in scene {currentScene}: hasBeenLooted = {hasBeenLooted}");
+    }
+    
+    /// <summary>
+    /// Saves the box state to the persistent manager
+    /// </summary>
+    private void SaveState()
+    {
+        // Make sure the manager exists
+        PersistentGameManager.EnsureExists();
+        
+        // Get the current scene name
+        string currentScene = SceneManager.GetActiveScene().name;
+        
+        // Save the state for this box
+        PersistentGameManager.Instance.SaveInteractableState(
+            currentScene,
+            gameObject.name,
+            hasBeenLooted
+        );
+    }
+    
+    /// <summary>
+    /// Set the looted state (called by the PersistentGameManager)
+    /// </summary>
+    /// <param name="looted">Whether this box has been looted</param>
+    public void SetLootedState(bool looted)
+    {
+        hasBeenLooted = looted;
+    }
+    
+    /// <summary>
+    /// Get the looted state
+    /// </summary>
+    /// <returns>Whether this box has been looted</returns>
+    public bool GetLootedState()
+    {
+        return hasBeenLooted;
     }
     
     public void Interact()
     {
+        // Check if this is the first interaction (not looted yet)
+        bool wasNotLootedBefore = !hasBeenLooted;
+        
         // Handle all box interactions through the Ink dialogue system
         if (inkFile != null)
         {
@@ -125,6 +190,7 @@ public class InteractableBox : MonoBehaviour, IInteractable
                             Debug.LogWarning("Using fallback due to Ink variable issues");
                             DialogueManager.Instance?.ShowDialogue($"You found: <b>{actualItemName}</b>!");
                             hasBeenLooted = true;
+                            SaveState(); // Save the looted state
                             return;
                         }
                     }
@@ -145,12 +211,16 @@ public class InteractableBox : MonoBehaviour, IInteractable
                     if (!inkVariableSet || !hasBeenLootedSet) {
                         DialogueManager.Instance?.ShowDialogue("The box is empty.");
                         hasBeenLooted = true;
+                        SaveState(); // Save the looted state
                         return;
                     }
                 }
                 
                 // Mark as looted after the first interaction
                 hasBeenLooted = true;
+                
+                // Save the looted state
+                SaveState();
             }
             
             // Start the ink dialogue - the Ink script will handle different responses based on hasBeenLooted
@@ -220,7 +290,20 @@ public class InteractableBox : MonoBehaviour, IInteractable
                 
                 // Mark as looted regardless of whether an item was found
                 hasBeenLooted = true;
+                
+                // Save the looted state
+                SaveState();
             }
+        }
+        
+        // If this was the first time looting, make sure chestsLooted is incremented
+        if (wasNotLootedBefore && hasBeenLooted)
+        {
+            // Make sure the manager exists
+            PersistentGameManager.EnsureExists();
+            
+            // Increment the chests looted counter (will happen automatically in SaveState, but just to be sure)
+            PersistentGameManager.Instance.IncrementChestsLooted();
         }
     }
 } 

@@ -8,6 +8,10 @@ using UnityEngine.SceneManagement;
 /// </summary>
 public class PersistentGameManager : MonoBehaviour
 {
+    [Header("Debug Settings")]
+    [SerializeField] private bool showDebugUI = false;
+    [SerializeField] private KeyCode toggleDebugUIKey = KeyCode.F9;
+    
     // Singleton pattern
     public static PersistentGameManager Instance { get; private set; }
     
@@ -16,6 +20,41 @@ public class PersistentGameManager : MonoBehaviour
     
     // Scene was just loaded flag
     private bool sceneJustLoaded = false;
+    
+    // Character stats persistence
+    private Dictionary<string, int> characterHealth = new Dictionary<string, int>();
+    private Dictionary<string, int> characterMind = new Dictionary<string, int>();
+    
+    // Interactable object states
+    private Dictionary<string, bool> interactableStates = new Dictionary<string, bool>();
+    
+    // Custom variables
+    [System.Serializable]
+    public class GameVariables
+    {
+        public int chestsLooted = 0;
+        public int deaths = 0;
+    }
+    
+    public GameVariables variables = new GameVariables();
+    
+    // Events
+    public delegate void GameVariableChangedHandler(string variableName);
+    public event GameVariableChangedHandler OnGameVariableChanged;
+    
+    // Debug UI settings
+    private Vector2 characterStatsScroll = Vector2.zero;
+    private Vector2 interactableScroll = Vector2.zero;
+    private Vector2 enemyScroll = Vector2.zero;
+    private bool showCharacterStats = true;
+    private bool showInteractableStates = true;
+    private bool showDefeatedEnemies = true;
+    private GUIStyle headerStyle;
+    private GUIStyle valueStyle;
+    private GUIStyle boxStyle;
+    
+    // Timer for reset confirmation
+    private float resetConfirmationTime = 0;
     
     private void Awake()
     {
@@ -40,6 +79,193 @@ public class PersistentGameManager : MonoBehaviour
         SceneManager.sceneLoaded -= OnSceneLoaded;
     }
     
+    private void Update()
+    {
+        // Toggle debug UI with key press
+        if (Input.GetKeyDown(toggleDebugUIKey))
+        {
+            showDebugUI = !showDebugUI;
+        }
+    }
+    
+    private void InitializeGUIStyles()
+    {
+        if (headerStyle == null)
+        {
+            headerStyle = new GUIStyle(GUI.skin.label);
+            headerStyle.fontStyle = FontStyle.Bold;
+            headerStyle.fontSize = 14;
+        }
+        
+        if (valueStyle == null)
+        {
+            valueStyle = new GUIStyle(GUI.skin.label);
+            valueStyle.normal.textColor = Color.white;
+        }
+        
+        if (boxStyle == null)
+        {
+            boxStyle = new GUIStyle(GUI.skin.box);
+            boxStyle.normal.background = MakeTexture(2, 2, new Color(0f, 0f, 0f, 0.7f));
+        }
+    }
+    
+    private Texture2D MakeTexture(int width, int height, Color color)
+    {
+        Color[] pixels = new Color[width * height];
+        for (int i = 0; i < pixels.Length; i++)
+        {
+            pixels[i] = color;
+        }
+        
+        Texture2D texture = new Texture2D(width, height);
+        texture.SetPixels(pixels);
+        texture.Apply();
+        return texture;
+    }
+    
+    private void OnGUI()
+    {
+        if (!showDebugUI) return;
+        
+        InitializeGUIStyles();
+        
+        // Debug window
+        GUILayout.BeginArea(new Rect(10, 10, 400, Screen.height - 20), boxStyle);
+        
+        GUILayout.Label("Persistent Game Manager Debug", headerStyle);
+        GUILayout.Space(5);
+        
+        // Global variables section
+        GUILayout.Label("Global Variables:", headerStyle);
+        GUILayout.BeginVertical(GUI.skin.box);
+        GUILayout.Label($"Chests Looted: {variables.chestsLooted}", valueStyle);
+        GUILayout.Label($"Deaths: {variables.deaths}", valueStyle);
+        GUILayout.Label($"Current Scene: {SceneManager.GetActiveScene().name}", valueStyle);
+        GUILayout.EndVertical();
+        
+        GUILayout.Space(10);
+        
+        // Character stats section
+        showCharacterStats = GUILayout.Toggle(showCharacterStats, "Character Stats", GUI.skin.button);
+        if (showCharacterStats)
+        {
+            GUILayout.BeginVertical(GUI.skin.box);
+            
+            if (characterHealth.Count == 0 && characterMind.Count == 0)
+            {
+                GUILayout.Label("No character data stored", valueStyle);
+            }
+            else
+            {
+                characterStatsScroll = GUILayout.BeginScrollView(characterStatsScroll, GUILayout.Height(100));
+                
+                foreach (var pair in characterHealth)
+                {
+                    int mind = 0;
+                    characterMind.TryGetValue(pair.Key, out mind);
+                    GUILayout.Label($"{pair.Key}: Health={pair.Value}, Mind={mind}", valueStyle);
+                }
+                
+                GUILayout.EndScrollView();
+            }
+            
+            GUILayout.EndVertical();
+        }
+        
+        GUILayout.Space(5);
+        
+        // Interactable states section
+        showInteractableStates = GUILayout.Toggle(showInteractableStates, "Interactable States", GUI.skin.button);
+        if (showInteractableStates)
+        {
+            GUILayout.BeginVertical(GUI.skin.box);
+            
+            if (interactableStates.Count == 0)
+            {
+                GUILayout.Label("No interactable states stored", valueStyle);
+            }
+            else
+            {
+                interactableScroll = GUILayout.BeginScrollView(interactableScroll, GUILayout.Height(100));
+                
+                foreach (var pair in interactableStates)
+                {
+                    GUILayout.Label($"{pair.Key}: Looted={pair.Value}", valueStyle);
+                }
+                
+                GUILayout.EndScrollView();
+            }
+            
+            GUILayout.EndVertical();
+        }
+        
+        GUILayout.Space(5);
+        
+        // Defeated enemies section
+        showDefeatedEnemies = GUILayout.Toggle(showDefeatedEnemies, "Defeated Enemies", GUI.skin.button);
+        if (showDefeatedEnemies)
+        {
+            GUILayout.BeginVertical(GUI.skin.box);
+            
+            if (defeatedEnemyIds.Count == 0)
+            {
+                GUILayout.Label("No defeated enemies", valueStyle);
+            }
+            else
+            {
+                enemyScroll = GUILayout.BeginScrollView(enemyScroll, GUILayout.Height(100));
+                
+                foreach (string enemyId in defeatedEnemyIds)
+                {
+                    GUILayout.Label(enemyId, valueStyle);
+                }
+                
+                GUILayout.EndScrollView();
+            }
+            
+            GUILayout.EndVertical();
+        }
+        
+        GUILayout.Space(15);
+        
+        // Reset all data button
+        GUI.backgroundColor = Color.red;
+        if (GUILayout.Button("RESET ALL DATA", GUILayout.Height(30)))
+        {
+            if (resetConfirmationTime > 0)
+            {
+                ResetAllData();
+                resetConfirmationTime = 0;
+            }
+            else
+            {
+                resetConfirmationTime = Time.time + 3f; // 3 second window to confirm
+            }
+        }
+        GUI.backgroundColor = Color.white;
+        
+        // Show confirmation countdown if needed
+        if (resetConfirmationTime > 0)
+        {
+            float remaining = resetConfirmationTime - Time.time;
+            if (remaining > 0)
+            {
+                GUILayout.Label($"Click again to confirm reset ({remaining:F1}s)", valueStyle);
+            }
+            else
+            {
+                resetConfirmationTime = 0;
+            }
+        }
+        
+        GUILayout.Space(10);
+        
+        GUILayout.Label("Press " + toggleDebugUIKey.ToString() + " to toggle this debug view", valueStyle);
+        
+        GUILayout.EndArea();
+    }
+    
     /// <summary>
     /// Called when a scene is loaded
     /// </summary>
@@ -49,6 +275,9 @@ public class PersistentGameManager : MonoBehaviour
         
         // Start a delayed check for enemies to destroy after everything is initialized
         StartCoroutine(DestroyDefeatedEnemiesAfterLoad());
+        
+        // Start a delayed check to apply interactable states
+        StartCoroutine(ApplyInteractableStatesAfterLoad());
     }
     
     /// <summary>
@@ -160,6 +389,43 @@ public class PersistentGameManager : MonoBehaviour
     }
     
     /// <summary>
+    /// Apply the saved state to interactable objects in the newly loaded scene
+    /// </summary>
+    private IEnumerator ApplyInteractableStatesAfterLoad()
+    {
+        // Wait until the end of the frame to ensure all objects are initialized
+        yield return new WaitForEndOfFrame();
+        
+        // Wait a bit more to make sure everything is fully initialized
+        yield return new WaitForSeconds(0.2f);
+        
+        string currentScene = SceneManager.GetActiveScene().name;
+        
+        // Find all interactable boxes in the scene
+        InteractableBox[] interactableBoxes = FindObjectsOfType<InteractableBox>();
+        int updatedCount = 0;
+        
+        // Check each box
+        foreach (InteractableBox box in interactableBoxes)
+        {
+            // Create a unique identifier for this box
+            string boxId = $"{currentScene}:{box.gameObject.name}";
+            
+            // Check if we have a saved state for this box
+            if (interactableStates.TryGetValue(boxId, out bool hasBeenLooted))
+            {
+                // Apply the saved state
+                box.SetLootedState(hasBeenLooted);
+                updatedCount++;
+                
+                Debug.Log($"Restored interactable state for {boxId}: hasBeenLooted = {hasBeenLooted}");
+            }
+        }
+        
+        Debug.Log($"Applied saved state to {updatedCount} interactable objects in scene {currentScene}");
+    }
+    
+    /// <summary>
     /// Log the current defeated enemies (debug helper)
     /// </summary>
     public void LogDefeatedEnemies()
@@ -170,5 +436,166 @@ public class PersistentGameManager : MonoBehaviour
             Debug.Log($"Enemy ID: {id}");
         }
         Debug.Log("================================");
+    }
+    
+    #region Character Stats Persistence
+    
+    /// <summary>
+    /// Save a character's health and mind values
+    /// </summary>
+    /// <param name="characterId">Unique ID for the character</param>
+    /// <param name="health">Current health value</param>
+    /// <param name="mind">Current mind/sanity value</param>
+    public void SaveCharacterStats(string characterId, int health, int mind)
+    {
+        if (string.IsNullOrEmpty(characterId))
+        {
+            Debug.LogError("Cannot save character stats with null ID");
+            return;
+        }
+        
+        characterHealth[characterId] = health;
+        characterMind[characterId] = mind;
+        
+        Debug.Log($"Saved stats for {characterId}: Health={health}, Mind={mind}");
+    }
+    
+    /// <summary>
+    /// Try to get a character's health value
+    /// </summary>
+    /// <param name="characterId">Unique ID for the character</param>
+    /// <param name="defaultHealth">Default value if not found</param>
+    /// <returns>The stored health value or the default value if not found</returns>
+    public int GetCharacterHealth(string characterId, int defaultHealth)
+    {
+        if (characterHealth.TryGetValue(characterId, out int health))
+        {
+            return health;
+        }
+        return defaultHealth;
+    }
+    
+    /// <summary>
+    /// Try to get a character's mind value
+    /// </summary>
+    /// <param name="characterId">Unique ID for the character</param>
+    /// <param name="defaultMind">Default value if not found</param>
+    /// <returns>The stored mind value or the default value if not found</returns>
+    public int GetCharacterMind(string characterId, int defaultMind)
+    {
+        if (characterMind.TryGetValue(characterId, out int mind))
+        {
+            return mind;
+        }
+        return defaultMind;
+    }
+    
+    #endregion
+    
+    #region Interactable Object State Persistence
+    
+    /// <summary>
+    /// Save the state of an interactable object
+    /// </summary>
+    /// <param name="sceneId">Scene containing the object</param>
+    /// <param name="objectId">Object identifier</param>
+    /// <param name="hasBeenLooted">Whether the object has been looted</param>
+    public void SaveInteractableState(string sceneId, string objectId, bool hasBeenLooted)
+    {
+        string fullId = $"{sceneId}:{objectId}";
+        interactableStates[fullId] = hasBeenLooted;
+        
+        Debug.Log($"Saved interactable state for {fullId}: hasBeenLooted = {hasBeenLooted}");
+        
+        // If this is a chest being looted for the first time, increment the counter
+        if (hasBeenLooted && !interactableStates.ContainsKey(fullId))
+        {
+            variables.chestsLooted++;
+            OnGameVariableChanged?.Invoke("chestsLooted");
+            Debug.Log($"Incremented chestsLooted to {variables.chestsLooted}");
+        }
+    }
+    
+    /// <summary>
+    /// Get the state of an interactable object
+    /// </summary>
+    /// <param name="sceneId">Scene containing the object</param>
+    /// <param name="objectId">Object identifier</param>
+    /// <param name="defaultState">Default state if not found</param>
+    /// <returns>The saved state or the default state if not found</returns>
+    public bool GetInteractableState(string sceneId, string objectId, bool defaultState)
+    {
+        string fullId = $"{sceneId}:{objectId}";
+        
+        if (interactableStates.TryGetValue(fullId, out bool state))
+        {
+            return state;
+        }
+        
+        return defaultState;
+    }
+    
+    #endregion
+    
+    #region Custom Variables
+    
+    /// <summary>
+    /// Increment the chests looted counter
+    /// </summary>
+    public void IncrementChestsLooted()
+    {
+        variables.chestsLooted++;
+        OnGameVariableChanged?.Invoke("chestsLooted");
+        Debug.Log($"Incremented chestsLooted to {variables.chestsLooted}");
+    }
+    
+    /// <summary>
+    /// Increment the deaths counter
+    /// </summary>
+    public void IncrementDeaths()
+    {
+        variables.deaths++;
+        OnGameVariableChanged?.Invoke("deaths");
+        Debug.Log($"Incremented deaths to {variables.deaths}");
+    }
+    
+    /// <summary>
+    /// Get the current count of chests looted
+    /// </summary>
+    public int GetChestsLooted()
+    {
+        return variables.chestsLooted;
+    }
+    
+    /// <summary>
+    /// Get the current death count
+    /// </summary>
+    public int GetDeaths()
+    {
+        return variables.deaths;
+    }
+    
+    #endregion
+    
+    /// <summary>
+    /// Reset all persistent data - FOR DEBUGGING ONLY
+    /// </summary>
+    public void ResetAllData()
+    {
+        // Reset all dictionaries
+        characterHealth.Clear();
+        characterMind.Clear();
+        interactableStates.Clear();
+        defeatedEnemyIds.Clear();
+        
+        // Reset custom variables
+        variables.chestsLooted = 0;
+        variables.deaths = 0;
+        
+        // Notify that a reset occurred
+        Debug.Log(">>> PERSISTENT GAME MANAGER: All data has been reset <<<");
+        
+        // Trigger refresh of any interactable objects in the scene
+        StartCoroutine(ApplyInteractableStatesAfterLoad());
     }
 } 

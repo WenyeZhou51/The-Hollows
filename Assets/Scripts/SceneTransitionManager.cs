@@ -604,16 +604,26 @@ public class SceneTransitionManager : MonoBehaviour
             }
             
             // Restore player inventory if needed
-            if (playerInventory != null)
+            PlayerInventory newInventory = player.GetComponent<PlayerInventory>();
+            if (playerInventory != null && newInventory != null && newInventory != playerInventory)
             {
-                PlayerInventory newInventory = player.GetComponent<PlayerInventory>();
-                if (newInventory != null && newInventory != playerInventory)
+                // Ensure PersistentGameManager exists
+                PersistentGameManager.EnsureExists();
+                
+                // Transfer items from original inventory to new inventory
+                newInventory.ClearInventory();
+                
+                foreach (ItemData item in playerInventory.Items)
                 {
-                    // Transfer inventory items if needed
-                    // This is usually not necessary for scene transitions, but included for completeness
-                    Debug.Log("Restoring player inventory after scene transition");
+                    newInventory.AddItem(item);
+                    Debug.Log($"Restored {item.name} (x{item.amount}) to player inventory in new scene");
                 }
+                
+                Debug.Log("Player inventory restored after scene transition");
             }
+            
+            // Character stats are automatically loaded by the Character component
+            // when it starts in the new scene, through the PersistentGameManager
         }
         else
         {
