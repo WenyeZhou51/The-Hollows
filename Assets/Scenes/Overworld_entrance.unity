@@ -1506,7 +1506,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   npcName: NPC
-  inkFile: {fileID: 4900000, guid: 97aac230fa640ee459f9bd1b8f9a2a26, type: 3}
+  inkFile: {fileID: 4900000, guid: b19650805ef18114eaf7377bde91c0f3, type: 3}
   resetOnInteract: 0
 --- !u!1 &888331044
 GameObject:
@@ -2917,6 +2917,9 @@ MonoBehaviour:
   dialoguePanel: {fileID: 0}
   dialogueText: {fileID: 0}
   dialogueButtonContainer: {fileID: 0}
+  portraitObject: {fileID: 0}
+  portraitImage: {fileID: 0}
+  portraitText: {fileID: 0}
   typingSpeed: 0.02
   useTypewriterEffect: 1
   normalButtonColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
@@ -3996,6 +3999,55 @@ MonoBehaviour:
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []
+--- !u!1 &2144617125
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2144617127}
+  - component: {fileID: 2144617126}
+  m_Layer: 0
+  m_Name: PersistentGameManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2144617126
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2144617125}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ebcbecda52457d547974efcbdeb4cc49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showDebugUI: 1
+  toggleDebugUIKey: 290
+  variables:
+    chestsLooted: 0
+    deaths: 0
+--- !u!4 &2144617127
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2144617125}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -7.7994156, y: 7.113135, z: -0.009527481}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 16
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &6235435077888621
 PrefabInstance:
   m_ObjectHideFlags: 0

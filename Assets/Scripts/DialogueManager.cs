@@ -22,6 +22,11 @@ public class DialogueManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI dialogueText;
     [SerializeField] private GameObject dialogueButtonContainer; // Changed from choicesPanel to match your prefab
     
+    [Header("Portrait Components")]
+    [SerializeField] private GameObject portraitObject; // The GameObject containing the portrait image
+    [SerializeField] private Image portraitImage; // The Image component for displaying portraits
+    [SerializeField] private TextMeshProUGUI portraitText; // Text component for dialogue when portrait is shown
+    
     [Header("Settings")]
     [SerializeField] private float typingSpeed = 0.04f;
     [SerializeField] private bool useTypewriterEffect = true;
@@ -42,6 +47,7 @@ public class DialogueManager : MonoBehaviour
     private bool canvasInitialized = false;
     private bool waitForKeyRelease = false;
     private bool textFullyRevealed = false; // Track if text has been revealed but not advanced
+    private bool isPortraitMode = false; // Tracks if we're currently in portrait mode
 
     // Public event that other systems can subscribe to
     public delegate void DialogueStateChanged(bool isActive);
@@ -287,6 +293,31 @@ public class DialogueManager : MonoBehaviour
             {
                 Debug.LogError("DialogueText not found in the DialogueCanvas prefab!");
             }
+            
+            // Find the portrait components
+            Transform portraitTransform = panelTransform.Find("Portrait");
+            if (portraitTransform != null)
+            {
+                portraitObject = portraitTransform.gameObject;
+                portraitImage = portraitObject.GetComponent<Image>();
+                Debug.Log("Found Portrait in the DialogueCanvas prefab");
+            }
+            else
+            {
+                Debug.LogError("Portrait not found in the DialogueCanvas prefab!");
+            }
+            
+            // Find the portrait text
+            Transform portraitTextTransform = panelTransform.Find("PortraitText");
+            if (portraitTextTransform != null)
+            {
+                portraitText = portraitTextTransform.GetComponent<TextMeshProUGUI>();
+                Debug.Log("Found PortraitText in the DialogueCanvas prefab");
+            }
+            else
+            {
+                Debug.LogError("PortraitText not found in the DialogueCanvas prefab!");
+            }
         }
         else
         {
@@ -350,6 +381,23 @@ public class DialogueManager : MonoBehaviour
                     break;
                 }
             }
+            
+            // Try to find the portrait components
+            Transform portraitTransform = panelObj.transform.Find("Portrait");
+            if (portraitTransform != null)
+            {
+                portraitObject = portraitTransform.gameObject;
+                portraitImage = portraitObject.GetComponent<Image>();
+                Debug.Log("Found Portrait in scene");
+            }
+            
+            // Try to find the portrait text
+            Transform portraitTextTransform = panelObj.transform.Find("PortraitText");
+            if (portraitTextTransform != null)
+            {
+                portraitText = portraitTextTransform.GetComponent<TextMeshProUGUI>();
+                Debug.Log("Found PortraitText in scene");
+            }
         }
         else
         {
@@ -374,7 +422,7 @@ public class DialogueManager : MonoBehaviour
         }
     }
 
-    // Add new method to preprocess text with variables and HTML tags
+    // Add new method to preprocess text with variables, HTML tags, and portrait information
     private string PreprocessText(string text)
     {
         if (string.IsNullOrEmpty(text))
@@ -382,13 +430,39 @@ public class DialogueManager : MonoBehaviour
             
         Debug.Log($"PreprocessText starting with: \"{text}\"");
         
-        // Step 1: Process any Ink variables in the text - pattern: {variableName}
+        // Step 1: Check for portrait tag - pattern: portrait: portraitID
+        string processedText = text;
+        isPortraitMode = false;
+        
+        // Use regex to find portrait pattern at the beginning of text
+        Regex portraitPattern = new Regex(@"^portrait:\s*([^\s,;]+)");
+        Match portraitMatch = portraitPattern.Match(text);
+        
+        if (portraitMatch.Success)
+        {
+            string portraitID = portraitMatch.Groups[1].Value.Trim();
+            Debug.Log($"Found portrait ID: {portraitID}");
+            
+            // Set portrait mode and try to load the portrait
+            isPortraitMode = true;
+            SetPortrait(portraitID);
+            
+            // Remove the portrait prefix from the text
+            processedText = text.Substring(portraitMatch.Length).TrimStart();
+            Debug.Log($"Text after removing portrait tag: \"{processedText}\"");
+        }
+        else
+        {
+            // Hide portrait if no portrait tag is present
+            HidePortrait();
+        }
+        
+        // Step 2: Process any Ink variables in the text - pattern: {variableName}
         // This would usually be handled by Ink itself, but for direct dialogue we need to check
-        string processed = text;
         
         // Use regex to find all variable patterns {name}
         Regex variablePattern = new Regex(@"\{([^{}]+)\}");
-        MatchCollection matches = variablePattern.Matches(text);
+        MatchCollection matches = variablePattern.Matches(processedText);
         
         if (matches.Count > 0)
         {
@@ -414,7 +488,7 @@ public class DialogueManager : MonoBehaviour
                             {
                                 object variableValue = story.variablesState[variableName];
                                 string replacement = variableValue?.ToString() ?? "";
-                                processed = processed.Replace(match.Value, replacement);
+                                processedText = processedText.Replace(match.Value, replacement);
                                 Debug.Log($"Replaced {match.Value} with {replacement}");
                             }
                             else
@@ -431,8 +505,72 @@ public class DialogueManager : MonoBehaviour
             }
         }
         
-        Debug.Log($"PreprocessText result: \"{processed}\"");
-        return processed;
+        Debug.Log($"PreprocessText result: \"{processedText}\"");
+        return processedText;
+    }
+
+    // New method to set the portrait image
+    private void SetPortrait(string portraitID)
+    {
+        if (portraitObject == null || portraitImage == null)
+        {
+            Debug.LogError("Portrait components not assigned!");
+            return;
+        }
+        
+        // Try direct loading
+        Sprite portraitSprite = null;
+        
+        // Try loading from Sprites/portraits folder
+        portraitSprite = Resources.Load<Sprite>($"Sprites/portraits/{portraitID}");
+        
+        // If not found, try loading directly without Resources prefix
+        if (portraitSprite == null)
+        {
+            // Unity's LoadAssetAtPath requires full path
+            string assetPath = $"Assets/Sprites/portraits/{portraitID}";
+            #if UNITY_EDITOR
+            portraitSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(assetPath);
+            #endif
+            Debug.Log($"Trying to load sprite from path: {assetPath}");
+        }
+        
+        // If still not found, try just the ID
+        if (portraitSprite == null)
+        {
+            portraitSprite = Resources.Load<Sprite>(portraitID);
+        }
+        
+        if (portraitSprite != null)
+        {
+            portraitImage.sprite = portraitSprite;
+            portraitObject.SetActive(true);
+            Debug.Log($"Set portrait: {portraitID}");
+        }
+        else
+        {
+            Debug.LogError($"Portrait sprite not found: {portraitID}");
+            // Try without file extension
+            if (!portraitID.EndsWith(".png") && !portraitID.EndsWith(".jpg"))
+            {
+                // Try with .png extension
+                SetPortrait(portraitID + ".png");
+                return;
+            }
+            
+            portraitObject.SetActive(false);
+            isPortraitMode = false;
+        }
+    }
+    
+    // New method to hide the portrait
+    private void HidePortrait()
+    {
+        if (portraitObject != null)
+        {
+            portraitObject.SetActive(false);
+        }
+        isPortraitMode = false;
     }
 
     public void ShowDialogue(string message)
@@ -479,8 +617,17 @@ public class DialogueManager : MonoBehaviour
                          $"SizeDelta: {panelRect.sizeDelta}, Position: {panelRect.position}");
             }
             
-            // IMPORTANT: Preprocess the text to handle variables and tags BEFORE starting typewriter effect
+            // IMPORTANT: Preprocess the text to handle variables, portraits, and tags BEFORE starting typewriter effect
             string preprocessedText = PreprocessText(message);
+            
+            // Determine which text component to use based on portrait mode
+            TextMeshProUGUI targetTextComponent = isPortraitMode && portraitText != null ? portraitText : dialogueText;
+            
+            // Set the appropriate text component active
+            if (dialogueText != null)
+                dialogueText.gameObject.SetActive(!isPortraitMode);
+            if (portraitText != null)
+                portraitText.gameObject.SetActive(isPortraitMode);
             
             // Set the text
             if (useTypewriterEffect)
@@ -496,16 +643,16 @@ public class DialogueManager : MonoBehaviour
                 {
                     Debug.Log($"Short message detected: '{preprocessedText}' - Ensuring proper display");
                     // Pre-set the text to ensure it's properly initialized
-                    dialogueText.text = "";
+                    targetTextComponent.text = "";
                 }
                 
-                Debug.Log("Starting typewriter effect for: " + preprocessedText);
-                typingCoroutine = StartCoroutine(TypeText(preprocessedText));
+                Debug.Log($"Starting typewriter effect for: {preprocessedText} using {(isPortraitMode ? "portraitText" : "dialogueText")}");
+                typingCoroutine = StartCoroutine(TypeText(preprocessedText, targetTextComponent));
             }
             else
             {
-                Debug.Log("Setting text directly: " + preprocessedText);
-                dialogueText.text = preprocessedText;
+                Debug.Log($"Setting text directly: {preprocessedText} using {(isPortraitMode ? "portraitText" : "dialogueText")}");
+                targetTextComponent.text = preprocessedText;
                 textFullyRevealed = true;
             }
             
@@ -929,12 +1076,12 @@ public class DialogueManager : MonoBehaviour
         return textFullyRevealed && !waitForKeyRelease;
     }
     
-    private IEnumerator TypeText(string text)
+    private IEnumerator TypeText(string text, TextMeshProUGUI textComponent)
     {
         if (string.IsNullOrEmpty(text))
         {
             Debug.LogWarning("TypeText received empty or null text");
-            dialogueText.text = "";
+            textComponent.text = "";
             textFullyRevealed = true;
             yield break;
         }
@@ -942,13 +1089,13 @@ public class DialogueManager : MonoBehaviour
         // Debug the text being displayed
         Debug.Log($"TypeText starting with text: \"{text}\"");
         
-        dialogueText.text = "";
+        textComponent.text = "";
         textFullyRevealed = false;
         
-        // Make sure the dialogueText component is valid
-        if (dialogueText == null)
+        // Make sure the textComponent is valid
+        if (textComponent == null)
         {
-            Debug.LogError("dialogueText component is null in TypeText coroutine");
+            Debug.LogError("Text component is null in TypeText coroutine");
             textFullyRevealed = true;
             yield break;
         }
@@ -956,7 +1103,7 @@ public class DialogueManager : MonoBehaviour
         // If not using typewriter effect, just set the text and return
         if (!useTypewriterEffect)
         {
-            dialogueText.text = text;
+            textComponent.text = text;
             textFullyRevealed = true;
             Debug.Log($"TypeText completed (no effect): \"{text}\"");
             yield break;
@@ -992,7 +1139,7 @@ public class DialogueManager : MonoBehaviour
             }
             
             // Set the preloaded text with all tags but empty content
-            dialogueText.text = preload.ToString();
+            textComponent.text = preload.ToString();
         }
         
         // Use a time-independent approach that works even when Time.timeScale = 0
@@ -1025,7 +1172,7 @@ public class DialogueManager : MonoBehaviour
                 visibleCharIndex++;
                 
                 // Only update the text with visible characters (not tags)
-                dialogueText.text = displayedText.ToString();
+                textComponent.text = displayedText.ToString();
                 
                 // Debug for this specific case - "Nothing Left"
                 if (text == "Nothing Left")
@@ -1044,7 +1191,7 @@ public class DialogueManager : MonoBehaviour
         }
         
         // Ensure the complete text is shown at the end
-        dialogueText.text = text;
+        textComponent.text = text;
         
         // Text is now fully revealed
         textFullyRevealed = true;
