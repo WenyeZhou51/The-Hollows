@@ -30,6 +30,27 @@ public class StartMenuManager : MonoBehaviour
     {
         // Setup the navigation system
         SetupPanelNavigation();
+        
+        // Ensure screen is visible (in case we came from combat loss)
+        EnsureScreenIsVisible();
+    }
+    
+    /// <summary>
+    /// Ensures screen is faded in when start menu loads
+    /// </summary>
+    private void EnsureScreenIsVisible()
+    {
+        // Check if ScreenFader exists and make sure screen is faded in
+        if (ScreenFader.Instance != null)
+        {
+            // First try immediate reset for better user experience
+            ScreenFader.Instance.ResetToVisible();
+            
+            // Also start the normal fade as a backup
+            StartCoroutine(ScreenFader.Instance.FadeFromBlack());
+            
+            Debug.Log("Start Menu ensuring screen visibility");
+        }
     }
     
     private void SetupPanelNavigation()
@@ -150,6 +171,9 @@ public class StartMenuManager : MonoBehaviour
             buttonsContainer.SetActive(false);
         }
         
+        // Reset all game data while preserving death counter
+        ResetGameDataExceptDeaths();
+        
         // Play animation through the background script
         if (background != null)
         {
@@ -163,5 +187,33 @@ public class StartMenuManager : MonoBehaviour
         
         // Load the overworld scene
         SceneManager.LoadScene(overworldSceneName);
+    }
+    
+    /// <summary>
+    /// Resets all game data while preserving the death counter
+    /// </summary>
+    private void ResetGameDataExceptDeaths()
+    {
+        // Make sure PersistentGameManager exists
+        PersistentGameManager.EnsureExists();
+        
+        if (PersistentGameManager.Instance != null)
+        {
+            // Store the current death count
+            int currentDeaths = PersistentGameManager.Instance.GetDeaths();
+            
+            Debug.Log($"Resetting game data. Current deaths: {currentDeaths}");
+            
+            // Reset all game data
+            PersistentGameManager.Instance.ResetAllData();
+            
+            // Restore the death count
+            for (int i = 0; i < currentDeaths; i++)
+            {
+                PersistentGameManager.Instance.IncrementDeaths();
+            }
+            
+            Debug.Log($"Game data reset complete. Deaths restored to: {PersistentGameManager.Instance.GetDeaths()}");
+        }
     }
 } 

@@ -21,6 +21,11 @@ public class CombatStats : MonoBehaviour
     public float actionSpeed = 20f; // Action points gained per second
     public bool isEnemy;
     
+    // Reference to enemy behavior script for enemies
+    [Header("Enemy Behavior")]
+    [Tooltip("The behavior script that controls this enemy's actions")]
+    public EnemyBehavior enemyBehavior;
+    
     [Header("Visual Settings")]
     [SerializeField] private Color highlightColor = new Color(1f, 1f, 0.5f, 1f); // Yellow-ish highlight
     [SerializeField] private float blinkInterval = 0.3f; // How fast the highlight blinks

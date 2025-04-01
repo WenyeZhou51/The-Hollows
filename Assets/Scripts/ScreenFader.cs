@@ -137,6 +137,12 @@ public class ScreenFader : MonoBehaviour
     /// <returns>Coroutine that can be awaited</returns>
     public IEnumerator FadeFromBlack(Action onFadeComplete = null)
     {
+        // Ensure screen isn't permanently black
+        if (canvasGroup.alpha > 0.99f)
+        {
+            Debug.Log("Screen is fully black, ensuring fade from black will run");
+        }
+        
         yield return FadeTo(0f, onFadeComplete);
     }
 
@@ -174,5 +180,19 @@ public class ScreenFader : MonoBehaviour
         isFading = false;
         
         onFadeComplete?.Invoke();
+    }
+
+    /// <summary>
+    /// Immediately resets the screen to be fully visible (no fade animation)
+    /// </summary>
+    public void ResetToVisible()
+    {
+        if (canvasGroup != null)
+        {
+            isFading = false;
+            canvasGroup.alpha = 0f;
+            canvasGroup.blocksRaycasts = false;
+            Debug.Log("ScreenFader immediately reset to visible");
+        }
     }
 } 

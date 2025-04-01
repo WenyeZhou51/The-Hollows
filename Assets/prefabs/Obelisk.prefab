@@ -161,6 +161,7 @@ GameObject:
   - component: {fileID: 5606392298455665498}
   - component: {fileID: 5636393689027812746}
   - component: {fileID: 5636393689027812741}
+  - component: {fileID: 4974589674681215245}
   m_Layer: 0
   m_Name: Obelisk
   m_TagString: Untagged
@@ -278,6 +279,19 @@ MonoBehaviour:
   defenseReductionDefaultDuration: 2
   defenseReductionMultiplier: 1.5
   defenseReductionIconOffset: {x: 0, y: -1.2, z: 0}
+--- !u!114 &4974589674681215245
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5636393689027812743}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 39698c4d3809f06498c1a02cf5f6e2af, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  skills: []
 --- !u!1 &6656742641168095109
 GameObject:
   m_ObjectHideFlags: 0

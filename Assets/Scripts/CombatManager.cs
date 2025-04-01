@@ -4,6 +4,7 @@ using UnityEngine.UI;  // Add this for GridLayoutGroup
 using System.Linq;
 using System;
 using System.Collections;
+using UnityEngine.SceneManagement;
 
 public class CombatManager : MonoBehaviour
 {
@@ -225,8 +226,8 @@ public class CombatManager : MonoBehaviour
                 combatUI.ShowTextPanel("The obelisk focuses on you", 0.5f);
             }
             
-            // Enemy turn
-            ExecuteEnemyTurn(character);
+            // Enemy turn - use the enemy's behavior component if available
+            StartCoroutine(ExecuteEnemyTurn(character));
         }
         else
         {
@@ -260,13 +261,42 @@ public class CombatManager : MonoBehaviour
         }
     }
 
-    private void ExecuteEnemyTurn(CombatStats enemy)
+    private IEnumerator ExecuteEnemyTurn(CombatStats enemy)
     {
-        // Display action message
+        // Check if the enemy has a behavior script attached
+        if (enemy.enemyBehavior != null)
+        {
+            // Use the enemy's behavior script
+            yield return enemy.enemyBehavior.ExecuteTurn(enemy, players, combatUI);
+        }
+        else
+        {
+            // Fallback to basic attack if no behavior script is attached
+            yield return ExecuteBasicEnemyAttack(enemy);
+        }
+        
+        // Reset action points
+        enemy.currentAction = 0;
+    }
+    
+    private IEnumerator ExecuteBasicEnemyAttack(CombatStats enemy)
+    {
+        // Display generic attack message
         if (combatUI != null && combatUI.turnText != null)
         {
             combatUI.DisplayTurnAndActionMessage($"{enemy.characterName} attacks!");
         }
+        
+        // Display "Basic Attack" in action display label
+        if (combatUI != null)
+        {
+            combatUI.DisplayActionLabel("Basic Attack");
+        }
+        
+        // Wait for action display to complete
+        yield return new WaitForSeconds(0.1f); // Small delay
+        while (Time.timeScale == 0)
+            yield return null;
         
         // Find player with lowest HP
         var target = players
@@ -278,11 +308,9 @@ public class CombatManager : MonoBehaviour
         {
             target.TakeDamage(30f);
         }
-
+        
         // Update speed boost duration at the end of turn
         enemy.UpdateSpeedBoostDuration();
-        
-        enemy.currentAction = 0;
     }
 
     public List<CombatStats> GetLivingEnemies()
@@ -487,14 +515,57 @@ public class CombatManager : MonoBehaviour
     
     private void TriggerDefeat()
     {
-        if (OnCombatEnd != null)
+        // Increment the death counter in PersistentGameManager
+        if (PersistentGameManager.Instance != null)
         {
-            OnCombatEnd(false);
+            PersistentGameManager.Instance.IncrementDeaths();
         }
-        else if (SceneTransitionManager.Instance != null)
+
+        // Instead of calling OnCombatEnd, load the start menu directly
+        Debug.Log("Player was defeated! Returning to start menu.");
+        
+        // Make sure ScreenFader exists
+        ScreenFader.EnsureExists();
+        
+        // Start the transition to the start menu with fade effect
+        StartCoroutine(TransitionToStartMenu());
+    }
+    
+    /// <summary>
+    /// Transition to the start menu after player defeat
+    /// </summary>
+    private IEnumerator TransitionToStartMenu()
+    {
+        // Fade to black
+        yield return StartCoroutine(ScreenFader.Instance.FadeToBlack());
+        
+        // Register for scene loaded event BEFORE loading scene
+        SceneManager.sceneLoaded += OnStartMenuSceneLoaded;
+        
+        // Load the start menu scene
+        SceneManager.LoadScene("Start_Menu");
+    }
+    
+    /// <summary>
+    /// Called when the start menu scene has loaded
+    /// </summary>
+    private void OnStartMenuSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        Debug.Log("Start Menu loaded, fading in from black");
+        
+        // Make sure the ScreenFader still exists
+        if (ScreenFader.Instance != null)
         {
-            SceneTransitionManager.Instance.EndCombat(false);
+            // Fade from black once the scene is loaded
+            StartCoroutine(ScreenFader.Instance.FadeFromBlack());
         }
+        else
+        {
+            Debug.LogError("ScreenFader not found after loading Start_Menu scene!");
+        }
+        
+        // Unregister the event to prevent memory leaks
+        SceneManager.sceneLoaded -= OnStartMenuSceneLoaded;
     }
 
     // Save character stats to PersistentGameManager
