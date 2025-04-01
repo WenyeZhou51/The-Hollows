@@ -27,6 +27,11 @@ public class SceneTransitionManager : MonoBehaviour
     
     private List<ItemData> storedItems = new List<ItemData>();
     
+    // New fields to track scene transitions
+    private string targetSceneName;
+    private string targetMarkerId;
+    private Vector3 fallbackPosition;
+    
     private void Awake()
     {
         // Singleton setup
@@ -137,15 +142,26 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     private IEnumerator TransitionToCombat()
     {
+        Debug.Log($"Beginning transition to combat scene: {combatSceneName}");
+        
+        // Validate the scene name before attempting transition
+        if (!IsSceneValid(combatSceneName))
+        {
+            Debug.LogError($"Combat scene '{combatSceneName}' does not exist in build settings. Make sure to add it in File > Build Settings.");
+            // Fade back from black since we're not transitioning
+            StartCoroutine(ScreenFader.Instance.FadeFromBlack());
+            yield break;
+        }
+        
         // Fade to black
         yield return StartCoroutine(ScreenFader.Instance.FadeToBlack());
         
-        // Load the combat scene
-        SceneManager.LoadScene(combatSceneName);
-        
-        // Register for scene loaded event
+        // IMPORTANT: Register for scene loaded event BEFORE loading scene
         SceneManager.sceneLoaded += OnCombatSceneLoaded;
-        Debug.Log("SceneTransitionManager: Combat scene loaded");
+        
+        // Load the combat scene
+        Debug.Log($"Now loading combat scene: {combatSceneName}");
+        SceneManager.LoadScene(combatSceneName);
     }
     
     /// <summary>
@@ -220,22 +236,6 @@ public class SceneTransitionManager : MonoBehaviour
         
         // Listen for combat end event
         combatManager.OnCombatEnd += EndCombat;
-        
-        // For now, let's just use a debug test button to end combat
-        // In a real game, this would be handled by your combat system
-        GameObject testButton = new GameObject("TestEndCombatButton");
-        testButton.AddComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
-        GameObject buttonObject = new GameObject("Button");
-        buttonObject.transform.SetParent(testButton.transform);
-        UnityEngine.UI.Button button = buttonObject.AddComponent<UnityEngine.UI.Button>();
-        UnityEngine.UI.Text text = buttonObject.AddComponent<UnityEngine.UI.Text>();
-        text.text = "End Combat (Win)";
-        text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-        text.alignment = TextAnchor.MiddleCenter;
-        RectTransform rectTransform = buttonObject.GetComponent<RectTransform>();
-        rectTransform.anchoredPosition = new Vector2(100, 50);
-        rectTransform.sizeDelta = new Vector2(200, 50);
-        button.onClick.AddListener(() => EndCombat(true));
     }
     
     /// <summary>
@@ -273,14 +273,26 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     private IEnumerator TransitionToOverworld()
     {
+        Debug.Log($"Beginning transition to overworld scene: {overworldSceneName}");
+        
+        // Validate the scene name before attempting transition
+        if (!IsSceneValid(overworldSceneName))
+        {
+            Debug.LogError($"Overworld scene '{overworldSceneName}' does not exist in build settings. Make sure to add it in File > Build Settings.");
+            // Fade back from black since we're not transitioning
+            StartCoroutine(ScreenFader.Instance.FadeFromBlack());
+            yield break;
+        }
+        
         // Fade to black
         yield return StartCoroutine(ScreenFader.Instance.FadeToBlack());
         
-        // Load the overworld scene
-        SceneManager.LoadScene(overworldSceneName);
-        
-        // Register for scene loaded event
+        // IMPORTANT: Register for scene loaded event BEFORE loading scene
         SceneManager.sceneLoaded += OnOverworldSceneLoaded;
+        
+        // Load the overworld scene
+        Debug.Log($"Now loading overworld scene: {overworldSceneName}");
+        SceneManager.LoadScene(overworldSceneName);
     }
     
     /// <summary>
@@ -460,5 +472,155 @@ public class SceneTransitionManager : MonoBehaviour
         {
             Debug.LogError("No playerInventory available to update with combat items!");
         }
+    }
+    
+    /// <summary>
+    /// Transition to a different scene using a PlayerMarker as spawn point
+    /// </summary>
+    /// <param name="sceneName">Name of the target scene</param>
+    /// <param name="markerId">ID of the PlayerMarker to spawn at</param>
+    /// <param name="player">The player GameObject</param>
+    public void TransitionToScene(string sceneName, string markerId, GameObject player)
+    {
+        if (string.IsNullOrEmpty(sceneName))
+        {
+            Debug.LogError("Cannot transition to empty scene name");
+            return;
+        }
+        
+        // Store transition details
+        targetSceneName = sceneName;
+        targetMarkerId = markerId;
+        
+        // Store player inventory and current position as fallback
+        playerInventory = player.GetComponent<PlayerInventory>();
+        fallbackPosition = player.transform.position;
+        
+        // Make sure ScreenFader exists
+        ScreenFader.EnsureExists();
+        
+        // Start the transition with fade effect
+        StartCoroutine(PerformSceneTransition());
+    }
+    
+    /// <summary>
+    /// Handle the actual scene transition
+    /// </summary>
+    private IEnumerator PerformSceneTransition()
+    {
+        Debug.Log($"Beginning transition to scene: {targetSceneName} with marker ID: {targetMarkerId}");
+        
+        // Validate the scene name before attempting transition
+        if (!IsSceneValid(targetSceneName))
+        {
+            Debug.LogError($"Scene '{targetSceneName}' does not exist in build settings. Make sure to add it in File > Build Settings.");
+            // Fade back from black since we're not transitioning
+            StartCoroutine(ScreenFader.Instance.FadeFromBlack());
+            yield break;
+        }
+        
+        // Fade to black
+        yield return StartCoroutine(ScreenFader.Instance.FadeToBlack());
+        
+        // IMPORTANT: Register for scene loaded event BEFORE loading scene
+        SceneManager.sceneLoaded += OnSceneTransitionComplete;
+        
+        // Load the target scene
+        Debug.Log($"Now loading scene: {targetSceneName}");
+        SceneManager.LoadScene(targetSceneName);
+    }
+    
+    /// <summary>
+    /// Validates if a scene exists in build settings
+    /// </summary>
+    private bool IsSceneValid(string sceneName)
+    {
+        // Check if the scene exists in build settings
+        int sceneCount = SceneManager.sceneCountInBuildSettings;
+        for (int i = 0; i < sceneCount; i++)
+        {
+            string scenePath = SceneUtility.GetScenePathByBuildIndex(i);
+            string sceneNameFromPath = System.IO.Path.GetFileNameWithoutExtension(scenePath);
+            
+            if (string.Equals(sceneNameFromPath, sceneName, System.StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /// <summary>
+    /// Called when a scene transition has completed
+    /// </summary>
+    private void OnSceneTransitionComplete(Scene scene, LoadSceneMode mode)
+    {
+        // Start the setup coroutine
+        StartCoroutine(SetupPlayerAfterTransition());
+        
+        // Unregister the event to prevent multiple calls
+        SceneManager.sceneLoaded -= OnSceneTransitionComplete;
+    }
+    
+    /// <summary>
+    /// Setup the player after scene transition
+    /// </summary>
+    private IEnumerator SetupPlayerAfterTransition()
+    {
+        // Wait a frame to make sure all objects are initialized
+        yield return null;
+        
+        // Find the player in the scene
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        
+        if (player != null)
+        {
+            // Try to find the target PlayerMarker
+            bool markerFound = false;
+            PlayerMarker[] markers = FindObjectsOfType<PlayerMarker>();
+            
+            Debug.Log($"Looking for marker with ID '{targetMarkerId}' in scene '{targetSceneName}'");
+            foreach (PlayerMarker marker in markers)
+            {
+                Debug.Log($"Found marker with ID: {marker.MarkerId} in scene {SceneManager.GetActiveScene().name}");
+                
+                // Only compare the local ID part since we're already in the target scene
+                if (marker.MarkerId == targetMarkerId)
+                {
+                    // Position the player at the marker
+                    player.transform.position = marker.transform.position;
+                    Debug.Log($"Positioned player at marker with ID {targetMarkerId} in scene {targetSceneName}");
+                    markerFound = true;
+                    break;
+                }
+            }
+            
+            if (!markerFound)
+            {
+                Debug.LogWarning($"PlayerMarker with ID '{targetMarkerId}' not found in scene {targetSceneName}. Using default position.");
+                // If no matching marker was found, use a fallback position
+                player.transform.position = fallbackPosition;
+            }
+            
+            // Restore player inventory if needed
+            if (playerInventory != null)
+            {
+                PlayerInventory newInventory = player.GetComponent<PlayerInventory>();
+                if (newInventory != null && newInventory != playerInventory)
+                {
+                    // Transfer inventory items if needed
+                    // This is usually not necessary for scene transitions, but included for completeness
+                    Debug.Log("Restoring player inventory after scene transition");
+                }
+            }
+        }
+        else
+        {
+            Debug.LogError("Player not found in target scene!");
+        }
+        
+        // Fade from black
+        yield return StartCoroutine(ScreenFader.Instance.FadeFromBlack());
     }
 } 
