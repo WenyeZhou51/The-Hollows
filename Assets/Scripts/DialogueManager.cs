@@ -449,6 +449,14 @@ public class DialogueManager : MonoBehaviour
             
             // Remove the portrait prefix from the text
             processedText = text.Substring(portraitMatch.Length).TrimStart();
+            
+            // Remove any leading comma that might appear after the portrait tag
+            if (processedText.StartsWith(","))
+            {
+                processedText = processedText.Substring(1).TrimStart();
+                Debug.Log($"Removed leading comma from dialogue text");
+            }
+            
             Debug.Log($"Text after removing portrait tag: \"{processedText}\"");
         }
         else

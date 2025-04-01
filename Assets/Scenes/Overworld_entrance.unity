@@ -4028,7 +4028,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ebcbecda52457d547974efcbdeb4cc49, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  showDebugUI: 1
+  showDebugUI: 0
   toggleDebugUIKey: 290
   variables:
     chestsLooted: 0
