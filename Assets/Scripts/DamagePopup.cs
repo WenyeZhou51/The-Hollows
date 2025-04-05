@@ -11,7 +11,7 @@ public class DamagePopup : MonoBehaviour
     private Color textColor;
     private Vector3 moveVector;
     // Increase the timer max to make the popup last longer
-    private const float DISAPPEAR_TIMER_MAX = 1.2f;
+    private const float DISAPPEAR_TIMER_MAX = 2f;
     private const float MOVE_SPEED = 2f;
     private static int sortingOrder = 5000;
 
@@ -38,11 +38,15 @@ public class DamagePopup : MonoBehaviour
 
     public void Setup(float damageAmount, bool isPlayerDamage)
     {
-        textMesh.fontSize = 4;
+        // Increase font size for bigger numbers
+        textMesh.fontSize = 5;
         textMesh.alignment = TextAlignmentOptions.Center;
         // Use red color for all physical damage (both player and enemy)
         textMesh.color = Color.red;
         textMesh.text = damageAmount.ToString();
+        
+        // Make text bold
+        textMesh.fontStyle = FontStyles.Bold;
         
         // Apply the Permanent Marker font if available
         if (permanentMarkerFont != null)
@@ -63,8 +67,8 @@ public class DamagePopup : MonoBehaviour
         // Random movement direction
         moveVector = new Vector3(Random.Range(-1f, 1f), 1) * MOVE_SPEED;
         
-        // Set a fixed scale instead of changing it over time
-        transform.localScale = Vector3.one;
+        // Make the scale slightly larger
+        transform.localScale = Vector3.one * 1.2f;
     }
 
     private void Update()
@@ -72,10 +76,12 @@ public class DamagePopup : MonoBehaviour
         transform.position += moveVector * Time.deltaTime;
         moveVector -= moveVector * 8f * Time.deltaTime;
 
-        // Continuously decrease opacity throughout the lifetime
+        // Smoothly decrease opacity throughout the lifetime
         disappearTimer -= Time.deltaTime;
         float fadeRatio = disappearTimer / DISAPPEAR_TIMER_MAX;
-        textColor.a = fadeRatio;
+        
+        // Use a smoother fade curve (start fading faster toward the end)
+        textColor.a = fadeRatio * fadeRatio;
         textMesh.color = textColor;
 
         if (disappearTimer < 0)
