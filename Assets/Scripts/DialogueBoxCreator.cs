@@ -7,6 +7,7 @@ public class DialogueBoxCreator : MonoBehaviour
     [SerializeField] private Canvas canvas;
     [SerializeField] private GameObject dialoguePanel;
     [SerializeField] private TextMeshProUGUI dialogueText;
+    [SerializeField] private GameObject dialogueButtonContainer;
 
     private void Awake()
     {
@@ -63,6 +64,44 @@ public class DialogueBoxCreator : MonoBehaviour
             textRect.offsetMin = Vector2.zero;
             textRect.offsetMax = Vector2.zero;
         }
+        
+        // Create dialogue button container inside the panel
+        if (dialogueButtonContainer == null)
+        {
+            // Check if it already exists as a child of the panel
+            Transform existingContainer = dialoguePanel.transform.Find("DialogueButtonContainer");
+            if (existingContainer != null)
+            {
+                dialogueButtonContainer = existingContainer.gameObject;
+                Debug.Log("Found existing DialogueButtonContainer in the panel");
+            }
+            else
+            {
+                // Create the container
+                dialogueButtonContainer = new GameObject("DialogueButtonContainer");
+                dialogueButtonContainer.transform.SetParent(dialoguePanel.transform, false);
+                
+                // Configure the container
+                RectTransform containerRect = dialogueButtonContainer.AddComponent<RectTransform>();
+                containerRect.anchorMin = new Vector2(0.05f, 0.25f);
+                containerRect.anchorMax = new Vector2(0.95f, 0.95f);
+                containerRect.offsetMin = Vector2.zero;
+                containerRect.offsetMax = Vector2.zero;
+                
+                // Add layout group
+                VerticalLayoutGroup layoutGroup = dialogueButtonContainer.AddComponent<VerticalLayoutGroup>();
+                layoutGroup.padding = new RectOffset(10, 10, 10, 10);
+                layoutGroup.spacing = 10;
+                layoutGroup.childAlignment = TextAnchor.MiddleCenter;
+                layoutGroup.childControlHeight = true;
+                layoutGroup.childControlWidth = true;
+                
+                Debug.Log("Created DialogueButtonContainer inside DialoguePanel");
+            }
+            
+            // Initially hide the button container
+            dialogueButtonContainer.SetActive(false);
+        }
 
         // Get or create DialogueManager
         DialogueManager dialogueManager = FindObjectOfType<DialogueManager>();
@@ -76,11 +115,24 @@ public class DialogueBoxCreator : MonoBehaviour
         System.Type type = dialogueManager.GetType();
         System.Reflection.FieldInfo panelField = type.GetField("dialoguePanel", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         System.Reflection.FieldInfo textField = type.GetField("dialogueText", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        System.Reflection.FieldInfo buttonContainerField = type.GetField("dialogueButtonContainer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         
-        if (panelField != null && textField != null)
+        if (panelField != null)
         {
             panelField.SetValue(dialogueManager, dialoguePanel);
+            Debug.Log("Set dialoguePanel reference in DialogueManager");
+        }
+        
+        if (textField != null)
+        {
             textField.SetValue(dialogueManager, dialogueText);
+            Debug.Log("Set dialogueText reference in DialogueManager");
+        }
+        
+        if (buttonContainerField != null)
+        {
+            buttonContainerField.SetValue(dialogueManager, dialogueButtonContainer);
+            Debug.Log("Set dialogueButtonContainer reference in DialogueManager");
         }
 
         // Hide dialogue panel initially

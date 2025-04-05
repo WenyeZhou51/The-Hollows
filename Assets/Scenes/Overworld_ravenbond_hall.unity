@@ -1436,7 +1436,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   npcName: NPC
-  inkFile: {fileID: 4900000, guid: b19650805ef18114eaf7377bde91c0f3, type: 3}
+  inkFile: {fileID: 4900000, guid: 97aac230fa640ee459f9bd1b8f9a2a26, type: 3}
   resetOnInteract: 0
 --- !u!1 &888331044
 GameObject:
@@ -2190,6 +2190,10 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 5425355503021831760, guid: 6aaf641a1e5f68047bff7176d00c724a, type: 3}
+      propertyPath: m_SortingOrder
+      value: 100
+      objectReference: {fileID: 0}
     - target: {fileID: 5425355503021831761, guid: 6aaf641a1e5f68047bff7176d00c724a, type: 3}
       propertyPath: m_RootOrder
       value: 1
@@ -3481,7 +3485,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ebcbecda52457d547974efcbdeb4cc49, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  showDebugUI: 0
+  showDebugUI: 1
   toggleDebugUIKey: 290
   variables:
     chestsLooted: 0

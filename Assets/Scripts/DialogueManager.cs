@@ -103,6 +103,7 @@ public class DialogueManager : MonoBehaviour
             
             if (choiceButtonPrefab == null)
             {
+                Debug.Log("Choice button prefab not assigned in inspector, attempting to load from Resources...");
                 GameObject buttonPrefabFromResources = Resources.Load<GameObject>("DialogueButton");
                 if (buttonPrefabFromResources != null)
                 {
@@ -111,8 +112,22 @@ public class DialogueManager : MonoBehaviour
                 }
                 else
                 {
-                    Debug.LogError("Could not find DialogueButton prefab in Resources folder!");
+                    // Try to find it in Resources/UI folder as an alternative location
+                    buttonPrefabFromResources = Resources.Load<GameObject>("UI/DialogueButton");
+                    if (buttonPrefabFromResources != null)
+                    {
+                        choiceButtonPrefab = buttonPrefabFromResources;
+                        Debug.Log("Loaded DialogueButton prefab from Resources/UI folder");
+                    }
+                    else
+                    {
+                        Debug.LogError("Could not find DialogueButton prefab in Resources folder! Choice buttons will not appear correctly.");
+                    }
                 }
+            }
+            else
+            {
+                Debug.Log($"Choice button prefab is assigned: {choiceButtonPrefab.name}");
             }
         }
         else
@@ -324,36 +339,74 @@ public class DialogueManager : MonoBehaviour
             Debug.LogError("DialoguePanel not found in the DialogueCanvas prefab!");
         }
         
-        // Find the dialogue button container in the instantiated prefab
-        Transform buttonContainerTransform = instantiatedCanvas.transform.Find("DialogueButtonContainer");
+        // First look for DialogueButtonContainer as a child of the panel
+        Transform buttonContainerTransform = dialoguePanel.transform.Find("DialogueButtonContainer");
+        
+        // If not found in panel, check if it exists at canvas level (legacy location)
+        if (buttonContainerTransform == null)
+        {
+            buttonContainerTransform = instantiatedCanvas.transform.Find("DialogueButtonContainer");
+            if (buttonContainerTransform != null)
+            {
+                Debug.Log("Found DialogueButtonContainer at canvas level - will relocate it to be inside the DialoguePanel");
+                // Relocate it to be a child of the panel
+                buttonContainerTransform.SetParent(dialoguePanel.transform, false);
+            }
+        }
+        
         if (buttonContainerTransform != null)
         {
             dialogueButtonContainer = buttonContainerTransform.gameObject;
             Debug.Log("Found DialogueButtonContainer in the DialogueCanvas prefab");
+            
+            // Comment out this section to preserve the original prefab's settings
+            // RectTransform containerRect = dialogueButtonContainer.GetComponent<RectTransform>();
+            // if (containerRect != null)
+            // {
+            //     // Position it within the upper part of the dialogue panel
+            //     containerRect.anchorMin = new Vector2(0.1f, 0.4f);
+            //     containerRect.anchorMax = new Vector2(0.9f, 0.9f);
+            //     containerRect.offsetMin = Vector2.zero;
+            //     containerRect.offsetMax = Vector2.zero;
+            //     Debug.Log("Adjusted DialogueButtonContainer position to be within the dialogue panel");
+            // }
+            
+            // Instead, log the original settings for debugging
+            RectTransform containerRect = dialogueButtonContainer.GetComponent<RectTransform>();
+            if (containerRect != null)
+            {
+                Debug.Log($"Using existing DialogueButtonContainer settings - anchorMin: {containerRect.anchorMin}, anchorMax: {containerRect.anchorMax}");
+            }
         }
         else
         {
-            Debug.LogWarning("DialogueButtonContainer not found in the DialogueCanvas prefab. Choices will not be displayed.");
-            // Create a container for choices if it doesn't exist
-            dialogueButtonContainer = new GameObject("DialogueButtonContainer");
-            dialogueButtonContainer.transform.SetParent(instantiatedCanvas.transform, false);
+            Debug.Log("DialogueButtonContainer not found in either DialoguePanel or canvas - creating a new one inside DialoguePanel");
+            // Create the button container inside the dialogue panel if not found
+            Debug.Log("Creating DialogueButtonContainer inside DialoguePanel");
+            GameObject buttonContainerObj = new GameObject("DialogueButtonContainer");
+            buttonContainerObj.transform.SetParent(dialoguePanel.transform, false);
             
-            // Add RectTransform
-            RectTransform containerRect = dialogueButtonContainer.AddComponent<RectTransform>();
-            containerRect.anchorMin = new Vector2(0.3f, 0.35f);
-            containerRect.anchorMax = new Vector2(0.7f, 0.65f);
+            // Add RectTransform - use your preferred size and position values here
+            // Based on your prefab's original settings
+            RectTransform containerRect = buttonContainerObj.AddComponent<RectTransform>();
+            
+            // These values should match your original prefab's settings
+            // Make sure you set these values to match what you want in your prefab
+            containerRect.anchorMin = new Vector2(0.05f, 0.25f); // Adjust these to match your prefab
+            containerRect.anchorMax = new Vector2(0.95f, 0.95f); // Adjust these to match your prefab
             containerRect.offsetMin = Vector2.zero;
             containerRect.offsetMax = Vector2.zero;
             
             // Add VerticalLayoutGroup
-            VerticalLayoutGroup layoutGroup = dialogueButtonContainer.AddComponent<VerticalLayoutGroup>();
+            VerticalLayoutGroup layoutGroup = buttonContainerObj.AddComponent<VerticalLayoutGroup>();
             layoutGroup.padding = new RectOffset(10, 10, 10, 10);
             layoutGroup.spacing = 10;
             layoutGroup.childAlignment = TextAnchor.MiddleCenter;
             layoutGroup.childControlHeight = true;
             layoutGroup.childControlWidth = true;
             
-            Debug.Log("Created DialogueButtonContainer as a fallback");
+            dialogueButtonContainer = buttonContainerObj;
+            Debug.Log("Created DialogueButtonContainer inside DialoguePanel");
         }
         
         Debug.Log("Dialogue UI initialized from prefab successfully");
@@ -404,12 +457,102 @@ public class DialogueManager : MonoBehaviour
             Debug.LogError("Could not find DialoguePanel in scene");
         }
         
-        // Try to find the dialogue button container in the scene
-        GameObject buttonContainerObj = GameObject.Find("DialogueButtonContainer");
+        // First check if DialogueButtonContainer is a child of the panel (desired structure)
+        GameObject buttonContainerObj = null;
+        if (dialoguePanel != null)
+        {
+            Transform containerTransform = dialoguePanel.transform.Find("DialogueButtonContainer");
+            if (containerTransform != null)
+            {
+                buttonContainerObj = containerTransform.gameObject;
+                Debug.Log("Found DialogueButtonContainer inside DialoguePanel (correct structure)");
+                
+                // Comment out the code that adjusts the position
+                // RectTransform containerRect = buttonContainerObj.GetComponent<RectTransform>();
+                // if (containerRect != null)
+                // {
+                //     containerRect.anchorMin = new Vector2(0.1f, 0.4f);
+                //     containerRect.anchorMax = new Vector2(0.9f, 0.9f);
+                //     containerRect.offsetMin = Vector2.zero;
+                //     containerRect.offsetMax = Vector2.zero;
+                //     Debug.Log("Adjusted relocated DialogueButtonContainer position");
+                // }
+                
+                // Instead, just log the current values
+                RectTransform containerRect = buttonContainerObj.GetComponent<RectTransform>();
+                if (containerRect != null)
+                {
+                    Debug.Log($"Preserving DialogueButtonContainer settings after reparenting - anchorMin: {containerRect.anchorMin}, anchorMax: {containerRect.anchorMax}");
+                }
+            }
+        }
+        
+        // If not found in panel, look for it at scene root level
+        if (buttonContainerObj == null)
+        {
+            buttonContainerObj = GameObject.Find("DialogueButtonContainer");
+            if (buttonContainerObj != null)
+            {
+                Debug.Log("Found DialogueButtonContainer at scene root - moving it to be a child of DialoguePanel");
+                // Move it to be a child of the dialogue panel
+                if (dialoguePanel != null)
+                {
+                    buttonContainerObj.transform.SetParent(dialoguePanel.transform, false);
+                    
+                    // Comment out the code that adjusts the position
+                    // RectTransform containerRect = buttonContainerObj.GetComponent<RectTransform>();
+                    // if (containerRect != null)
+                    // {
+                    //     containerRect.anchorMin = new Vector2(0.1f, 0.4f);
+                    //     containerRect.anchorMax = new Vector2(0.9f, 0.9f);
+                    //     containerRect.offsetMin = Vector2.zero;
+                    //     containerRect.offsetMax = Vector2.zero;
+                    //     Debug.Log("Adjusted relocated DialogueButtonContainer position");
+                    // }
+                    
+                    // Instead, just log the current values
+                    RectTransform containerRect = buttonContainerObj.GetComponent<RectTransform>();
+                    if (containerRect != null)
+                    {
+                        Debug.Log($"Preserving DialogueButtonContainer settings after reparenting - anchorMin: {containerRect.anchorMin}, anchorMax: {containerRect.anchorMax}");
+                    }
+                }
+            }
+        }
+        
         if (buttonContainerObj != null)
         {
             dialogueButtonContainer = buttonContainerObj;
-            Debug.Log("Found DialogueButtonContainer in scene");
+            Debug.Log("DialogueButtonContainer setup complete");
+        }
+        else if (dialoguePanel != null)
+        {
+            // Create the button container inside the dialogue panel if not found
+            Debug.Log("Creating DialogueButtonContainer inside DialoguePanel");
+            buttonContainerObj = new GameObject("DialogueButtonContainer");
+            buttonContainerObj.transform.SetParent(dialoguePanel.transform, false);
+            
+            // Add RectTransform - use your preferred size and position values here
+            // Based on your prefab's original settings
+            RectTransform containerRect = buttonContainerObj.AddComponent<RectTransform>();
+            
+            // These values should match your original prefab's settings
+            // Make sure you set these values to match what you want in your prefab
+            containerRect.anchorMin = new Vector2(0.05f, 0.25f); // Adjust these to match your prefab
+            containerRect.anchorMax = new Vector2(0.95f, 0.95f); // Adjust these to match your prefab
+            containerRect.offsetMin = Vector2.zero;
+            containerRect.offsetMax = Vector2.zero;
+            
+            // Add VerticalLayoutGroup
+            VerticalLayoutGroup layoutGroup = buttonContainerObj.AddComponent<VerticalLayoutGroup>();
+            layoutGroup.padding = new RectOffset(10, 10, 10, 10);
+            layoutGroup.spacing = 10;
+            layoutGroup.childAlignment = TextAnchor.MiddleCenter;
+            layoutGroup.childControlHeight = true;
+            layoutGroup.childControlWidth = true;
+            
+            dialogueButtonContainer = buttonContainerObj;
+            Debug.Log("Created DialogueButtonContainer inside DialoguePanel");
         }
         
         // Try to find the choice button prefab in the scene
@@ -853,6 +996,22 @@ public class DialogueManager : MonoBehaviour
             // Make sure the dialogue button container is active
             if (dialogueButtonContainer != null)
             {
+                Debug.Log($"Found dialogueButtonContainer: {dialogueButtonContainer.name}, Parent: {dialogueButtonContainer.transform.parent.name}");
+                
+                // Ensure correct parenting
+                if (dialogueButtonContainer.transform.parent != dialoguePanel.transform)
+                {
+                    Debug.LogWarning("DialogueButtonContainer is not a child of DialoguePanel! Fixing hierarchy...");
+                    dialogueButtonContainer.transform.SetParent(dialoguePanel.transform, false);
+                }
+                
+                // Get button container rect transform for positioning verification
+                RectTransform containerRect = dialogueButtonContainer.GetComponent<RectTransform>();
+                if (containerRect != null)
+                {
+                    Debug.Log($"DialogueButtonContainer position - anchorMin: {containerRect.anchorMin}, anchorMax: {containerRect.anchorMax}");
+                }
+                
                 dialogueButtonContainer.SetActive(true);
                 
                 // Make sure the parent canvas is active
@@ -904,6 +1063,13 @@ public class DialogueManager : MonoBehaviour
                     // Add to our list of buttons
                     choiceButtons.Add(buttonObj);
                     
+                    // Log the button's rect position for debugging
+                    RectTransform buttonRect = buttonObj.GetComponent<RectTransform>();
+                    if (buttonRect != null)
+                    {
+                        Debug.Log($"Choice button {i} position - anchorMin: {buttonRect.anchorMin}, anchorMax: {buttonRect.anchorMax}");
+                    }
+                    
                     Debug.Log($"Created choice button for: {choice.text}");
                 }
                 
@@ -912,7 +1078,7 @@ public class DialogueManager : MonoBehaviour
             }
             else
             {
-                Debug.LogError("DialogueButtonContainer is not assigned! Cannot display choices.");
+                Debug.LogError("DialogueButtonContainer is null! Cannot display choices.");
             }
         }
         else
