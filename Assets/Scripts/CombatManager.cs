@@ -220,6 +220,9 @@ public class CombatManager : MonoBehaviour
         // Handle turn based on character type
         if (character.isEnemy)
         {
+            // Reset action points BEFORE starting the enemy turn to prevent multiple turns
+            character.currentAction = 0;
+            
             // Enemy turn - show the text panel with the obelisk message
             if (combatUI != null)
             {
@@ -275,8 +278,7 @@ public class CombatManager : MonoBehaviour
             yield return ExecuteBasicEnemyAttack(enemy);
         }
         
-        // Reset action points
-        enemy.currentAction = 0;
+        // The action points have already been reset before starting the turn
     }
     
     private IEnumerator ExecuteBasicEnemyAttack(CombatStats enemy)
@@ -306,7 +308,13 @@ public class CombatManager : MonoBehaviour
 
         if (target != null)
         {
-            target.TakeDamage(30f);
+            // Base damage
+            float baseDamage = 30f;
+            
+            // Round down to whole number
+            int finalDamage = Mathf.FloorToInt(baseDamage);
+            
+            target.TakeDamage(finalDamage);
         }
         
         // Update speed boost duration at the end of turn
@@ -387,7 +395,19 @@ public class CombatManager : MonoBehaviour
         while (Time.timeScale == 0)
             yield return null;
             
-        target.TakeDamage(10f);
+        // Base damage
+        float baseDamage = 10f;
+        
+        // Apply 20% variance (80-120% of base damage)
+        float variance = UnityEngine.Random.Range(0.8f, 1.2f);
+        float damageWithVariance = baseDamage * variance;
+        
+        // Round down to whole number
+        int finalDamage = Mathf.FloorToInt(damageWithVariance);
+        
+        // Deal the damage
+        target.TakeDamage(finalDamage);
+        
         if (target.IsDead())
         {
             // Remove the enemy from the list and destroy it
@@ -407,8 +427,16 @@ public class CombatManager : MonoBehaviour
         while (Time.timeScale == 0)
             yield return null;
             
-        activeCharacter.HealHealth(10f);
-        activeCharacter.UseSanity(10f);
+        // Base heal amount
+        float baseHealAmount = 10f;
+        float baseSanityCost = 10f;
+        
+        // Round down to whole numbers
+        int finalHealAmount = Mathf.FloorToInt(baseHealAmount);
+        int finalSanityCost = Mathf.FloorToInt(baseSanityCost);
+        
+        activeCharacter.HealHealth(finalHealAmount);
+        activeCharacter.UseSanity(finalSanityCost);
         
         EndPlayerTurn();
     }

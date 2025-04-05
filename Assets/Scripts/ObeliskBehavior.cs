@@ -79,7 +79,13 @@ public class ObeliskBehavior : EnemyBehavior
 
         if (target != null)
         {
-            target.TakeDamage(30f);
+            // Base damage
+            float baseDamage = 30f;
+            
+            // Round down to whole number
+            int finalDamage = Mathf.FloorToInt(baseDamage);
+            
+            target.TakeDamage(finalDamage);
         }
     }
     
@@ -114,9 +120,13 @@ public class ObeliskBehavior : EnemyBehavior
             
             // Deal 20-30 random damage
             float damage = Random.Range(20f, 30f);
-            target.TakeDamage(damage);
             
-            Debug.Log($"Triangulation hit {target.characterName} for {damage} damage");
+            // Round down to whole number
+            int finalDamage = Mathf.FloorToInt(damage);
+            
+            target.TakeDamage(finalDamage);
+            
+            Debug.Log($"Triangulation hit {target.characterName} for {finalDamage} damage");
             
             // Don't remove from list - the same character can be hit multiple times
         }
@@ -148,9 +158,13 @@ public class ObeliskBehavior : EnemyBehavior
         
         // Drain 50 Mind
         float mindDrain = 50f;
-        target.UseSanity(mindDrain);
         
-        Debug.Log($"Unblinking Gaze drained {mindDrain} Mind from {target.characterName}");
+        // Round down to whole number
+        int finalMindDrain = Mathf.FloorToInt(mindDrain);
+        
+        target.UseSanity(finalMindDrain);
+        
+        Debug.Log($"Unblinking Gaze drained {finalMindDrain} Mind from {target.characterName}");
     }
     
     private IEnumerator UseMaliceOfStoneSkill(CombatStats enemy, List<CombatStats> players, CombatUI combatUI)
@@ -176,8 +190,14 @@ public class ObeliskBehavior : EnemyBehavior
         // Deal 100 damage to all living players
         foreach (var player in livingPlayers)
         {
-            player.TakeDamage(100f);
-            Debug.Log($"Malice of Stone hit {player.characterName} for 100 damage");
+            // Base damage
+            float baseDamage = 100f;
+            
+            // Round down to whole number
+            int finalDamage = Mathf.FloorToInt(baseDamage);
+            
+            player.TakeDamage(finalDamage);
+            Debug.Log($"Malice of Stone hit {player.characterName} for {finalDamage} damage");
         }
     }
 } 
