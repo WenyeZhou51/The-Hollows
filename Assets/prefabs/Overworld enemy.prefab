@@ -143,7 +143,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   target: {fileID: 0}
   sightDistance: 5
-  stoppingDistance: 1
+  stoppingDistance: 0
   obstacleLayer:
     serializedVersion: 2
     m_Bits: 128
