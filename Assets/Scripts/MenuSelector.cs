@@ -140,7 +140,21 @@ public class MenuSelector : MonoBehaviour
         // Cancel/Back (allow this even when disabled)
         if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.X))
         {
+            Debug.Log("[Menu Navigation] Back button pressed");
+            
             // Implement back functionality
+            if (isInSkillMenu)
+            {
+                Debug.Log("[Menu Navigation] Returning from skill menu to action menu");
+                combatUI.BackToActionMenu();
+                isInSkillMenu = false;
+            }
+            else if (combatManager.isItemMenuActive)
+            {
+                Debug.Log("[Menu Navigation] Returning from item menu to action menu");
+                combatUI.BackToItemMenu();
+                combatManager.isItemMenuActive = false;
+            }
         }
     }
 

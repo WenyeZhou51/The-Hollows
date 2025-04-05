@@ -761,6 +761,31 @@ public class CombatUI : MonoBehaviour
     public void ShowItemMenu()
     {
         Debug.Log("[ItemButton Lifecycle] ShowItemMenu called - Beginning item menu setup");
+        
+        // Get the active character's items or the party's shared inventory
+        var activeCharStats = combatManager.ActiveCharacter;
+        List<ItemData> partyItems = new List<ItemData>();
+        foreach (var player in combatManager.players)
+        {
+            if (player != null && !player.IsDead())
+            {
+                partyItems.AddRange(player.items);
+            }
+        }
+        
+        // Check if there are any items before proceeding
+        if (partyItems.Count == 0)
+        {
+            Debug.Log("[ItemButton Lifecycle] No items in inventory, showing message and returning to action menu");
+            // Display a message to the player
+            DisplayTurnAndActionMessage("No items in inventory!");
+            // Stay in the action menu
+            return;
+        }
+        
+        // Set the item menu active flag in the combat manager
+        combatManager.isItemMenuActive = true;
+        
         if (itemMenu != null)
         {
             if (characterStatsPanel != null) characterStatsPanel.SetActive(false);
@@ -878,21 +903,10 @@ public class CombatUI : MonoBehaviour
             runtimeGrid.constraintCount = itemButtonsGrid.constraintCount;
             
             // Create buttons for each item
-            var activeCharStats = combatManager.ActiveCharacter;
             if (activeCharStats != null)
             {
                 // Track processed items to avoid duplicates
                 HashSet<string> processedItems = new HashSet<string>();
-                
-                // Get all items from the party (all player characters)
-                List<ItemData> partyItems = new List<ItemData>();
-                foreach (var player in combatManager.players)
-                {
-                    if (player != null && !player.IsDead())
-                    {
-                        partyItems.AddRange(player.items);
-                    }
-                }
                 
                 // Create a button for each unique item
                 foreach (var item in partyItems)
@@ -1231,6 +1245,10 @@ public class CombatUI : MonoBehaviour
     public void BackToItemMenu()
     {
         Debug.Log("[ItemButton Lifecycle] Returning to action menu from item menu");
+        
+        // Clear the item menu active flag in the combat manager
+        combatManager.isItemMenuActive = false;
+        
         if (itemMenu != null) itemMenu.SetActive(false);
         if (characterStatsPanel != null) characterStatsPanel.SetActive(true);
         if (skillMenu != null) skillMenu.SetActive(false); // Ensure skill menu is hidden

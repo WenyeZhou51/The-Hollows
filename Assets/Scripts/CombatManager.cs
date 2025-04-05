@@ -29,6 +29,9 @@ public class CombatManager : MonoBehaviour
     private bool isCombatActive = true;
     private bool isWaitingForPlayerInput = false;
     
+    // Flag to track if the item menu is currently active
+    public bool isItemMenuActive = false;
+    
     // Add a turn counter to track player turns
     private int playerTurnCount = 0;
     
