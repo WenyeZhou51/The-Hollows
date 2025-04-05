@@ -14,15 +14,23 @@ public class PlayerController : MonoBehaviour
     [Header("UI References")]
     [SerializeField] private GameObject menuCanvas; // Reference to the existing menu canvas
     
+    [Header("Animation")]
+    [SerializeField] private Animator animator; // Reference to the animator component
+    
     private Rigidbody2D rb;
     private Vector2 movement;
     private bool canMove = true;
     private PlayerInventory inventory;
     private bool isInventoryOpen = false;
+    private SpriteRenderer spriteRenderer;
+    
+    // Last direction the player was facing
+    private Vector2 lastDirection = Vector2.down; // Default facing down
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
+        spriteRenderer = GetComponent<SpriteRenderer>();
         
         // If there's no Rigidbody2D, add one
         if (rb == null)
@@ -39,6 +47,12 @@ public class PlayerController : MonoBehaviour
         {
             BoxCollider2D collider = gameObject.AddComponent<BoxCollider2D>();
             collider.size = new Vector2(0.8f, 0.8f); // Slightly smaller than the sprite
+        }
+        
+        // Get Animator component if not assigned
+        if (animator == null)
+        {
+            animator = GetComponent<Animator>();
         }
         
         // Get or add PlayerInventory component
@@ -218,6 +232,8 @@ public class PlayerController : MonoBehaviour
         if (isInventoryOpen)
         {
             movement = Vector2.zero;
+            // Set idle animation
+            UpdateAnimation(Vector2.zero);
             return;
         }
         
@@ -230,6 +246,9 @@ public class PlayerController : MonoBehaviour
         {
             movement.Normalize();
         }
+        
+        // Update animation based on movement direction
+        UpdateAnimation(movement);
         
         // Check for Z key press - handle both dialogue and interaction exclusively
         if (Input.GetKeyDown(KeyCode.Z))
@@ -278,6 +297,12 @@ public class PlayerController : MonoBehaviour
         else
         {
             rb.velocity = Vector2.zero;
+            
+            // Set idle animation when not moving
+            if (animator != null)
+            {
+                animator.SetBool("IsMoving", false);
+            }
         }
     }
     
@@ -406,5 +431,46 @@ public class PlayerController : MonoBehaviour
     {
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(transform.position, interactionRadius);
+    }
+    
+    // Updates animation based on movement input
+    private void UpdateAnimation(Vector2 moveInput)
+    {
+        if (animator == null) return;
+        
+        // Check if we're moving or not
+        bool isMoving = moveInput.sqrMagnitude > 0;
+        
+        // Only update direction if actually moving
+        if (isMoving)
+        {
+            // If we were previously stopped, reset animator speed
+            if (animator.speed == 0)
+            {
+                animator.speed = 1;
+            }
+            
+            lastDirection = moveInput;
+            
+            // Set animation parameters
+            animator.SetBool("IsMoving", true);
+            animator.SetFloat("Horizontal", lastDirection.x);
+            animator.SetFloat("Vertical", lastDirection.y);
+            
+            // Handle flipping sprite for left/right movement
+            if (spriteRenderer != null && Mathf.Abs(lastDirection.x) > Mathf.Abs(lastDirection.y))
+            {
+                // Flip sprite when moving left
+                spriteRenderer.flipX = (lastDirection.x < 0);
+            }
+        }
+        else
+        {
+            // When not moving, pause the animator to freeze on current frame
+            animator.SetBool("IsMoving", false);
+            animator.speed = 0;
+            
+            // Keep the direction values (don't update them)
+        }
     }
 } 
