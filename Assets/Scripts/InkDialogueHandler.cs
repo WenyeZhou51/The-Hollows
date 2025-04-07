@@ -2,6 +2,7 @@ using UnityEngine;
 using Ink.Runtime;
 using System.Collections;
 using UnityEngine.SceneManagement;
+using System.Collections.Generic;
 
 public class InkDialogueHandler : MonoBehaviour
 {
@@ -20,6 +21,7 @@ public class InkDialogueHandler : MonoBehaviour
 
     private Story _story;
     private bool _isInitialized = false;
+    private string lastSelectedChoiceText = null;
 
     private void Update()
     {
@@ -87,6 +89,25 @@ public class InkDialogueHandler : MonoBehaviour
                 return "END_OF_DIALOGUE";
             }
             
+            // Check if this is the result of a choice that immediately ends the dialogue
+            if (!_story.canContinue && _story.currentChoices.Count == 0)
+            {
+                // If there's nowhere else to go in the story, this is the end
+                Debug.Log("GetNextDialogueLine: Choice led directly to end - treating as end of dialogue");
+                return "END_OF_DIALOGUE";
+            }
+
+            // If we have a stored choice text and the text starts with it, remove it
+            if (lastSelectedChoiceText != null && text.StartsWith(lastSelectedChoiceText, System.StringComparison.OrdinalIgnoreCase))
+            {
+                string originalText = text;
+                text = text.Substring(lastSelectedChoiceText.Length).Trim();
+                Debug.Log($"GetNextDialogueLine: Removed choice text from beginning of dialogue. Original: '{originalText}', New: '{text}'");
+            }
+            
+            // Clear the lastSelectedChoiceText to avoid affecting subsequent dialogue lines
+            lastSelectedChoiceText = null;
+            
             Debug.Log($"GetNextDialogueLine: Returning text: \"{text.Substring(0, Mathf.Min(50, text.Length))}...\"");
             return text;
         }
@@ -111,6 +132,10 @@ public class InkDialogueHandler : MonoBehaviour
     {
         if (_story != null && choiceIndex >= 0 && choiceIndex < _story.currentChoices.Count)
         {
+            // Store the selected choice text before selecting it
+            lastSelectedChoiceText = _story.currentChoices[choiceIndex].text;
+            Debug.Log($"Stored selected choice text: '{lastSelectedChoiceText}'");
+            
             // ONLY select the choice, do NOT continue the story here
             // Let DialogueManager.ContinueInkStory handle the continuation through GetNextDialogueLine
             _story.ChooseChoiceIndex(choiceIndex);
@@ -180,6 +205,13 @@ public class InkDialogueHandler : MonoBehaviour
                     Debug.Log("Ravenbond failure detected via tag - reducing Magician's max HP and sanity");
                     ApplyRavenbondPenalty();
                     penaltyApplied = true;
+                }
+                
+                // Check for exit comics tag
+                if (tag == "SHOW_EXIT_COMICS")
+                {
+                    Debug.Log("Exit comics sequence tag detected - will show comics before exiting");
+                    StartCoroutine(TriggerExitComics());
                 }
                 
                 // Example: Parse commands like "GIVE_ITEM:HealthPotion"
@@ -368,6 +400,51 @@ public class InkDialogueHandler : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Triggers the exit comics sequence using the existing ComicsDisplayController
+    /// </summary>
+    private IEnumerator TriggerExitComics()
+    {
+        Debug.Log("Triggering exit comics sequence");
+        
+        // Find the ComicsDisplayController in the scene
+        ComicsDisplayController controller = ComicsDisplayController.Instance;
+        
+        // If controller exists, use it to display comics
+        if (controller != null)
+        {
+            // Wait a moment for dialogue to close
+            yield return new WaitForSeconds(0.2f);
+            
+            // Start the comic sequence - the controller already has the panels configured
+            controller.StartComicSequence();
+            
+            // Since we can't directly check how many panels there are (private field),
+            // use a reasonable default delay based on typical comic sequences
+            float comicDisplayTime = 10f; // Default reasonable time for viewing comics
+            StartCoroutine(DelayedQuit(comicDisplayTime));
+        }
+        else
+        {
+            Debug.LogWarning("No ComicsDisplayController found in scene - cannot show exit comics");
+            // If no controller, just quit immediately
+            Application.Quit();
+        }
+    }
+
+    /// <summary>
+    /// Delays quitting the application to allow viewing comics
+    /// </summary>
+    private IEnumerator DelayedQuit(float delay)
+    {
+        Debug.Log($"Will quit application after {delay} seconds");
+        yield return new WaitForSeconds(delay);
+        
+        // Quit the application
+        Debug.Log("Quitting application after comic display");
+        Application.Quit();
+    }
+
     public TextAsset InkJSON
     {
         get { return inkJSON; }
@@ -421,5 +498,31 @@ public class InkDialogueHandler : MonoBehaviour
     public bool IsInitialized()
     {
         return _isInitialized;
+    }
+
+    // Add a method to get the current text with choice prefix removed
+    public string GetCleanCurrentText()
+    {
+        if (_story == null)
+        {
+            Debug.LogError("GetCleanCurrentText: No story loaded.");
+            return "Error: No story loaded.";
+        }
+        
+        string currentText = _story.currentText;
+        
+        // If we have a stored choice text and the current text starts with it, remove it
+        if (lastSelectedChoiceText != null && currentText != null && 
+            currentText.StartsWith(lastSelectedChoiceText, System.StringComparison.OrdinalIgnoreCase))
+        {
+            string originalText = currentText;
+            currentText = currentText.Substring(lastSelectedChoiceText.Length).Trim();
+            Debug.Log($"GetCleanCurrentText: Removed choice text from dialogue. Original: '{originalText}', New: '{currentText}'");
+        }
+        
+        // Clear the lastSelectedChoiceText to avoid affecting subsequent dialogue lines
+        lastSelectedChoiceText = null;
+        
+        return currentText;
     }
 } 

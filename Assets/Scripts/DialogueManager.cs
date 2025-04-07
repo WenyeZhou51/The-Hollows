@@ -43,11 +43,12 @@ public class DialogueManager : MonoBehaviour
     private List<GameObject> choiceButtons = new List<GameObject>();
     private Coroutine typingCoroutine;
     private GameObject instantiatedCanvas;
-    private int currentChoiceIndex = 0;
+    private int currentChoiceIndex = -1;
     private bool canvasInitialized = false;
     private bool waitForKeyRelease = false;
-    private bool textFullyRevealed = false; // Track if text has been revealed but not advanced
-    private bool isPortraitMode = false; // Tracks if we're currently in portrait mode
+    private bool textFullyRevealed = false;
+    private bool isPortraitMode = false;
+    private string currentCleanDialogueText = "";
 
     // Public event that other systems can subscribe to
     public delegate void DialogueStateChanged(bool isActive);
@@ -214,10 +215,20 @@ public class DialogueManager : MonoBehaviour
                 StopCoroutine(typingCoroutine);
                 if (dialogueText != null && currentInkHandler != null)
                 {
-                    Story story = GetStoryFromHandler();
-                    if (story != null && story.currentText != null)
+                    // Use the stored clean text instead of getting it from the Ink story again
+                    if (!string.IsNullOrEmpty(currentCleanDialogueText))
                     {
-                        dialogueText.text = story.currentText;
+                        dialogueText.text = currentCleanDialogueText;
+                        Debug.Log($"Using stored clean text when skipping typewriter: '{currentCleanDialogueText}'");
+                    }
+                    else
+                    {
+                        // Fallback to accessing story directly if no stored text is available
+                        Story story = GetStoryFromHandler();
+                        if (story != null && story.currentText != null)
+                        {
+                            dialogueText.text = story.currentText;
+                        }
                     }
                 }
                 typingCoroutine = null;
@@ -770,6 +781,9 @@ public class DialogueManager : MonoBehaviour
             
             // IMPORTANT: Preprocess the text to handle variables, portraits, and tags BEFORE starting typewriter effect
             string preprocessedText = PreprocessText(message);
+            
+            // Store the clean text for use when skipping typewriter
+            currentCleanDialogueText = preprocessedText;
             
             // Determine which text component to use based on portrait mode
             TextMeshProUGUI targetTextComponent = isPortraitMode && portraitText != null ? portraitText : dialogueText;

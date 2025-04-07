@@ -7,7 +7,11 @@ Leave the dungeon?
 === continue ===
 You have not yet fallen the obelisk. Leave regardless?
 + No -> END
-+ Leave the dungeon -> END
++ Leave the dungeon -> exit_with_comics
+
+=== exit_with_comics ===
+# SHOW_EXIT_COMICS
+-> END
 
 === end ===
 -> END 
