@@ -97,54 +97,10 @@ public class InventoryUI : MonoBehaviour
             inventoryItem.gameObject.SetActive(false);
         }
         
-        // Group items by type
-        List<ItemData> consumableItems = new List<ItemData>();
-        List<ItemData> equipmentItems = new List<ItemData>();
-        List<ItemData> keyItems = new List<ItemData>();
-        
+        // Simple linear list - display all items together regardless of type
         foreach (ItemData item in playerInventory.Items)
         {
-            switch (item.type)
-            {
-                case ItemData.ItemType.KeyItem:
-                    keyItems.Add(item);
-                    break;
-                case ItemData.ItemType.Equipment:
-                    equipmentItems.Add(item);
-                    break;
-                case ItemData.ItemType.Consumable:
-                default:
-                    consumableItems.Add(item);
-                    break;
-            }
-        }
-        
-        // Create section headers and items
-        if (keyItems.Count > 0)
-        {
-            CreateSectionHeader("Key Items");
-            foreach (ItemData item in keyItems)
-            {
-                CreateItemButton(item, hasExistingTemplate, inventoryItem, true);
-            }
-        }
-        
-        if (equipmentItems.Count > 0)
-        {
-            CreateSectionHeader("Equipment");
-            foreach (ItemData item in equipmentItems)
-            {
-                CreateItemButton(item, hasExistingTemplate, inventoryItem);
-            }
-        }
-        
-        if (consumableItems.Count > 0)
-        {
-            CreateSectionHeader("Consumables");
-            foreach (ItemData item in consumableItems)
-            {
-                CreateItemButton(item, hasExistingTemplate, inventoryItem);
-            }
+            CreateItemButton(item, hasExistingTemplate, inventoryItem);
         }
         
         // If no items and no template exists, show empty message
@@ -209,12 +165,9 @@ public class InventoryUI : MonoBehaviour
         {
             nameText.text = $"{item.name} x{item.amount}";
             
-            // Highlight key items with a special color
-            if (isKeyItem)
-            {
-                nameText.color = new Color(1f, 0.8f, 0.2f); // Gold/yellow color for key items
-                nameText.fontStyle = TMPro.FontStyles.Bold;
-            }
+            // FIXED: No special formatting for key items - display them the same as regular items
+            nameText.color = Color.black; // Use black color for all items
+            nameText.fontStyle = TMPro.FontStyles.Normal; // Use normal font style for all items
         }
         
         // Add button functionality
