@@ -178,6 +178,7 @@ public class InkDialogueHandler : MonoBehaviour
     private void ProcessTags()
     {
         bool penaltyApplied = false;
+        bool coldKeyAdded = false;
         
         if (_story.currentTags.Count > 0)
         {
@@ -191,6 +192,24 @@ public class InkDialogueHandler : MonoBehaviour
                 if (_story.variablesState.GlobalVariableExistsWithName("itemName"))
                 {
                     dynamicItemName = (string)_story.variablesState["itemName"];
+                }
+                
+                // Check for Cold Key tag - CRITICAL FIX for timing issue
+                if (tag == "GIVE_COLD_KEY" && !coldKeyAdded)
+                {
+                    Debug.Log("GIVE_COLD_KEY tag detected - adding Cold Key to inventory");
+                    AddColdKeyToInventory();
+                    coldKeyAdded = true;
+                }
+                
+                // This check is still here as a backup, but won't be the main trigger anymore
+                // because of timing issues with variable assignment
+                if (_story.variablesState.GlobalVariableExistsWithName("has_cold_key") && 
+                    (bool)_story.variablesState["has_cold_key"] == true && !coldKeyAdded)
+                {
+                    Debug.Log("Ravenbond win detected via variable - adding Cold Key to inventory");
+                    AddColdKeyToInventory();
+                    coldKeyAdded = true;
                 }
                 
                 if (tag == "GIVE_ITEM")
@@ -524,5 +543,91 @@ public class InkDialogueHandler : MonoBehaviour
         lastSelectedChoiceText = null;
         
         return currentText;
+    }
+
+    /// <summary>
+    /// Add the Cold Key to the player's inventory
+    /// </summary>
+    private void AddColdKeyToInventory()
+    {
+        // Make sure PersistentGameManager exists
+        PersistentGameManager.EnsureExists();
+        
+        if (PersistentGameManager.Instance == null)
+        {
+            Debug.LogError("CRITICAL ERROR: Failed to access PersistentGameManager for Cold Key - this will prevent the key from being added to inventory");
+            return;
+        }
+        
+        Debug.Log("=== BEGIN COLD KEY PROCESS ===");
+        
+        // Create the Cold Key as a KeyItem
+        ItemData coldKey = new ItemData(
+            "Cold Key", 
+            "A frigid key that seems to emanate cold. You won it from a mysterious figure in a game of Ravenbond.", 
+            1, 
+            false, 
+            ItemData.ItemType.KeyItem
+        );
+        
+        // Log inventory state before adding key
+        var existingInventory = PersistentGameManager.Instance.GetPlayerInventory();
+        bool alreadyHasKey = existingInventory.ContainsKey("Cold Key");
+        Debug.Log($"Current inventory has {existingInventory.Count} items. Already has Cold Key: {alreadyHasKey}");
+        
+        // Add to player's inventory via PersistentGameManager
+        PersistentGameManager.Instance.AddItemToInventory(coldKey.name, coldKey.amount);
+        
+        // Verify the key was added
+        var updatedInventory = PersistentGameManager.Instance.GetPlayerInventory();
+        bool keyAdded = updatedInventory.ContainsKey("Cold Key");
+        Debug.Log($"After adding to PersistentGameManager - Key present: {keyAdded}");
+        
+        // Try to add to the active player inventory if we're in the scene
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+        {
+            Debug.Log("Found player in scene, attempting to add Cold Key directly to PlayerInventory component");
+            PlayerInventory playerInventory = player.GetComponent<PlayerInventory>();
+            if (playerInventory != null)
+            {
+                // First check if player already has the key to avoid duplication
+                bool playerHasKey = false;
+                foreach (var item in playerInventory.Items)
+                {
+                    if (item.name == "Cold Key")
+                    {
+                        playerHasKey = true;
+                        Debug.Log("Player already has Cold Key in inventory");
+                        break;
+                    }
+                }
+                
+                if (!playerHasKey)
+                {
+                    playerInventory.AddItem(coldKey);
+                    Debug.Log("Successfully added Cold Key to active player inventory component");
+                    
+                    // Trigger inventory UI refresh if available
+                    var inventoryUI = FindObjectOfType<InventoryUI>();
+                    if (inventoryUI != null)
+                    {
+                        Debug.Log("Found InventoryUI, refreshing display");
+                        inventoryUI.RefreshInventoryUI();
+                    }
+                }
+            }
+            else
+            {
+                Debug.LogWarning("Player found but has no PlayerInventory component");
+            }
+        }
+        else
+        {
+            Debug.Log("Player not found in scene - Cold Key will be loaded from PersistentGameManager when player returns to overworld");
+        }
+        
+        Debug.Log("CRITICAL NOTICE: Cold Key has been added to inventory through the GIVE_COLD_KEY tag");
+        Debug.Log("=== END COLD KEY PROCESS ===");
     }
 } 

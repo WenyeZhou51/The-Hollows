@@ -213,21 +213,25 @@ public class DialogueManager : MonoBehaviour
             {
                 // Skip typing animation - only reveal the text, don't advance
                 StopCoroutine(typingCoroutine);
-                if (dialogueText != null && currentInkHandler != null)
+                if (dialogueText != null)
                 {
-                    // Use the stored clean text instead of getting it from the Ink story again
+                    // FIXED CODE: Always use the stored clean text that was properly processed before starting the typewriter
+                    // This ensures the fastforwarded text is EXACTLY the same as the normal text
+                    TextMeshProUGUI targetTextComponent = isPortraitMode && portraitText != null ? portraitText : dialogueText;
+                    
                     if (!string.IsNullOrEmpty(currentCleanDialogueText))
                     {
-                        dialogueText.text = currentCleanDialogueText;
+                        targetTextComponent.text = currentCleanDialogueText;
                         Debug.Log($"Using stored clean text when skipping typewriter: '{currentCleanDialogueText}'");
                     }
                     else
                     {
+                        Debug.LogWarning("No stored clean text available for fastforward - this should not happen");
                         // Fallback to accessing story directly if no stored text is available
                         Story story = GetStoryFromHandler();
                         if (story != null && story.currentText != null)
                         {
-                            dialogueText.text = story.currentText;
+                            targetTextComponent.text = story.currentText;
                         }
                     }
                 }
@@ -619,7 +623,39 @@ public class DialogueManager : MonoBehaviour
             HidePortrait();
         }
         
-        // Step 2: Process any Ink variables in the text - pattern: {variableName}
+        // Step 2: Extract speaker tag if present (pattern: # speaker: Name)
+        // This should be done BEFORE processing quotation marks
+        string speakerName = null;
+        Regex speakerPattern = new Regex(@"#\s*speaker:\s*([^#\r\n]+)");
+        Match speakerMatch = speakerPattern.Match(processedText);
+        
+        if (speakerMatch.Success)
+        {
+            speakerName = speakerMatch.Groups[1].Value.Trim();
+            Debug.Log($"Found speaker tag: {speakerName}");
+            
+            // Remove the speaker tag from the text
+            processedText = processedText.Substring(0, speakerMatch.Index).TrimEnd();
+            Debug.Log($"Text after removing speaker tag: \"{processedText}\"");
+        }
+        
+        // Step 3: FIXED - Properly handle quotation marks in dialogue text
+        // If the text starts and ends with quotation marks, process it as direct speech
+        if (processedText.StartsWith("\"") && processedText.EndsWith("\""))
+        {
+            // Remove the outer quotation marks to display clean text
+            processedText = processedText.Substring(1, processedText.Length - 2);
+            Debug.Log($"Removed surrounding quotation marks: \"{processedText}\"");
+        }
+        // Handle case where there's only an opening quote (happens with some dialogue in Ink)
+        else if (processedText.StartsWith("\""))
+        {
+            // Remove just the opening quotation mark
+            processedText = processedText.Substring(1);
+            Debug.Log($"Removed opening quotation mark: \"{processedText}\"");
+        }
+        
+        // Step 4: Process any Ink variables in the text - pattern: {variableName}
         // This would usually be handled by Ink itself, but for direct dialogue we need to check
         
         // Use regex to find all variable patterns {name}
@@ -667,7 +703,29 @@ public class DialogueManager : MonoBehaviour
             }
         }
         
-        Debug.Log($"PreprocessText result: \"{processedText}\"");
+        // Final verification - check specifically for Ravenbond dialogue issues
+        // If we detect text that looks like Ravenbond dialogue, ensure quotes are properly removed
+        if (processedText.Contains("Care to play a game of Ravenbond"))
+        {
+            // Log that we detected the Ravenbond dialogue
+            Debug.Log("DETECTED RAVENBOND DIALOGUE - Ensuring quotes are properly removed");
+            
+            // Make sure there are no leading quote marks
+            if (processedText.StartsWith("\""))
+            {
+                processedText = processedText.Substring(1);
+                Debug.Log("Removed extra starting quote from Ravenbond dialogue");
+            }
+            
+            // Ensure proper formatting by checking if there's only a closing quote
+            if (processedText.EndsWith("\"") && !processedText.StartsWith("\""))
+            {
+                processedText = processedText.Substring(0, processedText.Length - 1);
+                Debug.Log("Removed trailing quote from Ravenbond dialogue");
+            }
+        }
+        
+        Debug.Log($"FINAL preprocessed text: \"{processedText}\"");
         return processedText;
     }
 
@@ -784,6 +842,7 @@ public class DialogueManager : MonoBehaviour
             
             // Store the clean text for use when skipping typewriter
             currentCleanDialogueText = preprocessedText;
+            Debug.Log($"Stored clean preprocessed text: '{currentCleanDialogueText}'");
             
             // Determine which text component to use based on portrait mode
             TextMeshProUGUI targetTextComponent = isPortraitMode && portraitText != null ? portraitText : dialogueText;
@@ -931,6 +990,10 @@ public class DialogueManager : MonoBehaviour
                     CloseDialogue();
                     return;
                 }
+                
+                // Reset portrait mode before processing new text
+                // This ensures each dialogue line's portrait setting is handled independently
+                isPortraitMode = false;
                 
                 // Show the dialogue
                 ShowDialogue(nextLine);
@@ -1276,6 +1339,24 @@ public class DialogueManager : MonoBehaviour
         
         // Debug the text being displayed
         Debug.Log($"TypeText starting with text: \"{text}\"");
+        
+        // Make sure the clean text is properly saved for fast-forwarding
+        // This ensures we have the exact same text available when skipping the typewriter effect
+        if (currentCleanDialogueText != text)
+        {
+            Debug.Log($"Updating currentCleanDialogueText in TypeText to match actual text being typed");
+            currentCleanDialogueText = text;
+        }
+        
+        // Double-check for any remaining quotation marks in the text that wasn't caught by PreprocessText
+        // This ensures consistency between normal typing and fast-forwarding
+        if (text.StartsWith("\""))
+        {
+            Debug.Log("TypeText detected an uncaught starting quotation mark - removing it");
+            text = text.Substring(1);
+            // Also update the stored clean text to match
+            currentCleanDialogueText = text;
+        }
         
         textComponent.text = "";
         textFullyRevealed = false;

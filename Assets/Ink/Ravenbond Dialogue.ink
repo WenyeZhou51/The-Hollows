@@ -4,7 +4,7 @@
 // Variables to track game state
 VAR player_health = 100
 VAR player_max_sanity = 100
-VAR has_glass_key = false
+VAR has_cold_key = false
 VAR hasInteractedBefore = false
 -> start
 === start ===
@@ -71,8 +71,8 @@ Your play continues. You have a single card left.
 * [Say "Ravenbond"] -> win
 
 === win ===
-The tall figure nods and acknowledges your skill. He puts down a glass key on the table before vanishing into a swirl of shadow tendrils.  
-~ has_glass_key = true
+The tall figure nods and acknowledges your skill. He puts down a cold key on the table before vanishing into a swirl of shadow tendrils. # GIVE_COLD_KEY
+~ has_cold_key = true
 -> END
 
 === failure ===
@@ -83,9 +83,9 @@ You lose 10 max HP and 10 max Sanity. # RAVENBOND_FAILURE
 -> END
 
 // External functions that can be called from Unity via story.EvaluateFunction
-=== function give_glass_key() ===
-~ has_glass_key = true
-~ return has_glass_key
+=== function give_cold_key() ===
+~ has_cold_key = true
+~ return has_cold_key
 
 === function reduce_health_and_sanity() ===
 ~ player_health = player_health - 10

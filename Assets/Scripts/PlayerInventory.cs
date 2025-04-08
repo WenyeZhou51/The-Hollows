@@ -38,7 +38,17 @@ public class PlayerInventory : MonoBehaviour
                 // Add each item from the persistent inventory
                 foreach (var pair in persistentInventory)
                 {
-                    ItemData item = new ItemData(pair.Key, "", pair.Value, false);
+                    // Determine item type - special handling for known key items
+                    ItemData.ItemType itemType = ItemData.ItemType.Consumable;
+                    
+                    // Check for known key items by name
+                    if (pair.Key == "Cold Key" || pair.Key.Contains("Key") && pair.Key.Contains("Cold"))
+                    {
+                        itemType = ItemData.ItemType.KeyItem;
+                        Debug.Log($"Loaded {pair.Key} as a KeyItem type");
+                    }
+                    
+                    ItemData item = new ItemData(pair.Key, "", pair.Value, false, itemType);
                     items.Add(item);
                 }
                 

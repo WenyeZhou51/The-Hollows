@@ -26,4 +26,16 @@ public class ItemData
         this.type = type;
         this.icon = icon;
     }
+    
+    // Check if this item is a key item
+    public bool IsKeyItem()
+    {
+        return type == ItemType.KeyItem;
+    }
+    
+    // Clone method to ensure proper copying of all properties including type
+    public ItemData Clone()
+    {
+        return new ItemData(name, description, amount, requiresTarget, type, icon);
+    }
 } 

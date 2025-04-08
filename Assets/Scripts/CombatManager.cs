@@ -489,6 +489,20 @@ public class CombatManager : MonoBehaviour
             // Update SceneTransitionManager with current inventory before ending combat
             if (SceneTransitionManager.Instance != null)
             {
+                // Get the original inventory from SceneTransitionManager to retrieve key items
+                List<ItemData> originalInventory = SceneTransitionManager.Instance.GetPlayerInventory();
+                List<ItemData> keyItems = new List<ItemData>();
+                
+                // Extract key items from the original inventory
+                foreach (var item in originalInventory)
+                {
+                    if (item.IsKeyItem())
+                    {
+                        Debug.Log($"Preserving key item after combat: {item.name}");
+                        keyItems.Add(item.Clone());
+                    }
+                }
+                
                 // Get inventory items from each player character's items
                 List<ItemData> combinedInventory = new List<ItemData>();
                 
@@ -498,6 +512,27 @@ public class CombatManager : MonoBehaviour
                     foreach (var item in players[0].items)
                     {
                         combinedInventory.Add(item);
+                    }
+                }
+                
+                // Add back the key items to ensure they're preserved
+                foreach (var keyItem in keyItems)
+                {
+                    // Check if the item already exists to avoid duplicates
+                    bool exists = false;
+                    foreach (var item in combinedInventory)
+                    {
+                        if (item.name == keyItem.name)
+                        {
+                            exists = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!exists)
+                    {
+                        Debug.Log($"Adding key item back to inventory after combat: {keyItem.name}");
+                        combinedInventory.Add(keyItem);
                     }
                 }
                 
@@ -646,27 +681,57 @@ public class CombatManager : MonoBehaviour
     /// <param name="inventoryItems">The items in the player's inventory</param>
     public void SetupPlayerInventory(List<ItemData> inventoryItems)
     {
-        // Store a copy of the inventory items
-        playerInventoryItems = new List<ItemData>();
+        // Initialize or clear inventory items list
+        if (playerInventoryItems == null)
+        {
+            playerInventoryItems = new List<ItemData>();
+        }
+        else
+        {
+            playerInventoryItems.Clear();
+        }
         
         Debug.Log("=== INVENTORY DEBUG: CombatManager.SetupPlayerInventory ===");
         
-        if (inventoryItems != null)
+        if (inventoryItems != null && inventoryItems.Count > 0)
         {
             Debug.Log($"Received {inventoryItems.Count} items from SceneTransitionManager");
+            int keyItemsSkipped = 0;
             
             foreach (ItemData item in inventoryItems)
             {
-                playerInventoryItems.Add(item);
-                Debug.Log($"Added to combat inventory: {item.name}, Amount: {item.amount}");
+                // Double-check for key items for extra safety
+                if (item.type == ItemData.ItemType.KeyItem || item.IsKeyItem() || item.name == "Cold Key")
+                {
+                    Debug.Log($"REJECTING key item in combat: {item.name} (Type: {item.type}) - Key items should not be available in combat");
+                    keyItemsSkipped++;
+                    continue;
+                }
+                
+                // Always clone items to avoid reference issues
+                ItemData clonedItem = item.Clone();
+                playerInventoryItems.Add(clonedItem);
+                Debug.Log($"Added to combat inventory: {clonedItem.name}, Amount: {clonedItem.amount}, Type: {clonedItem.type}");
             }
             
-            Debug.Log($"Combat Manager received {playerInventoryItems.Count} items from player inventory");
+            Debug.Log($"Combat Manager received {playerInventoryItems.Count} items for combat inventory (filtered out {keyItemsSkipped} KeyItems)");
+            
+            // Perform one final verification that no key items made it through
+            List<ItemData> illegalItems = playerInventoryItems.Where(item => item.IsKeyItem() || item.type == ItemData.ItemType.KeyItem).ToList();
+            if (illegalItems.Count > 0)
+            {
+                Debug.LogError($"CRITICAL ERROR: {illegalItems.Count} key items somehow passed through filtering! Removing them now.");
+                foreach (var item in illegalItems)
+                {
+                    Debug.LogError($"Removing illegal key item: {item.name}");
+                    playerInventoryItems.Remove(item);
+                }
+            }
             
             // Update the item menu if it exists
             if (itemMenu != null && combatUI != null)
             {
-                Debug.Log("Populating item menu with current inventory items");
+                Debug.Log("Populating item menu with current inventory items (excluding KeyItems)");
                 combatUI.PopulateItemMenu(playerInventoryItems);
             }
             else
@@ -676,7 +741,7 @@ public class CombatManager : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning("Received null inventory from SceneTransitionManager");
+            Debug.LogWarning("Received empty or null inventory from SceneTransitionManager");
         }
     }
     

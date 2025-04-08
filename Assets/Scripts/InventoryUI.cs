@@ -97,51 +97,54 @@ public class InventoryUI : MonoBehaviour
             inventoryItem.gameObject.SetActive(false);
         }
         
-        // Create a button for each item in inventory
+        // Group items by type
+        List<ItemData> consumableItems = new List<ItemData>();
+        List<ItemData> equipmentItems = new List<ItemData>();
+        List<ItemData> keyItems = new List<ItemData>();
+        
         foreach (ItemData item in playerInventory.Items)
         {
-            GameObject buttonObj;
-            
-            if (hasExistingTemplate)
+            switch (item.type)
             {
-                // Clone the existing item template
-                buttonObj = Instantiate(inventoryItem.gameObject, itemsMenu.transform);
-                buttonObj.SetActive(true);
+                case ItemData.ItemType.KeyItem:
+                    keyItems.Add(item);
+                    break;
+                case ItemData.ItemType.Equipment:
+                    equipmentItems.Add(item);
+                    break;
+                case ItemData.ItemType.Consumable:
+                default:
+                    consumableItems.Add(item);
+                    break;
             }
-            else
+        }
+        
+        // Create section headers and items
+        if (keyItems.Count > 0)
+        {
+            CreateSectionHeader("Key Items");
+            foreach (ItemData item in keyItems)
             {
-                // Use the prefab
-                buttonObj = Instantiate(itemButtonPrefab, itemsMenu.transform);
+                CreateItemButton(item, hasExistingTemplate, inventoryItem, true);
             }
-            
-            // Look for a TextMeshProUGUI component in children (your UI might have "Name" text)
-            TextMeshProUGUI nameText = buttonObj.GetComponentInChildren<TextMeshProUGUI>();
-            if (nameText != null)
+        }
+        
+        if (equipmentItems.Count > 0)
+        {
+            CreateSectionHeader("Equipment");
+            foreach (ItemData item in equipmentItems)
             {
-                nameText.text = $"{item.name} x{item.amount}";
+                CreateItemButton(item, hasExistingTemplate, inventoryItem);
             }
-            
-            // Add button functionality
-            Button button = buttonObj.GetComponent<Button>();
-            if (button == null)
+        }
+        
+        if (consumableItems.Count > 0)
+        {
+            CreateSectionHeader("Consumables");
+            foreach (ItemData item in consumableItems)
             {
-                button = buttonObj.AddComponent<Button>();
+                CreateItemButton(item, hasExistingTemplate, inventoryItem);
             }
-            
-            // Add item data reference to the button
-            ItemButtonData buttonData = buttonObj.GetComponent<ItemButtonData>();
-            if (buttonData == null)
-            {
-                buttonData = buttonObj.AddComponent<ItemButtonData>();
-            }
-            buttonData.item = item;
-            
-            // Add click handler
-            ItemData capturedItem = item; // Capture the item in a local variable
-            button.onClick.AddListener(() => OnItemButtonClicked(capturedItem));
-            
-            // Add to our list for cleanup
-            itemButtons.Add(buttonObj);
         }
         
         // If no items and no template exists, show empty message
@@ -159,6 +162,82 @@ public class InventoryUI : MonoBehaviour
             // Add to list for cleanup
             itemButtons.Add(emptyText);
         }
+    }
+    
+    private void CreateSectionHeader(string headerText)
+    {
+        GameObject headerObj = new GameObject(headerText + "_Header");
+        headerObj.transform.SetParent(itemsMenu.transform, false);
+        
+        TextMeshProUGUI textComp = headerObj.AddComponent<TextMeshProUGUI>();
+        textComp.text = headerText;
+        textComp.fontSize = 18;
+        textComp.fontStyle = TMPro.FontStyles.Bold;
+        textComp.alignment = TextAlignmentOptions.Left;
+        textComp.color = Color.white;
+        
+        // Add some padding
+        RectTransform rectTransform = headerObj.GetComponent<RectTransform>();
+        if (rectTransform != null)
+        {
+            rectTransform.sizeDelta = new Vector2(200, 30);
+        }
+        
+        // Add to list for cleanup
+        itemButtons.Add(headerObj);
+    }
+    
+    private void CreateItemButton(ItemData item, bool hasExistingTemplate, Transform templateTransform, bool isKeyItem = false)
+    {
+        GameObject buttonObj;
+        
+        if (hasExistingTemplate)
+        {
+            // Clone the existing item template
+            buttonObj = Instantiate(templateTransform.gameObject, itemsMenu.transform);
+            buttonObj.SetActive(true);
+        }
+        else
+        {
+            // Use the prefab
+            buttonObj = Instantiate(itemButtonPrefab, itemsMenu.transform);
+        }
+        
+        // Look for a TextMeshProUGUI component in children (your UI might have "Name" text)
+        TextMeshProUGUI nameText = buttonObj.GetComponentInChildren<TextMeshProUGUI>();
+        if (nameText != null)
+        {
+            nameText.text = $"{item.name} x{item.amount}";
+            
+            // Highlight key items with a special color
+            if (isKeyItem)
+            {
+                nameText.color = new Color(1f, 0.8f, 0.2f); // Gold/yellow color for key items
+                nameText.fontStyle = TMPro.FontStyles.Bold;
+            }
+        }
+        
+        // Add button functionality
+        Button button = buttonObj.GetComponent<Button>();
+        if (button == null)
+        {
+            button = buttonObj.AddComponent<Button>();
+        }
+        
+        // Add item data reference to the button
+        ItemButtonData buttonData = buttonObj.GetComponent<ItemButtonData>();
+        if (buttonData == null)
+        {
+            buttonData = buttonObj.AddComponent<ItemButtonData>();
+        }
+        buttonData.item = item;
+        
+        // Add click handler
+        ItemData capturedItem = item; // Capture the item in a local variable
+        button.onClick.AddListener(() => OnItemButtonClicked(capturedItem));
+        
+        // Add to our list for cleanup
+        itemButtons.Add(buttonObj);
     }
     
     private void OnItemButtonClicked(ItemData item)

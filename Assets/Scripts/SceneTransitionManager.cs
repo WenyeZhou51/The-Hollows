@@ -138,7 +138,7 @@ public class SceneTransitionManager : MonoBehaviour
             Debug.Log($"Player inventory contains {playerInventory.Items.Count} items:");
             foreach (var item in playerInventory.Items)
             {
-                Debug.Log($"Item: {item.name}, Amount: {item.amount}");
+                Debug.Log($"Item: {item.name}, Amount: {item.amount}, Type: {item.type}");
             }
         }
         else
@@ -146,10 +146,28 @@ public class SceneTransitionManager : MonoBehaviour
             Debug.LogWarning("Player inventory is null or empty when starting combat!");
         }
         
+        // Clear previous stored items
         storedItems.Clear();
-        foreach(var item in playerInventory.Items) {
-            // Create a new copy of each item
-            storedItems.Add(new ItemData(item.name, item.description, item.amount, item.requiresTarget));
+        
+        // Create proper clones of each item to ensure all properties are preserved
+        if (playerInventory != null && playerInventory.Items != null)
+        {
+            foreach(var item in playerInventory.Items) 
+            {
+                // Use the Clone method to ensure we keep all properties, including type
+                ItemData clonedItem = item.Clone();
+                
+                // Extra verification specifically for Cold Key
+                if (item.name == "Cold Key" || item.type == ItemData.ItemType.KeyItem)
+                {
+                    // Force item type to be KeyItem
+                    clonedItem.type = ItemData.ItemType.KeyItem;
+                    Debug.Log($"Ensuring item {clonedItem.name} is properly tagged as KeyItem type");
+                }
+                
+                storedItems.Add(clonedItem);
+                Debug.Log($"Stored cloned item for combat transition: {clonedItem.name}, Type: {clonedItem.type}");
+            }
         }
         
         // Make sure ScreenFader exists
@@ -220,21 +238,33 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     private void SetupCombatScene(CombatManager combatManager)
     {
-        // Pass player inventory to combat manager
-        if (storedItems.Count > 0)
+        // Filter items first to remove key items
+        List<ItemData> filteredItems = new List<ItemData>();
+        
+        foreach (var item in storedItems)
         {
-            Debug.Log("=== INVENTORY DEBUG: SetupCombatScene ===");
-            Debug.Log($"Setting up combat scene with {storedItems.Count} player inventory items");
-            
-            // Log each item being passed to combat
-            foreach (var item in storedItems)
+            // Skip key items completely for combat
+            if (item.IsKeyItem())
             {
-                Debug.Log($"Passing to combat: {item.name}, Amount: {item.amount}");
+                Debug.Log($"FILTERING OUT key item from combat completely: {item.name} - Key items not available in combat");
+                continue;
             }
             
-            combatManager.SetupPlayerInventory(storedItems);
+            // Only add non-key items to the filtered list
+            filteredItems.Add(item.Clone());
+            Debug.Log($"Keeping item for combat: {item.name}, Amount: {item.amount}, Type: {item.type}");
+        }
+        
+        // Pass player inventory to combat manager - ONLY filtered items
+        if (filteredItems.Count > 0)
+        {
+            Debug.Log("=== INVENTORY DEBUG: SetupCombatScene ===");
+            Debug.Log($"Setting up combat scene with {filteredItems.Count} filtered player inventory items (KeyItems removed)");
             
-            // Also set up individual player character inventories
+            // Pass FILTERED inventory to combat manager
+            combatManager.SetupPlayerInventory(filteredItems);
+            
+            // Also set up individual player character inventories with FILTERED items only
             foreach (var player in combatManager.players)
             {
                 if (player != null)
@@ -242,8 +272,8 @@ public class SceneTransitionManager : MonoBehaviour
                     // Clear existing inventory
                     player.items.Clear();
                     
-                    // Copy items to player's inventory
-                    foreach (var item in storedItems)
+                    // Copy FILTERED items to player's inventory
+                    foreach (var item in filteredItems)
                     {
                         player.items.Add(item);
                         Debug.Log($"Added {item.name} (x{item.amount}) to player character: {player.characterName}");
@@ -253,7 +283,19 @@ public class SceneTransitionManager : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning("No player inventory found when setting up combat scene");
+            Debug.LogWarning("No filtered items for combat - all items were KeyItems or inventory was empty");
+            
+            // Ensure the combat manager has an empty list, not null
+            combatManager.SetupPlayerInventory(new List<ItemData>());
+            
+            // Also clear all player character inventories
+            foreach (var player in combatManager.players)
+            {
+                if (player != null)
+                {
+                    player.items.Clear();
+                }
+            }
         }
         
         // Listen for combat end event
@@ -343,44 +385,18 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     private IEnumerator SetupOverworldAfterCombat()
     {
-        // Wait for a frame to make sure all objects are initialized
+        // Wait a frame to ensure all scene objects are initialized
         yield return null;
-        
-        // Make sure the persistent game manager exists for enemy removal
-        PersistentGameManager.EnsureExists();
-        
-        // If combat was won, find and destroy any enemies with the ID that initiated combat
-        if (combatWon && !string.IsNullOrEmpty(enemyIdThatInitiatedCombat))
-        {
-            // Log that we're attempting to destroy enemies
-            Debug.Log($"Searching for enemy with ID {enemyIdThatInitiatedCombat} to destroy after combat");
-            
-            // Find all enemies in the scene
-            EnemyIdentifier[] allEnemies = FindObjectsOfType<EnemyIdentifier>();
-            
-            // Check each enemy
-            foreach (EnemyIdentifier enemy in allEnemies)
-            {
-                string currentEnemyId = enemy.GetEnemyId();
-                Debug.Log($"Checking enemy {enemy.gameObject.name} with ID {currentEnemyId}");
-                
-                if (currentEnemyId == enemyIdThatInitiatedCombat)
-                {
-                    Debug.Log($"FOUND THE ENEMY TO DESTROY: {enemy.gameObject.name} with ID {currentEnemyId}");
-                    DestroyImmediate(enemy.gameObject);
-                    break;
-                }
-            }
-            
-            // Double-check with the PersistentGameManager
-            PersistentGameManager.Instance.LogDefeatedEnemies();
-        }
         
         // Find the player in the scene
         GameObject player = GameObject.FindGameObjectWithTag("Player");
-        
         if (player != null)
         {
+            Debug.Log("Found player in overworld, setting up after combat");
+            
+            // Wait another frame to ensure all components are initialized
+            yield return null;
+            
             // Calculate a safe position that's slightly offset from where combat was initiated
             // This prevents immediate re-collision with enemies
             Vector3 safePosition = playerPosition;
@@ -403,7 +419,44 @@ public class SceneTransitionManager : MonoBehaviour
                 Debug.Log("Stored inventory from combat:");
                 foreach (var item in storedItems)
                 {
-                    Debug.Log($"Stored item: {item.name}, Amount: {item.amount}");
+                    Debug.Log($"Stored item: {item.name}, Amount: {item.amount}, Type: {item.type}");
+                }
+                
+                // Special Check: Look for Cold Key in PersistentGameManager
+                var persistentInventory = PersistentGameManager.Instance?.GetPlayerInventory();
+                bool hasColdKeyInPersistent = persistentInventory != null && persistentInventory.ContainsKey("Cold Key");
+                
+                if (hasColdKeyInPersistent)
+                {
+                    Debug.Log("CRITICAL NOTICE: Cold Key found in PersistentGameManager - ensuring it's preserved");
+                    // Make sure Cold Key exists in stored items
+                    bool coldKeyInStored = false;
+                    foreach (var item in storedItems)
+                    {
+                        if (item.name == "Cold Key")
+                        {
+                            coldKeyInStored = true;
+                            // Make sure it's marked as a KeyItem
+                            item.type = ItemData.ItemType.KeyItem;
+                            Debug.Log("Updated Cold Key type to KeyItem in stored items");
+                            break;
+                        }
+                    }
+                    
+                    // If not in stored items, add it
+                    if (!coldKeyInStored)
+                    {
+                        int amount = persistentInventory["Cold Key"];
+                        ItemData coldKey = new ItemData(
+                            "Cold Key", 
+                            "A frigid key that seems to emanate cold. You won it from a mysterious figure in a game of Ravenbond.", 
+                            amount, 
+                            false, 
+                            ItemData.ItemType.KeyItem
+                        );
+                        storedItems.Add(coldKey);
+                        Debug.Log("Added missing Cold Key to stored items list");
+                    }
                 }
                 
                 // Clear the old inventory first to prevent duplicating items
@@ -413,14 +466,34 @@ public class SceneTransitionManager : MonoBehaviour
                 foreach (ItemData item in storedItems)
                 {
                     newInventory.AddItem(item);
-                    Debug.Log($"Restored {item.name} (x{item.amount}) to overworld player inventory");
+                    Debug.Log($"Restored {item.name} (x{item.amount}, Type: {item.type}) to overworld player inventory");
                 }
                 
-                // Log final overworld inventory
+                // Double-check for Cold Key
+                bool hasColdKeyInFinal = false;
                 Debug.Log("Final overworld inventory:");
                 foreach (var item in newInventory.Items)
                 {
-                    Debug.Log($"Final overworld item: {item.name}, Amount: {item.amount}");
+                    Debug.Log($"Final overworld item: {item.name}, Amount: {item.amount}, Type: {item.type}");
+                    if (item.name == "Cold Key")
+                    {
+                        hasColdKeyInFinal = true;
+                    }
+                }
+                
+                // Final verification for Cold Key
+                if (hasColdKeyInPersistent && !hasColdKeyInFinal)
+                {
+                    Debug.LogWarning("CRITICAL ERROR: Cold Key was in PersistentGameManager but failed to transfer to player inventory - forcing addition");
+                    ItemData coldKey = new ItemData(
+                        "Cold Key", 
+                        "A frigid key that seems to emanate cold. You won it from a mysterious figure in a game of Ravenbond.", 
+                        1, 
+                        false, 
+                        ItemData.ItemType.KeyItem
+                    );
+                    newInventory.AddItem(coldKey);
+                    Debug.Log("Forcibly added Cold Key to player inventory as final failsafe");
                 }
             }
             

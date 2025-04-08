@@ -1461,12 +1461,21 @@ public class CombatUI : MonoBehaviour
             Debug.Log("Created new ItemsContainer with GridLayoutGroup");
         }
         
-        // Add buttons for each item
+        // Add buttons for each non-KeyItem
+        int filteredItems = 0;
         foreach (ItemData item in items)
         {
+            // Final safety check - NEVER show KeyItems in combat
+            if (item.IsKeyItem() || item.type == ItemData.ItemType.KeyItem || item.name == "Cold Key")
+            {
+                Debug.LogWarning($"CRITICAL: Found KeyItem in combat UI items - filtering out {item.name}");
+                filteredItems++;
+                continue;
+            }
+            
             if (item.amount > 0)
             {
-                Debug.Log($"Creating button for item: {item.name} x{item.amount}");
+                Debug.Log($"Creating button for item: {item.name} x{item.amount}, Type: {item.type}");
                 GameObject buttonObj = Instantiate(buttonPrefab, itemsContainer);
                 ItemButtonData buttonData = buttonObj.AddComponent<ItemButtonData>();
                 buttonData.item = item;
@@ -1497,6 +1506,11 @@ public class CombatUI : MonoBehaviour
                     button.onClick.AddListener(() => UseItem(item));
                 }
             }
+        }
+        
+        if (filteredItems > 0)
+        {
+            Debug.LogWarning($"CRITICAL NOTICE: Filtered {filteredItems} KeyItems from combat UI that shouldn't have been there!");
         }
     }
     
