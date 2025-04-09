@@ -24,6 +24,9 @@ EditorBuildSettings:
     path: Assets/Scenes/Overworld_ravenbond_hall.unity
     guid: 4f7e743d90230d24d9ca7ffc8d91f2d1
   - enabled: 1
-    path: Assets/Scenes/Overworld_Entrance.unity
+    path: Assets/Scenes/Overworld_Basement.unity
     guid: b6d7d5ea40349bd45b38e65a8dc2ba5f
+  - enabled: 1
+    path: Assets/Scenes/Overworld_Entrance.unity
+    guid: 079d9f4546966274397b9ccfff058eb2
   m_configObjects: {}
