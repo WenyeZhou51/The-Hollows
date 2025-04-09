@@ -23,6 +23,13 @@ public class InkDialogueHandler : MonoBehaviour
     private bool _isInitialized = false;
     private string lastSelectedChoiceText = null;
 
+    // Property to get/set the InkJSON
+    public TextAsset InkJSON
+    {
+        get { return inkJSON; }
+        set { inkJSON = value; }
+    }
+
     private void Update()
     {
         // Debug trigger for Ravenbond penalty (only in editor)
@@ -113,19 +120,27 @@ public class InkDialogueHandler : MonoBehaviour
         }
         else if (_story.currentChoices.Count > 0)
         {
-            Debug.Log($"GetNextDialogueLine: Story has {_story.currentChoices.Count} choices, formatting choice text...");
-            // Return choices as a formatted string
-            string choices = "Choose an option:\n";
-            for (int i = 0; i < _story.currentChoices.Count; i++)
-            {
-                choices += $"{i + 1}. {_story.currentChoices[i].text}\n";
-                Debug.Log($"Choice {i}: {_story.currentChoices[i].text}");
-            }
-            return choices;
+            // CRITICAL FIX: Instead of formatting choices as text, return a special signal
+            // that tells DialogueManager to handle choices properly.
+            // This prevents "Choose an option:" from showing up in dialogue.
+            Debug.Log($"GetNextDialogueLine: Story has {_story.currentChoices.Count} choices, returning choice signal");
+            return "SHOW_CHOICES";
         }
 
         Debug.Log("GetNextDialogueLine: No more content, returning end message");
         return "END_OF_DIALOGUE";
+    }
+
+    // Get Ink story choices directly
+    public List<Choice> GetCurrentChoices()
+    {
+        if (_story == null || !_isInitialized)
+        {
+            Debug.LogError("GetCurrentChoices: No active story is available");
+            return new List<Choice>();
+        }
+        
+        return _story.currentChoices;
     }
 
     public void MakeChoice(int choiceIndex)
@@ -462,12 +477,6 @@ public class InkDialogueHandler : MonoBehaviour
         // Quit the application
         Debug.Log("Quitting application after comic display");
         Application.Quit();
-    }
-
-    public TextAsset InkJSON
-    {
-        get { return inkJSON; }
-        set { inkJSON = value; _isInitialized = false; }
     }
 
     public void SetStoryVariable(string variableName, string value)

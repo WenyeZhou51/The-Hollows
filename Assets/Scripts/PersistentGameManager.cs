@@ -80,6 +80,9 @@ public class PersistentGameManager : MonoBehaviour
     private const int DEFAULT_MAX_HEALTH = 100;
     private const int DEFAULT_MAX_MIND = 100;
     
+    // Custom data dictionary for generic storage
+    private Dictionary<string, object> customData = new Dictionary<string, object>();
+    
     private void Awake()
     {
         // Singleton setup
@@ -808,6 +811,65 @@ public class PersistentGameManager : MonoBehaviour
     #endregion
     
     /// <summary>
+    /// Store a custom value with a given key, persists across scenes
+    /// </summary>
+    /// <param name="key">Unique identifier for the value</param>
+    /// <param name="value">Object to store (must be serializable)</param>
+    public void SetCustomDataValue(string key, object value)
+    {
+        if (key == null)
+        {
+            Debug.LogError("Cannot set custom data with null key");
+            return;
+        }
+        
+        customData[key] = value;
+        Debug.Log($"[PersistentGameManager] Set custom data: {key}={value}");
+    }
+    
+    /// <summary>
+    /// Get a custom value by key
+    /// </summary>
+    /// <typeparam name="T">Type to cast the value to</typeparam>
+    /// <param name="key">Key used to store the value</param>
+    /// <param name="defaultValue">Default value if the key doesn't exist</param>
+    /// <returns>The stored value or the default</returns>
+    public T GetCustomDataValue<T>(string key, T defaultValue)
+    {
+        if (key == null)
+        {
+            Debug.LogError("Cannot get custom data with null key");
+            return defaultValue;
+        }
+        
+        if (customData.ContainsKey(key))
+        {
+            try
+            {
+                T value = (T)customData[key];
+                Debug.Log($"[PersistentGameManager] Get custom data: {key}={value}");
+                return value;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[PersistentGameManager] Error casting custom data for key {key}: {e.Message}");
+                return defaultValue;
+            }
+        }
+        
+        return defaultValue;
+    }
+    
+    /// <summary>
+    /// Clear all custom data values
+    /// </summary>
+    public void ClearCustomData()
+    {
+        customData.Clear();
+        Debug.Log("[PersistentGameManager] Cleared all custom data");
+    }
+    
+    /// <summary>
     /// Reset all persistent data - FOR DEBUGGING ONLY
     /// </summary>
     public void ResetAllData()
@@ -820,6 +882,9 @@ public class PersistentGameManager : MonoBehaviour
         interactableStates.Clear();
         defeatedEnemyIds.Clear();
         playerInventory.Clear();
+        
+        // Clear custom data too
+        customData.Clear();
         
         // Reset custom variables
         variables.chestsLooted = 0;

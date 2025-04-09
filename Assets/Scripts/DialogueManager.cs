@@ -991,6 +991,24 @@ public class DialogueManager : MonoBehaviour
                     return;
                 }
                 
+                // CRITICAL FIX: Check for SHOW_CHOICES signal
+                if (nextLine == "SHOW_CHOICES")
+                {
+                    Debug.Log("Received SHOW_CHOICES signal - will display choice buttons without text");
+                    
+                    // Don't show any text, just display the choices directly
+                    // Make sure to display a blank dialogue or current dialogue text remains
+                    ShowDialogue("");
+                    
+                    // Set waitForKeyRelease to true when choices are shown
+                    waitForKeyRelease = true;
+                    
+                    // Show the choices immediately
+                    CreateChoiceButtons();
+                    
+                    return;
+                }
+                
                 // Reset portrait mode before processing new text
                 // This ensures each dialogue line's portrait setting is handled independently
                 isPortraitMode = false;
@@ -1043,125 +1061,108 @@ public class DialogueManager : MonoBehaviour
         return null;
     }
     
+    // New method to create choice buttons directly
+    private void CreateChoiceButtons()
+    {
+        if (currentInkHandler == null)
+        {
+            Debug.LogError("No active ink story to show choices for");
+            return;
+        }
+        
+        // Get choices directly from the InkDialogueHandler
+        List<Choice> choices = currentInkHandler.GetCurrentChoices();
+        if (choices.Count == 0)
+        {
+            Debug.LogError("No choices available when trying to create choice buttons");
+            return;
+        }
+        
+        Debug.Log($"Creating {choices.Count} choice buttons directly from Ink choices");
+        
+        // Clear any existing choice buttons
+        ClearChoices();
+        
+        // Reset current choice index
+        currentChoiceIndex = 0;
+        
+        // Make sure the dialogue button container is active
+        if (dialogueButtonContainer != null)
+        {
+            // Ensure correct parenting
+            if (dialogueButtonContainer.transform.parent != dialoguePanel.transform)
+            {
+                Debug.LogWarning("DialogueButtonContainer is not a child of DialoguePanel! Fixing hierarchy...");
+                dialogueButtonContainer.transform.SetParent(dialoguePanel.transform, false);
+            }
+            
+            dialogueButtonContainer.SetActive(true);
+            
+            // Make sure the parent canvas is active
+            Transform parent = dialogueButtonContainer.transform.parent;
+            if (parent != null && !parent.gameObject.activeSelf)
+            {
+                parent.gameObject.SetActive(true);
+            }
+            
+            // Check if choiceButtonPrefab is assigned
+            if (choiceButtonPrefab == null)
+            {
+                Debug.LogError("Choice button prefab is not assigned! Please assign it in the inspector!");
+                return;
+            }
+            
+            // Create a button for each choice
+            for (int i = 0; i < choices.Count; i++)
+            {
+                Choice choice = choices[i];
+                
+                // Create a button for this choice
+                GameObject buttonObj = Instantiate(choiceButtonPrefab, dialogueButtonContainer.transform);
+                buttonObj.SetActive(true);
+                
+                // Find the text component
+                TextMeshProUGUI buttonText = buttonObj.GetComponentInChildren<TextMeshProUGUI>();
+                if (buttonText != null)
+                {
+                    buttonText.text = choice.text;
+                }
+                else
+                {
+                    Debug.LogError("No TextMeshProUGUI component found in choice button prefab");
+                }
+                
+                // Add a button component if it doesn't exist
+                Button button = buttonObj.GetComponent<Button>();
+                if (button == null)
+                {
+                    button = buttonObj.AddComponent<Button>();
+                }
+                
+                // Set up the button click event
+                int choiceIndex = i; // Need to store this in a local variable for the closure
+                button.onClick.RemoveAllListeners();
+                button.onClick.AddListener(() => MakeChoice(choiceIndex));
+                
+                // Add to our list of buttons
+                choiceButtons.Add(buttonObj);
+            }
+            
+            // Highlight the first choice by default
+            UpdateChoiceHighlights();
+        }
+        else
+        {
+            Debug.LogError("DialogueButtonContainer is not assigned!");
+        }
+    }
+    
     private IEnumerator ShowChoicesAfterDelay(float delay)
     {
         yield return new WaitForSeconds(delay);
         
-        if (currentInkHandler == null)
-        {
-            Debug.LogError("No active ink story to show choices for");
-            yield break;
-        }
-        
-        Story story = GetStoryFromHandler();
-        if (story == null)
-        {
-            Debug.LogError("Failed to get story from handler");
-            yield break;
-        }
-        
-        if (story.currentChoices.Count > 0)
-        {
-            Debug.Log($"Showing {story.currentChoices.Count} choices");
-            
-            // Clear any existing choice buttons
-            ClearChoices();
-            
-            // Reset current choice index
-            currentChoiceIndex = 0;
-            
-            // Make sure the dialogue button container is active
-            if (dialogueButtonContainer != null)
-            {
-                Debug.Log($"Found dialogueButtonContainer: {dialogueButtonContainer.name}, Parent: {dialogueButtonContainer.transform.parent.name}");
-                
-                // Ensure correct parenting
-                if (dialogueButtonContainer.transform.parent != dialoguePanel.transform)
-                {
-                    Debug.LogWarning("DialogueButtonContainer is not a child of DialoguePanel! Fixing hierarchy...");
-                    dialogueButtonContainer.transform.SetParent(dialoguePanel.transform, false);
-                }
-                
-                // Get button container rect transform for positioning verification
-                RectTransform containerRect = dialogueButtonContainer.GetComponent<RectTransform>();
-                if (containerRect != null)
-                {
-                    Debug.Log($"DialogueButtonContainer position - anchorMin: {containerRect.anchorMin}, anchorMax: {containerRect.anchorMax}");
-                }
-                
-                dialogueButtonContainer.SetActive(true);
-                
-                // Make sure the parent canvas is active
-                Transform parent = dialogueButtonContainer.transform.parent;
-                if (parent != null && !parent.gameObject.activeSelf)
-                {
-                    parent.gameObject.SetActive(true);
-                }
-                
-                // Check if choiceButtonPrefab is assigned
-                if (choiceButtonPrefab == null)
-                {
-                    Debug.LogError("Choice button prefab is not assigned! Please assign it in the inspector!");
-                    yield break;
-                }
-                
-                // Create a button for each choice
-                for (int i = 0; i < story.currentChoices.Count; i++)
-                {
-                    Choice choice = story.currentChoices[i];
-                    
-                    // Create a button for this choice
-                    GameObject buttonObj = Instantiate(choiceButtonPrefab, dialogueButtonContainer.transform);
-                    buttonObj.SetActive(true);
-                    
-                    // Find the text component
-                    TextMeshProUGUI buttonText = buttonObj.GetComponentInChildren<TextMeshProUGUI>();
-                    if (buttonText != null)
-                    {
-                        buttonText.text = choice.text;
-                    }
-                    else
-                    {
-                        Debug.LogError("No TextMeshProUGUI component found in choice button prefab");
-                    }
-                    
-                    // Add a button component if it doesn't exist
-                    Button button = buttonObj.GetComponent<Button>();
-                    if (button == null)
-                    {
-                        button = buttonObj.AddComponent<Button>();
-                    }
-                    
-                    // Set up the button click event
-                    int choiceIndex = i; // Need to store this in a local variable for the closure
-                    button.onClick.RemoveAllListeners();
-                    button.onClick.AddListener(() => MakeChoice(choiceIndex));
-                    
-                    // Add to our list of buttons
-                    choiceButtons.Add(buttonObj);
-                    
-                    // Log the button's rect position for debugging
-                    RectTransform buttonRect = buttonObj.GetComponent<RectTransform>();
-                    if (buttonRect != null)
-                    {
-                        Debug.Log($"Choice button {i} position - anchorMin: {buttonRect.anchorMin}, anchorMax: {buttonRect.anchorMax}");
-                    }
-                    
-                    Debug.Log($"Created choice button for: {choice.text}");
-                }
-                
-                // Set initial highlight
-                UpdateChoiceHighlights();
-            }
-            else
-            {
-                Debug.LogError("DialogueButtonContainer is null! Cannot display choices.");
-            }
-        }
-        else
-        {
-            Debug.Log("No choices to show");
-        }
+        // Use the new direct method to create choice buttons
+        CreateChoiceButtons();
     }
     
     private void UpdateChoiceHighlights()

@@ -27,6 +27,11 @@ public class PlayerController : MonoBehaviour
     // Last direction the player was facing
     private Vector2 lastDirection = Vector2.down; // Default facing down
 
+    // CRITICAL: Add a cooldown flag and timer to prevent multiple interactions from the same key press
+    private float interactionCooldown = 0.3f; // Seconds to wait after dialogue closes before allowing interaction
+    private float lastDialogueEndTime = 0f;   // When the last dialogue ended
+    private bool canInteract = true;          // Whether player can currently interact
+
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -101,150 +106,85 @@ public class PlayerController : MonoBehaviour
         Debug.Log("PlayerController initialized. Interaction radius: " + interactionRadius + ", Layer mask: " + interactableLayers.value);
     }
 
+    // Subscribe to dialogue state changes
+    private void OnEnable()
+    {
+        DialogueManager.OnDialogueStateChanged += HandleDialogueStateChanged;
+    }
+    
+    // Unsubscribe from dialogue state changes
+    private void OnDisable()
+    {
+        DialogueManager.OnDialogueStateChanged -= HandleDialogueStateChanged;
+    }
+    
+    // Handle dialogue state changes to detect when dialogue ends
+    private void HandleDialogueStateChanged(bool isActive)
+    {
+        if (!isActive) // Dialogue just ended
+        {
+            // Start the interaction cooldown
+            lastDialogueEndTime = Time.time;
+            canInteract = false;
+            Debug.Log($"[Player Debug] Dialogue ended, starting interaction cooldown");
+        }
+    }
+
     private void Update()
     {
-        // Check if dialogue is active
-        if (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive())
-        {
-            Debug.Log("dialogue is active");
-            // If Z key is pressed while dialogue is active
-            if (Input.GetKeyDown(KeyCode.Z))
-            {
-                Debug.Log("Z key pressed while dialogue is active");
-                DialogueManager dialogueManager = DialogueManager.Instance;
-                
-                // CRITICAL FIX: Check if there are active choices first
-                // Use reflection to access the private choiceButtons field
-                System.Type type = dialogueManager.GetType();
-                System.Reflection.FieldInfo choiceButtonsField = type.GetField("choiceButtons", 
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                
-                if (choiceButtonsField != null)
-                {
-                    List<GameObject> choiceButtons = (List<GameObject>)choiceButtonsField.GetValue(dialogueManager);
-                    
-                    // If there are active choices, select the current choice instead of continuing
-                    if (choiceButtons != null && choiceButtons.Count > 0)
-                    {
-                        // Get the current choice index
-                        System.Reflection.FieldInfo currentChoiceIndexField = type.GetField("currentChoiceIndex", 
-                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                        
-                        if (currentChoiceIndexField != null)
-                        {
-                            int currentChoiceIndex = (int)currentChoiceIndexField.GetValue(dialogueManager);
-                            
-                            // Call MakeChoice with the current choice index
-                            System.Reflection.MethodInfo makeChoiceMethod = type.GetMethod("MakeChoice", 
-                                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                            
-                            if (makeChoiceMethod != null)
-                            {
-                                Debug.Log($"Selecting choice {currentChoiceIndex} via interact key");
-                                makeChoiceMethod.Invoke(dialogueManager, new object[] { currentChoiceIndex });
-                            }
-                        }
-                    }
-                }
-                
-                // Check if we can advance the dialogue using the proper method
-                if (dialogueManager.CanAdvanceDialogue())
-                {
-                    // Use reflection to access the private currentInkHandler field
-                    System.Reflection.FieldInfo inkHandlerField = type.GetField("currentInkHandler", 
-                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                    
-                    if (inkHandlerField != null)
-                    {
-                        InkDialogueHandler inkHandler = (InkDialogueHandler)inkHandlerField.GetValue(dialogueManager);
-                        
-                        if (inkHandler != null && inkHandler.HasNextLine())
-                        {
-                            // Continue the Ink story
-                            Debug.Log("[DEBUG NEW] Continuing Ink story - more dialogue available");
-                            dialogueManager.ContinueInkStory();
-                        }
-                        else
-                        {
-                            // Close the dialogue if there's no more content
-                            Debug.Log("[DEBUG NEW] No more dialogue - closing dialogue");
-                            dialogueManager.CloseDialogue();
-                            Debug.Log("Dialogue closed");
-                            canMove = true;
-                        }
-                    }
-                }
-                else
-                {
-                    // The text isn't fully revealed yet or we're waiting for key release
-                    // Check what's preventing advancement for debugging
-                    System.Reflection.FieldInfo textFullyRevealedField = type.GetField("textFullyRevealed", 
-                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                    System.Reflection.FieldInfo waitForKeyReleaseField = type.GetField("waitForKeyRelease", 
-                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                    
-                    bool textFullyRevealed = (bool)textFullyRevealedField.GetValue(dialogueManager);
-                    bool waitForKeyRelease = (bool)waitForKeyReleaseField.GetValue(dialogueManager);
-                    
-                    Debug.Log("[DEBUG NEW] Cannot advance dialogue: textFullyRevealed=" + textFullyRevealed + 
-                        ", waitForKeyRelease=" + waitForKeyRelease);
-                    
-                    // If the text isn't fully revealed, skip typing effect
-                    if (!textFullyRevealed)
-                    {
-                        Debug.Log("skipping typing effect");
-                    }
-                    // If we're just waiting for key release, allow closure if there's no more dialogue
-                    else if (waitForKeyRelease)
-                    {
-                        // Reset waitForKeyRelease flag
-                        waitForKeyReleaseField.SetValue(dialogueManager, false);
-                        
-                        // Try to advance dialogue if possible
-                        System.Reflection.MethodInfo continueMethod = type.GetMethod("ContinueInkStory", 
-                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        
-                        if (continueMethod != null)
-                        {
-                            Debug.Log("[DEBUG NEW] Resetting waitForKeyRelease and trying to continue");
-                            continueMethod.Invoke(dialogueManager, null);
-                        }
-                    }
-                }
-            }
-            
-            // Don't process movement while dialogue is active
-            movement = Vector2.zero;
-            return; // IMPORTANT: Always return here to prevent further processing when dialogue is active
-        }
-        else
-        {
-            canMove = !isInventoryOpen; // Only allow movement if inventory is closed
-        }
-        
-        // Check for inventory toggle with Escape key instead of Tab
-        if (Input.GetKeyDown(KeyCode.Escape))
+        // Handle keyboard input for inventory
+        if (Input.GetKeyDown(KeyCode.I) && canMove)
         {
             ToggleInventory();
         }
         
-        // Don't process movement if inventory is open
+        // Update the interaction cooldown
+        if (!canInteract && Time.time >= lastDialogueEndTime + interactionCooldown)
+        {
+            canInteract = true;
+            Debug.Log("[Player Debug] Interaction cooldown ended, player can interact again");
+        }
+        
+        // If the inventory is open, don't process movement and dialogue controls
         if (isInventoryOpen)
         {
-            movement = Vector2.zero;
-            // Set idle animation
-            UpdateAnimation(Vector2.zero);
+            if (Input.GetKeyDown(KeyCode.Z) || Input.GetKeyDown(KeyCode.X) || Input.GetKeyDown(KeyCode.Escape))
+            {
+                // Close inventory on confirm, cancel, or escape keys
+                isInventoryOpen = false;
+                menuCanvas.SetActive(false);
+            }
+            
             return;
         }
         
-        // Process movement input
-        movement.x = Input.GetAxisRaw("Horizontal");
-        movement.y = Input.GetAxisRaw("Vertical");
+        // Check if dialogue is active
+        bool isDialogueActive = (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive());
         
-        // Normalize diagonal movement
-        if (movement.sqrMagnitude > 1f)
+        // If dialogue is active, handle dialogue controls
+        if (isDialogueActive)
         {
-            movement.Normalize();
+            // Don't handle any other controls while dialogue is active
+            // The DialogueManager itself handles advancing dialogue
+            return;
+        }
+        
+        // Handle movement input if player can move
+        if (canMove)
+        {
+            movement.x = Input.GetAxisRaw("Horizontal");
+            movement.y = Input.GetAxisRaw("Vertical");
+            
+            // Normalize diagonal movement to prevent faster speeds
+            if (movement.magnitude > 1f)
+            {
+                movement.Normalize();
+            }
+        }
+        else
+        {
+            // Player cannot move, ensure no residual movement
+            movement = Vector2.zero;
         }
         
         // Update animation based on movement direction
@@ -254,12 +194,16 @@ public class PlayerController : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Z))
         {
             // First check if DialogueManager exists and is actually active
-            bool isDialogueActive = (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive());
+            isDialogueActive = (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive());
             
-            if (!isDialogueActive)
+            if (!isDialogueActive && canInteract)  // CRITICAL FIX: Only allow interaction if cooldown has expired
             {
-                Debug.Log("Z pressed, dialogue NOT active - trying to interact");
+                Debug.Log("[Player Debug] Z pressed, dialogue NOT active and cooldown expired - trying to interact");
                 TryInteract();
+            }
+            else if (!canInteract)
+            {
+                Debug.Log("[Player Debug] Z pressed but interaction on cooldown - ignoring");
             }
             // Note: If dialogue is active, it's already handled at the beginning of this Update method
         }
@@ -315,12 +259,12 @@ public class PlayerController : MonoBehaviour
             bool dialogueActive = DialogueManager.Instance.IsDialogueActive();
             if (dialogueActive)
             {
-                Debug.Log("SAFETY: TryInteract caught active dialogue, aborting interaction");
+                Debug.Log("[Player Debug] SAFETY: TryInteract caught active dialogue, aborting interaction");
                 return;
             }
         }
         
-        Debug.Log("TryInteract proceeding - dialogue confirmed inactive");
+        Debug.Log("[Player Debug] TryInteract proceeding - dialogue confirmed inactive");
         
         // First try with the specified layer mask
         if (interactableLayers.value != 0 && interactableLayers.value != -1)
@@ -339,12 +283,19 @@ public class PlayerController : MonoBehaviour
             return; // Successfully interacted with something
         }
         
-        Debug.Log("No interactable objects found");
+        Debug.Log("[Player Debug] No interactable objects found");
     }
     
     private bool TryInteractWithColliders(Collider2D[] colliders)
     {
-        Debug.Log("Found " + colliders.Length + " colliders in range");
+        // CRITICAL FIX: Check cooldown again to ensure we don't interact if recently ended dialogue
+        if (!canInteract)
+        {
+            Debug.Log("[Player Debug] Attempted interaction during cooldown period - ignoring");
+            return false;
+        }
+        
+        Debug.Log("[Player Debug] Found " + colliders.Length + " colliders in range");
         
         float closestDistance = float.MaxValue;
         IInteractable closestInteractable = null;
@@ -357,7 +308,7 @@ public class PlayerController : MonoBehaviour
                 continue; // Skip self
             }
             
-            Debug.Log("Checking collider on: " + collider.gameObject.name + " (Layer: " + LayerMask.LayerToName(collider.gameObject.layer) + ")");
+            Debug.Log("[Player Debug] Checking collider on: " + collider.gameObject.name + " (Layer: " + LayerMask.LayerToName(collider.gameObject.layer) + ")");
             
             // Try to get an IInteractable component directly
             IInteractable interactable = collider.GetComponent<IInteractable>();
@@ -392,7 +343,7 @@ public class PlayerController : MonoBehaviour
         // After checking all colliders, interact with only the closest one
         if (closestInteractable != null)
         {
-            Debug.Log("Interacting with closest: " + closestGameObject.name + " at distance: " + closestDistance);
+            Debug.Log("[Player Debug] Interacting with closest: " + closestGameObject.name + " at distance: " + closestDistance);
             
             // Interact with the object
             closestInteractable.Interact();
@@ -422,7 +373,7 @@ public class PlayerController : MonoBehaviour
         }
         
         // Once dialogue is closed, restore movement
-        Debug.Log("Dialogue closed, restoring player movement");
+        Debug.Log("[Player Debug] Dialogue closed, restoring player movement");
         canMove = true;
     }
     
