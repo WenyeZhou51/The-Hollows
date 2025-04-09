@@ -29,7 +29,7 @@ public class CombatUI : MonoBehaviour
     [Tooltip("Reference to the TextMeshProUGUI component in the action display label")]
     public TextMeshProUGUI actionDisplayText;
     [Tooltip("How long to pause the game when displaying action")]
-    [SerializeField] private float actionDisplayDuration = 0.5f;
+    [SerializeField] private float actionDisplayDuration = 1.0f;
 
     [Header("Skill UI")]
     public GameObject skillPanel; // Assign this in the Inspector
@@ -1400,9 +1400,9 @@ public class CombatUI : MonoBehaviour
     {
         turnText.text = message;
         
-        // Pause game for exactly 0.5 seconds
+        // Pause game for exactly 1.0 seconds
         Time.timeScale = 0;
-        yield return new WaitForSecondsRealtime(0.5f);
+        yield return new WaitForSecondsRealtime(1.0f);
         Time.timeScale = 1;
         
         // Clear the message

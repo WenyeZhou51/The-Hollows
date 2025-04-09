@@ -789,7 +789,7 @@ MonoBehaviour:
   actionMessageDuration: 0.2
   actionDisplayLabel: {fileID: 0}
   actionDisplayText: {fileID: 0}
-  actionDisplayDuration: 0.5
+  actionDisplayDuration: 1
   skillPanel: {fileID: 820284072}
   skillButtonsContainer: {fileID: 61287668}
   menuButtonTemplate: {fileID: 887365937}
