@@ -158,6 +158,13 @@ public class PlayerController : MonoBehaviour
             return;
         }
         
+        // Check for ESC key to open inventory when it's closed
+        if (Input.GetKeyDown(KeyCode.Escape) && canMove)
+        {
+            ToggleInventory();
+            return;
+        }
+        
         // Check if dialogue is active
         bool isDialogueActive = (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive());
         

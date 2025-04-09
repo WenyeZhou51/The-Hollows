@@ -30,6 +30,11 @@ public class ScreenFader : MonoBehaviour
             Instance = this;
             DontDestroyOnLoad(gameObject);
             SetupFadeComponents();
+            
+            // Register for scene loaded events as a backup fade mechanism
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            
+            Debug.Log("ScreenFader initialized and registered for scene transitions");
         }
         else
         {
@@ -41,6 +46,15 @@ public class ScreenFader : MonoBehaviour
     {
         // Set flag to avoid creating objects during application exit
         isQuitting = true;
+    }
+
+    private void OnDestroy()
+    {
+        // Only unregister if this is the Instance
+        if (Instance == this)
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+        }
     }
 
     /// <summary>
@@ -143,7 +157,29 @@ public class ScreenFader : MonoBehaviour
             Debug.Log("Screen is fully black, ensuring fade from black will run");
         }
         
+        // Add a safety check to ensure canvasGroup is available
+        if (canvasGroup == null)
+        {
+            Debug.LogError("CanvasGroup is null when trying to fade from black - attempting to recreate components");
+            SetupFadeComponents();
+            
+            // If still null after attempting to recreate, force reset and exit
+            if (canvasGroup == null)
+            {
+                Debug.LogError("Failed to recreate CanvasGroup - forcing immediate visibility");
+                ResetToVisible();
+                yield break;
+            }
+        }
+        
         yield return FadeTo(0f, onFadeComplete);
+        
+        // Extra safety check to ensure screen is fully visible after fade completes
+        if (canvasGroup.alpha > 0.1f)
+        {
+            Debug.LogWarning("Screen may still be partially black after fade - forcing visibility");
+            ResetToVisible();
+        }
     }
 
     /// <summary>
@@ -193,6 +229,27 @@ public class ScreenFader : MonoBehaviour
             canvasGroup.alpha = 0f;
             canvasGroup.blocksRaycasts = false;
             Debug.Log("ScreenFader immediately reset to visible");
+        }
+    }
+
+    // Safety method to ensure screen doesn't stay black during scene changes
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        // Wait a short time to let other scripts register their fade operations
+        StartCoroutine(DelayedFadeCheck(scene.name));
+    }
+    
+    private IEnumerator DelayedFadeCheck(string sceneName)
+    {
+        // Wait for other scripts to potentially trigger a fade
+        yield return new WaitForSeconds(0.5f);
+        
+        // If the screen is still mostly black, force it to become visible
+        if (canvasGroup != null && canvasGroup.alpha > 0.9f)
+        {
+            Debug.LogWarning($"ScreenFader: Screen still black 0.5s after loading scene {sceneName} - forcing visibility");
+            // Use direct method call for reliability
+            ResetToVisible();
         }
     }
 } 

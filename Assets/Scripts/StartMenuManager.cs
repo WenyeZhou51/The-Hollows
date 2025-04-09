@@ -19,7 +19,7 @@ public class StartMenuManager : MonoBehaviour
     [SerializeField] private Color highlightColor = Color.white;
     
     [Header("Scene Management")]
-    [SerializeField] private string overworldSceneName = "Overworld_entrance";
+    [SerializeField] private string overworldSceneName = "Overworld_Startroom";
     
     private bool isAnimating = false;
     private int currentPanelIndex = 0;
@@ -174,6 +174,9 @@ public class StartMenuManager : MonoBehaviour
         // Reset all game data while preserving death counter
         ResetGameDataExceptDeaths();
         
+        // Make sure ScreenFader exists
+        ScreenFader.EnsureExists();
+        
         // Play animation through the background script
         if (background != null)
         {
@@ -185,8 +188,90 @@ public class StartMenuManager : MonoBehaviour
             yield return new WaitForSeconds(1.0f);
         }
         
-        // Load the overworld scene
+        // Double check that the scene exists in build settings to avoid loading a non-existent scene
+        if (!IsSceneValid(overworldSceneName))
+        {
+            Debug.LogError($"Scene '{overworldSceneName}' not found in build settings. Make sure to add it to the build settings!");
+            // Ensure screen doesn't stay black
+            StartCoroutine(ScreenFader.Instance.FadeFromBlack());
+            isAnimating = false;
+            yield break;
+        }
+        
+        // Fade to black
+        yield return StartCoroutine(ScreenFader.Instance.FadeToBlack());
+        
+        // Load the overworld scene and register for scene loaded event
+        Debug.Log($"CRITICAL DEBUG: Registering OnSceneLoaded event handler before loading {overworldSceneName}");
+        // Unregister first in case it's already registered
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+        SceneManager.sceneLoaded += OnSceneLoaded;
+        Debug.Log($"Loading scene: {overworldSceneName}");
         SceneManager.LoadScene(overworldSceneName);
+    }
+    
+    // Handle scene loading completion and fade from black
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        Debug.Log("CRITICAL DEBUG: OnSceneLoaded was called - will attempt to fade screen");
+        
+        // Safety check for ScreenFader
+        if (ScreenFader.Instance == null)
+        {
+            Debug.LogError("CRITICAL ERROR: ScreenFader.Instance is null in OnSceneLoaded - creating new instance");
+            ScreenFader.EnsureExists();
+            
+            // Double check it was created
+            if (ScreenFader.Instance == null)
+            {
+                Debug.LogError("CRITICAL ERROR: Failed to create ScreenFader - scene will remain black");
+                isAnimating = false;
+                return;
+            }
+        }
+        
+        // Additional safety check - immediately fade using secondary method
+        try
+        {
+            // Force reset canvas alpha to make screen visible in case coroutine fails
+            var fader = ScreenFader.Instance;
+            if (fader != null)
+            {
+                // This direct method call is a fallback to ensure at minimum we reset the screen
+                Debug.Log("CRITICAL DEBUG: Calling ResetToVisible as additional safety measure");
+                fader.ResetToVisible();
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"CRITICAL ERROR: Exception in direct ScreenFader access: {e.Message}");
+        }
+        
+        // Ensure we're fading from black on any scene (being more permissive)
+        Debug.Log($"CRITICAL DEBUG: Starting fade from black for scene: {scene.name}");
+        StartCoroutine(ScreenFader.Instance.FadeFromBlack());
+        
+        // Unregister to prevent memory leaks and multiple calls
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+        isAnimating = false;
+    }
+    
+    /// <summary>
+    /// Check if a scene is included in the build settings
+    /// </summary>
+    private bool IsSceneValid(string sceneName)
+    {
+        int sceneCount = SceneManager.sceneCountInBuildSettings;
+        for (int i = 0; i < sceneCount; i++)
+        {
+            string scenePath = SceneUtility.GetScenePathByBuildIndex(i);
+            string sceneNameFromPath = System.IO.Path.GetFileNameWithoutExtension(scenePath);
+            if (sceneNameFromPath == sceneName)
+            {
+                return true;
+            }
+        }
+        return false;
     }
     
     /// <summary>

@@ -12,7 +12,7 @@ public class SceneTransitionManager : MonoBehaviour
     private static bool isQuitting = false;
     
     // Scene names
-    [SerializeField] private string overworldSceneName = "Overworld_entrance";
+    [SerializeField] private string overworldSceneName = "Overworld_Startroom";
     [SerializeField] private string combatSceneName = "Battle_Obelisk";
     
     // Enemy that initiated the combat

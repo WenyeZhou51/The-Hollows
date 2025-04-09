@@ -809,7 +809,7 @@ MonoBehaviour:
   buttonsContainer: {fileID: 175346998}
   normalColor: {r: 0.3207547, g: 0.3207547, b: 0.3207547, a: 1}
   highlightColor: {r: 1, g: 1, b: 1, a: 1}
-  overworldSceneName: Overworld_entrance
+  overworldSceneName: Overworld_Startroom
 --- !u!4 &1128865027
 Transform:
   m_ObjectHideFlags: 0
