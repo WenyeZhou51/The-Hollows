@@ -133,6 +133,8 @@ public class CombatStats : MonoBehaviour
 
     private void Start()
     {
+        Debug.Log($"[COMBAT DEBUG] START() called for {name} - current health: {currentHealth}, maxHealth: {maxHealth}, isEnemy: {isEnemy}");
+        
         if (isEnemy)
         {
             // Set up enemy-specific properties without overriding inspector values
@@ -145,6 +147,16 @@ public class CombatStats : MonoBehaviour
                 originalColor = spriteRenderer.color;
             }
             // Enemies don't use sanity, but we don't need to modify maxSanity
+            
+            // Debug the enemy behavior
+            if (enemyBehavior != null)
+            {
+                Debug.Log($"[COMBAT DEBUG] Enemy {name} has behavior: {enemyBehavior.GetType().Name}");
+            }
+            else
+            {
+                Debug.LogWarning($"[COMBAT DEBUG] Enemy {name} has NO BEHAVIOR attached!");
+            }
             
             // No need to instantiate, just verify components
             if (healthFill == null || actionFill == null)
@@ -188,7 +200,7 @@ public class CombatStats : MonoBehaviour
         currentAction = 0f; // Always start with empty action bar
 
         // Debug log to check character name
-        Debug.Log($"Character initialized: {characterName}, isEnemy: {isEnemy}, maxHealth: {maxHealth}, maxAction: {maxAction}, actionSpeed: {actionSpeed}");
+        Debug.Log($"[COMBAT DEBUG] Character fully initialized: {characterName}, isEnemy: {isEnemy}, currentHealth: {currentHealth}, maxHealth: {maxHealth}, IsDead: {IsDead()}");
 
         // Add skills to the first player character only (to avoid duplicates)
         if (!isEnemy && characterName == "The Magician")

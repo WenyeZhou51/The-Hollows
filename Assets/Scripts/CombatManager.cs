@@ -50,6 +50,20 @@ public class CombatManager : MonoBehaviour
         
         players.RemoveAll(p => p == null);
         enemies.RemoveAll(e => e == null);
+        
+        // Log enemy information for debugging
+        Debug.Log($"===== COMBAT INITIALIZATION: FOUND {enemies.Count} ENEMIES =====");
+        for (int i = 0; i < enemies.Count; i++)
+        {
+            if (enemies[i] != null)
+            {
+                Debug.Log($"Enemy {i}: {enemies[i].characterName} - Health: {enemies[i].currentHealth}/{enemies[i].maxHealth} - IsDead: {enemies[i].IsDead()} - Has Behavior: {enemies[i].enemyBehavior != null}");
+            }
+            else
+            {
+                Debug.Log($"Enemy {i}: NULL REFERENCE");
+            }
+        }
 
         // Initialize character stats from PersistentGameManager BEFORE Start() is called
         InitializeCharacterStats();
@@ -469,11 +483,27 @@ public class CombatManager : MonoBehaviour
 
     private void CheckBattleEnd()
     {
+        // Log enemy status before checking end conditions
+        Debug.Log("===== CHECKING BATTLE END CONDITIONS =====");
+        foreach (var enemy in enemies)
+        {
+            if (enemy == null)
+            {
+                Debug.Log("Enemy is NULL");
+            }
+            else
+            {
+                Debug.Log($"Enemy {enemy.characterName} - Health: {enemy.currentHealth}/{enemy.maxHealth} - IsDead: {enemy.IsDead()}");
+            }
+        }
+        
         // Check if all players are dead (lose condition)
         bool allPlayersDead = players.All(p => p == null || p.IsDead());
         
         // Check if all enemies are dead (win condition)
         bool allEnemiesDead = enemies.All(e => e == null || e.IsDead());
+        
+        Debug.Log($"Battle end check: All players dead? {allPlayersDead} - All enemies dead? {allEnemiesDead}");
         
         if (allPlayersDead || allEnemiesDead)
         {

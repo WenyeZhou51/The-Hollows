@@ -25,8 +25,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1588636378324896083}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.471, z: 0}
-  m_LocalScale: {x: 1, y: 1.94199, z: 1}
+  m_LocalPosition: {x: 0.0060357, y: 0.8, z: 0}
+  m_LocalScale: {x: 0.57705104, y: 1.94199, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 785394481265749815}
@@ -108,7 +108,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1912960559405614437}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.010002, y: -4.73, z: -4.9978857}
+  m_LocalPosition: {x: -1.28, y: -11.34, z: -4.9978857}
   m_LocalScale: {x: 0.31401283, y: 0.026459157, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -161,9 +161,9 @@ GameObject:
   - component: {fileID: 5606392298455665498}
   - component: {fileID: 5636393689027812746}
   - component: {fileID: 5636393689027812741}
-  - component: {fileID: 4948586307471512343}
+  - component: {fileID: 5509414653500420475}
   m_Layer: 0
-  m_Name: Obelisk
+  m_Name: Weaver_post
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -177,8 +177,8 @@ RectTransform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5636393689027812743}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -10633.6875}
-  m_LocalScale: {x: 50, y: 50, z: 114.89158}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 25, y: 25, z: 114.89158}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3655811018994446085}
@@ -187,7 +187,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -57, y: -69}
+  m_AnchoredPosition: {x: 0, y: -33}
   m_SizeDelta: {x: 1, y: 1}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!212 &5636393689027812746
@@ -231,7 +231,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: -1
-  m_Sprite: {fileID: 21300000, guid: f00ff892f833a3846b8e3156c89fb0db, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 9b9b091132f79e74d818cac9825d9f06, type: 3}
   m_Color: {r: 0.73333335, g: 0.73333335, b: 0.73333335, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -258,20 +258,20 @@ MonoBehaviour:
   spriteRenderer: {fileID: 5636393689027812746}
   healthFill: {fileID: 5972926927154482544}
   actionFill: {fileID: 2635387471165526119}
-  maxHealth: 100000
+  maxHealth: 100
   currentHealth: 0
   maxSanity: 100
   currentSanity: 0
   maxAction: 100
   currentAction: 0
-  actionSpeed: 70
+  actionSpeed: 40
   isEnemy: 1
-  enemyBehavior: {fileID: 4948586307471512343}
+  enemyBehavior: {fileID: 5509414653500420475}
   highlightColor: {r: 1, g: 1, b: 1, a: 1}
   blinkInterval: 0.3
   enemyDefaultColor: {r: 1, g: 0, b: 0, a: 1}
   allyDefaultColor: {r: 1, g: 1, b: 1, a: 1}
-  characterName: Obelisk
+  characterName: Weaver
   skills: []
   items: []
   guardedIconOffset: {x: 0, y: -1.2, z: 0}
@@ -280,7 +280,7 @@ MonoBehaviour:
   defenseReductionDefaultDuration: 2
   defenseReductionMultiplier: 1.5
   defenseReductionIconOffset: {x: 0, y: -1.2, z: 0}
---- !u!114 &4948586307471512343
+--- !u!114 &5509414653500420475
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -289,12 +289,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 5636393689027812743}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7a5a48c4d2195ca458546e90d126d74c, type: 3}
+  m_Script: {fileID: 11500000, guid: e21c1454d706d3248a0a4fbe81f5b1d0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  triangulationChance: 50
-  unblinkingGazeChance: 50
-  maliceOfStoneChance: 0
+  gordianKnotChance: 40
+  dodgeAndWeaveChance: 30
+  hangmanChance: 30
+  tangledEffectDuration: 10
 --- !u!1 &6656742641168095109
 GameObject:
   m_ObjectHideFlags: 0
@@ -320,8 +321,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6656742641168095109}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.40379, z: 0}
-  m_LocalScale: {x: 1, y: 1.80757, z: 1}
+  m_LocalPosition: {x: 0.005, y: 2.5, z: 0}
+  m_LocalScale: {x: 0.58209616, y: 1.80757, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 8859293268142919528}
@@ -404,8 +405,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6927100347147838202}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.40379, z: 0}
-  m_LocalScale: {x: 1, y: 1.80757, z: 1}
+  m_LocalPosition: {x: 0.004999995, y: 2.5000014, z: 0}
+  m_LocalScale: {x: 0.58209616, y: 1.80757, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 8859293268142919528}
@@ -521,8 +522,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8303018805299520150}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.471, z: 0}
-  m_LocalScale: {x: 1, y: 1.94199, z: 1}
+  m_LocalPosition: {x: 0.0050242, y: 0.7999973, z: 0}
+  m_LocalScale: {x: 0.5790741, y: 1.94199, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 785394481265749815}
