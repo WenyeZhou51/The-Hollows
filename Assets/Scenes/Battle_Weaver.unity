@@ -2436,7 +2436,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3655811018994446085, guid: 12e87dde88b77b045aba13d4a39ba856, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -4.73
+      value: -6.09
       objectReference: {fileID: 0}
     - target: {fileID: 4974589674681215245, guid: 12e87dde88b77b045aba13d4a39ba856, type: 3}
       propertyPath: skills.Array.size
@@ -2468,11 +2468,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5606392298455665498, guid: 12e87dde88b77b045aba13d4a39ba856, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -57
+      value: -46
       objectReference: {fileID: 0}
     - target: {fileID: 5606392298455665498, guid: 12e87dde88b77b045aba13d4a39ba856, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -69
+      value: -189
       objectReference: {fileID: 0}
     - target: {fileID: 5636393689027812740, guid: 12e87dde88b77b045aba13d4a39ba856, type: 3}
       propertyPath: m_RootOrder
