@@ -1,0 +1,61 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &7133695045324708040
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7133695045324708042}
+  - component: {fileID: 7133695045324708043}
+  m_Layer: 0
+  m_Name: DialogeManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7133695045324708042
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7133695045324708040}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -1.5038186, y: 2.861758, z: 3231.6165}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 0
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7133695045324708043
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7133695045324708040}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 38ef4200cda75c942bbe831c778564e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueCanvasPrefab: {fileID: 432120797797096323, guid: 4e30158d9d2adb94b9467051e689c2e6, type: 3}
+  choiceButtonPrefab: {fileID: 1188552304782851096, guid: 032a7aab61455484b81dd1eae789b56f, type: 3}
+  dialoguePanel: {fileID: 0}
+  dialogueText: {fileID: 0}
+  dialogueButtonContainer: {fileID: 0}
+  portraitObject: {fileID: 0}
+  portraitImage: {fileID: 0}
+  portraitText: {fileID: 0}
+  typingSpeed: 0.02
+  useTypewriterEffect: 1
+  normalButtonColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
+  highlightedButtonColor: {r: 0.38871083, g: 0.38911957, b: 0.38993704, a: 1}
+  interactKey: 122
+  pauseGameDuringDialogue: 1
+  affectEnemies: 1

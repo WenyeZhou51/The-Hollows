@@ -121,6 +121,8 @@ public class AperatureBehaviorPost : EnemyBehavior
             int finalDamage = Mathf.FloorToInt(baseDamage);
             
             focusedTarget.TakeDamage(finalDamage);
+            
+            Debug.Log($"Basic Attack hit {focusedTarget.characterName} for {finalDamage} damage");
         }
         else
         {
@@ -160,6 +162,8 @@ public class AperatureBehaviorPost : EnemyBehavior
         
         // Deal 5 damage for each hit
         float damagePerHit = 5f;
+        int finalDamagePerHit = Mathf.FloorToInt(damagePerHit);
+        int totalDamage = 0;
         
         // Apply the hits one by one with a small delay between each
         for (int i = 0; i < hitCount; i++)
@@ -174,7 +178,8 @@ public class AperatureBehaviorPost : EnemyBehavior
             yield return new WaitForSeconds(0.2f);
             
             // Deal damage
-            focusedTarget.TakeDamage(Mathf.FloorToInt(damagePerHit));
+            focusedTarget.TakeDamage(finalDamagePerHit);
+            totalDamage += finalDamagePerHit;
             
             // Check if target died
             if (focusedTarget.IsDead())
@@ -192,7 +197,7 @@ public class AperatureBehaviorPost : EnemyBehavior
         // For this example, we're just using ApplyDefenseReduction which was seen in the CombatStats class
         focusedTarget.ApplyDefenseReduction();
         
-        Debug.Log($"Tunneled Focus hit {focusedTarget.characterName} {hitCount} times for a total of {hitCount * damagePerHit} damage and reduced defense by 50%");
+        Debug.Log($"Tunneled Focus hit {focusedTarget.characterName} {hitCount} times for a total of {totalDamage} damage and reduced defense by 50%");
     }
     
     private IEnumerator UseCascadingGazeSkill(CombatStats enemy, List<CombatStats> players, CombatUI combatUI)
@@ -221,22 +226,16 @@ public class AperatureBehaviorPost : EnemyBehavior
         // Wait for action display to complete
         yield return WaitForActionDisplay();
         
-        // Check if player has a multiplier yet
-        if (!cascadingGazeMultipliers.ContainsKey(focusedTarget))
-        {
-            cascadingGazeMultipliers[focusedTarget] = 1; // Start with a multiplier of 1
-        }
+        // Determine number of hits (between minTunneledFocusHits and maxTunneledFocusHits)
+        int hitCount = Random.Range(minTunneledFocusHits, maxTunneledFocusHits + 1);
         
-        // Calculate damage with multiplier
-        float damage = cascadingGazeBaseDamage * cascadingGazeMultipliers[focusedTarget];
-        int finalDamage = Mathf.FloorToInt(damage);
+        // Calculate damage (5 damage multiplied by the number of hits)
+        float damagePerHit = 5f;
+        int totalDamage = Mathf.FloorToInt(damagePerHit * hitCount);
         
-        // Deal damage
-        focusedTarget.TakeDamage(finalDamage);
+        // Deal damage all at once
+        focusedTarget.TakeDamage(totalDamage);
         
-        // Double the multiplier for next time
-        cascadingGazeMultipliers[focusedTarget] *= 2;
-        
-        Debug.Log($"Cascading Gaze hit {focusedTarget.characterName} for {finalDamage} damage. New multiplier: {cascadingGazeMultipliers[focusedTarget]}");
+        Debug.Log($"Cascading Gaze hit {focusedTarget.characterName} for {totalDamage} damage ({hitCount} hits at {damagePerHit} damage each)");
     }
 } 

@@ -13,7 +13,7 @@ public class ScreenFader : MonoBehaviour
     private static bool isQuitting = false;
 
     [Header("Fade Settings")]
-    [SerializeField] private float fadeDuration = 0.5f;
+    [SerializeField] private float defaultFadeDuration = 1.0f;
     [SerializeField] private Color fadeColor = Color.black;
     [SerializeField] private AnimationCurve fadeCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
 
@@ -24,22 +24,23 @@ public class ScreenFader : MonoBehaviour
 
     private void Awake()
     {
-        // Singleton setup
-        if (Instance == null)
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-            SetupFadeComponents();
-            
-            // Register for scene loaded events as a backup fade mechanism
-            SceneManager.sceneLoaded += OnSceneLoaded;
-            
-            Debug.Log("ScreenFader initialized and registered for scene transitions");
-        }
-        else
+        // Singleton pattern
+        if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
+            return;
         }
+        
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+        
+        // Set up the fade canvas and image
+        InitializeFadeComponents();
+        
+        // Register for scene loaded events as a backup fade mechanism
+        SceneManager.sceneLoaded += OnSceneLoaded;
+        
+        Debug.Log("ScreenFader initialized and registered for scene transitions");
     }
 
     private void OnApplicationQuit()
@@ -60,164 +61,210 @@ public class ScreenFader : MonoBehaviour
     /// <summary>
     /// Create all the necessary components for the fade effect
     /// </summary>
-    private void SetupFadeComponents()
+    private void InitializeFadeComponents()
     {
-        // Create canvas
-        fadeCanvas = gameObject.AddComponent<Canvas>();
-        fadeCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        fadeCanvas.sortingOrder = 999; // Ensure it renders on top of everything
-        
-        // Add canvas scaler for proper scaling on different resolutions
-        CanvasScaler scaler = gameObject.AddComponent<CanvasScaler>();
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920, 1080);
-        
-        // Add canvas group for easy fade control
-        canvasGroup = gameObject.AddComponent<CanvasGroup>();
-        canvasGroup.alpha = 0f; // Start fully transparent
-        canvasGroup.blocksRaycasts = false; // Don't block input when invisible
-        
-        // Create image that covers the entire screen
-        GameObject imageObject = new GameObject("FadeImage");
-        imageObject.transform.SetParent(transform);
-        
-        fadeImage = imageObject.AddComponent<Image>();
-        fadeImage.color = fadeColor;
-        
-        // Set the image to cover the entire screen
-        RectTransform rectTransform = fadeImage.rectTransform;
-        rectTransform.anchorMin = Vector2.zero;
-        rectTransform.anchorMax = Vector2.one;
-        rectTransform.sizeDelta = Vector2.zero;
-        rectTransform.anchoredPosition = Vector2.zero;
-    }
-
-    /// <summary>
-    /// Ensures an instance of ScreenFader exists in the scene
-    /// </summary>
-    /// <returns>The ScreenFader instance</returns>
-    public static ScreenFader EnsureExists()
-    {
-        // Don't create a new instance if the application is quitting or we're switching scenes
-        if (isQuitting || SceneManager.GetActiveScene().isLoaded == false)
+        // Create canvas if it doesn't exist
+        if (fadeCanvas == null)
         {
-            return Instance;
-        }
-        
-        if (Instance == null)
-        {
-            // Look for existing instance
-            ScreenFader[] faders = FindObjectsOfType<ScreenFader>();
+            fadeCanvas = GetComponentInChildren<Canvas>();
             
-            if (faders.Length > 0)
+            if (fadeCanvas == null)
             {
-                // Use first instance found
-                Instance = faders[0];
-                Debug.Log("Found existing ScreenFader");
+                // Create a new Canvas as a child
+                GameObject canvasObj = new GameObject("FadeCanvas");
+                canvasObj.transform.SetParent(transform);
                 
-                // Destroy any extras
-                for (int i = 1; i < faders.Length; i++)
-                {
-                    Debug.LogWarning("Destroying extra ScreenFader instance");
-                    Destroy(faders[i].gameObject);
-                }
-            }
-            else
-            {
-                // Only create a new instance if we're not during scene unloading
-                GameObject faderObj = new GameObject("ScreenFader");
-                Instance = faderObj.AddComponent<ScreenFader>();
-                Debug.Log("Created new ScreenFader");
+                fadeCanvas = canvasObj.AddComponent<Canvas>();
+                fadeCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                fadeCanvas.sortingOrder = 999; // Make sure it's above everything
+                
+                // Add a CanvasScaler
+                CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920, 1080);
+                
+                // Add a GraphicRaycaster
+                canvasObj.AddComponent<GraphicRaycaster>();
             }
         }
         
-        return Instance;
-    }
-
-    /// <summary>
-    /// Fades the screen to black
-    /// </summary>
-    /// <param name="onFadeComplete">Action to call when fade completes</param>
-    /// <returns>Coroutine that can be awaited</returns>
-    public IEnumerator FadeToBlack(Action onFadeComplete = null)
-    {
-        yield return FadeTo(1f, onFadeComplete);
-    }
-
-    /// <summary>
-    /// Fades the screen from black to clear
-    /// </summary>
-    /// <param name="onFadeComplete">Action to call when fade completes</param>
-    /// <returns>Coroutine that can be awaited</returns>
-    public IEnumerator FadeFromBlack(Action onFadeComplete = null)
-    {
-        // Ensure screen isn't permanently black
-        if (canvasGroup.alpha > 0.99f)
+        // Create fade image if it doesn't exist
+        if (fadeImage == null)
         {
-            Debug.Log("Screen is fully black, ensuring fade from black will run");
-        }
-        
-        // Add a safety check to ensure canvasGroup is available
-        if (canvasGroup == null)
-        {
-            Debug.LogError("CanvasGroup is null when trying to fade from black - attempting to recreate components");
-            SetupFadeComponents();
+            fadeImage = GetComponentInChildren<Image>();
             
-            // If still null after attempting to recreate, force reset and exit
-            if (canvasGroup == null)
+            if (fadeImage == null)
             {
-                Debug.LogError("Failed to recreate CanvasGroup - forcing immediate visibility");
-                ResetToVisible();
-                yield break;
+                // Create a new Image as a child of the canvas
+                GameObject imageObj = new GameObject("FadeImage");
+                imageObj.transform.SetParent(fadeCanvas.transform);
+                
+                // Set to stretch to fill canvas
+                RectTransform rect = imageObj.AddComponent<RectTransform>();
+                rect.anchorMin = Vector2.zero;
+                rect.anchorMax = Vector2.one;
+                rect.offsetMin = Vector2.zero;
+                rect.offsetMax = Vector2.zero;
+                
+                // Add an Image component
+                fadeImage = imageObj.AddComponent<Image>();
+                fadeImage.color = new Color(fadeColor.r, fadeColor.g, fadeColor.b, 0); // Start fully transparent
             }
-        }
-        
-        yield return FadeTo(0f, onFadeComplete);
-        
-        // Extra safety check to ensure screen is fully visible after fade completes
-        if (canvasGroup.alpha > 0.1f)
-        {
-            Debug.LogWarning("Screen may still be partially black after fade - forcing visibility");
-            ResetToVisible();
         }
     }
 
     /// <summary>
-    /// Performs the fade operation to the target alpha
+    /// Ensure ScreenFader exists in the scene, creating it if needed
     /// </summary>
-    /// <param name="targetAlpha">Target alpha value (0-1)</param>
-    /// <param name="onFadeComplete">Action to call when fade completes</param>
-    /// <returns>Coroutine that can be awaited</returns>
-    private IEnumerator FadeTo(float targetAlpha, Action onFadeComplete = null)
+    public static void EnsureExists()
     {
+        if (Instance == null && !isQuitting)
+        {
+            GameObject faderObj = new GameObject("ScreenFader");
+            Instance = faderObj.AddComponent<ScreenFader>();
+            Debug.Log("ScreenFader created");
+        }
+    }
+
+    /// <summary>
+    /// Fade the screen to black (or specified color)
+    /// </summary>
+    public IEnumerator FadeToBlack(float duration = -1)
+    {
+        if (duration < 0)
+            duration = defaultFadeDuration;
+            
         if (isFading)
-        {
             yield break;
-        }
-
-        isFading = true;
-        canvasGroup.blocksRaycasts = targetAlpha > 0; // Block input only when fading to black
-        
-        float startAlpha = canvasGroup.alpha;
-        float elapsed = 0f;
-        
-        while (elapsed < fadeDuration)
-        {
-            elapsed += Time.deltaTime;
-            float normalizedTime = Mathf.Clamp01(elapsed / fadeDuration);
-            float curveValue = fadeCurve.Evaluate(normalizedTime);
             
-            canvasGroup.alpha = Mathf.Lerp(startAlpha, targetAlpha, curveValue);
+        isFading = true;
+        
+        // Make sure the fade components exist
+        InitializeFadeComponents();
+        
+        fadeImage.gameObject.SetActive(true);
+        
+        float startAlpha = fadeImage.color.a;
+        float targetAlpha = 1.0f;
+        float elapsedTime = 0;
+        
+        // Ensure we're at least slightly visible at start to avoid popping
+        if (startAlpha <= 0.01f)
+        {
+            Color startColor = fadeImage.color;
+            startColor.a = 0.01f;
+            fadeImage.color = startColor;
+        }
+        
+        while (elapsedTime < duration)
+        {
+            elapsedTime += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsedTime / duration);
+            
+            // Update alpha
+            Color newColor = fadeImage.color;
+            newColor.a = Mathf.Lerp(startAlpha, targetAlpha, t);
+            fadeImage.color = newColor;
             
             yield return null;
         }
         
-        canvasGroup.alpha = targetAlpha;
-        isFading = false;
+        // Ensure we end at exactly 1 alpha
+        Color finalColor = fadeImage.color;
+        finalColor.a = targetAlpha;
+        fadeImage.color = finalColor;
         
-        onFadeComplete?.Invoke();
+        isFading = false;
+    }
+    
+    /// <summary>
+    /// Fade from black (or specified color) to clear
+    /// </summary>
+    public IEnumerator FadeFromBlack(float duration = -1)
+    {
+        if (duration < 0)
+            duration = defaultFadeDuration;
+            
+        if (isFading)
+            yield break;
+            
+        isFading = true;
+        
+        // Make sure the fade components exist
+        InitializeFadeComponents();
+        
+        float startAlpha = fadeImage.color.a;
+        float targetAlpha = 0f;
+        float elapsedTime = 0;
+        
+        // Ensure we're at maximum opacity at start to avoid popping
+        if (startAlpha < 0.99f)
+        {
+            Color startColor = fadeImage.color;
+            startColor.a = 1.0f;
+            fadeImage.color = startColor;
+            startAlpha = 1.0f;
+        }
+        
+        while (elapsedTime < duration)
+        {
+            elapsedTime += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsedTime / duration);
+            
+            // Update alpha
+            Color newColor = fadeImage.color;
+            newColor.a = Mathf.Lerp(startAlpha, targetAlpha, t);
+            fadeImage.color = newColor;
+            
+            yield return null;
+        }
+        
+        // Ensure we end at exactly 0 alpha
+        Color finalColor = fadeImage.color;
+        finalColor.a = targetAlpha;
+        fadeImage.color = finalColor;
+        
+        if (finalColor.a <= 0.01f)
+        {
+            fadeImage.gameObject.SetActive(false);
+        }
+        
+        isFading = false;
+    }
+    
+    /// <summary>
+    /// Set the screen to black immediately without fading
+    /// </summary>
+    public void SetBlackScreen()
+    {
+        InitializeFadeComponents();
+        fadeImage.gameObject.SetActive(true);
+        
+        Color blackColor = fadeColor;
+        blackColor.a = 1.0f;
+        fadeImage.color = blackColor;
+    }
+    
+    /// <summary>
+    /// Set the screen to clear immediately without fading
+    /// </summary>
+    public void SetClearScreen()
+    {
+        InitializeFadeComponents();
+        
+        Color clearColor = fadeColor;
+        clearColor.a = 0.0f;
+        fadeImage.color = clearColor;
+        fadeImage.gameObject.SetActive(false);
     }
 
+    // Safety method to ensure screen doesn't stay black during scene changes
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        // Make sure our fade components are still valid after scene change
+        InitializeFadeComponents();
+    }
+    
     /// <summary>
     /// Immediately resets the screen to be fully visible (no fade animation)
     /// </summary>
@@ -229,27 +276,6 @@ public class ScreenFader : MonoBehaviour
             canvasGroup.alpha = 0f;
             canvasGroup.blocksRaycasts = false;
             Debug.Log("ScreenFader immediately reset to visible");
-        }
-    }
-
-    // Safety method to ensure screen doesn't stay black during scene changes
-    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
-    {
-        // Wait a short time to let other scripts register their fade operations
-        StartCoroutine(DelayedFadeCheck(scene.name));
-    }
-    
-    private IEnumerator DelayedFadeCheck(string sceneName)
-    {
-        // Wait for other scripts to potentially trigger a fade
-        yield return new WaitForSeconds(0.5f);
-        
-        // If the screen is still mostly black, force it to become visible
-        if (canvasGroup != null && canvasGroup.alpha > 0.9f)
-        {
-            Debug.LogWarning($"ScreenFader: Screen still black 0.5s after loading scene {sceneName} - forcing visibility");
-            // Use direct method call for reliability
-            ResetToVisible();
         }
     }
 } 

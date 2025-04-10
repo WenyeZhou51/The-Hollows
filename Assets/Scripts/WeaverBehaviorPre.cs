@@ -182,6 +182,21 @@ public class WeaverBehaviorPre : EnemyBehavior
         // Wait for action display to complete
         yield return WaitForActionDisplay();
         
+        // Fade to black effect for metamorphosis
+        ScreenFader.EnsureExists();
+        if (ScreenFader.Instance != null)
+        {
+            // Fade to black
+            yield return ScreenFader.Instance.FadeToBlack();
+            
+            // Wait a moment at black screen for dramatic effect
+            yield return new WaitForSeconds(0.5f);
+        }
+        else
+        {
+            Debug.LogWarning("ScreenFader not found, proceeding without fade effect");
+        }
+        
         // Transform into Weaver_post
         if (weaverPostPrefab != null)
         {
@@ -244,6 +259,12 @@ public class WeaverBehaviorPre : EnemyBehavior
         else
         {
             Debug.LogError("Weaver_post prefab not assigned to WeaverBehaviorPre");
+        }
+        
+        // Fade back from black to show the transformation
+        if (ScreenFader.Instance != null)
+        {
+            yield return ScreenFader.Instance.FadeFromBlack();
         }
     }
 } 

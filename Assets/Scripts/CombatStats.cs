@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
 using System.Linq;
+using System.Collections;
 
 public class CombatStats : MonoBehaviour
 {
@@ -137,6 +138,16 @@ public class CombatStats : MonoBehaviour
         
         if (isEnemy)
         {
+            // Apply 20% variance to enemy action speed at start of battle
+            // Store original action speed before applying variance
+            baseActionSpeed = actionSpeed;
+            
+            // Random variance between 80-120% (0.8-1.2)
+            float variance = Random.Range(0.8f, 1.2f);
+            actionSpeed = Mathf.FloorToInt(baseActionSpeed * variance);
+            
+            Debug.Log($"[COMBAT DEBUG] Enemy {name} action speed adjusted with variance: {baseActionSpeed} -> {actionSpeed}");
+            
             // Set up enemy-specific properties without overriding inspector values
             if (characterImage != null)
             {
@@ -369,34 +380,143 @@ public class CombatStats : MonoBehaviour
 
     public void TakeDamage(float damage)
     {
+        // Round down incoming damage to whole numbers (no decimal damage)
+        int wholeDamage = Mathf.FloorToInt(damage);
+        
         // If this character is guarded, redirect damage to the guardian
         if (IsGuarded && Guardian != null && !Guardian.IsDead())
         {
-            Debug.Log($"[Human Shield] {Guardian.name} takes {damage} damage instead of {name}");
-            Guardian.TakeDamage(damage);
+            Debug.Log($"[Human Shield] {Guardian.name} takes {wholeDamage} damage instead of {name}");
+            Guardian.TakeDamage(wholeDamage);
             return;
         }
         
         // Apply defense reduction multiplier if active
-        float actualDamage = damage;
+        float modifiedDamage = wholeDamage;
         if (HasReducedDefense)
         {
-            actualDamage = damage * DefenseReductionMultiplier;
-            Debug.Log($"[Piercing Shot] {name} takes increased damage due to reduced defense: {damage} -> {actualDamage}");
+            modifiedDamage = wholeDamage * DefenseReductionMultiplier;
+            // Round down again after applying multiplier
+            modifiedDamage = Mathf.FloorToInt(modifiedDamage);
+            Debug.Log($"[Piercing Shot] {name} takes increased damage due to reduced defense: {wholeDamage} -> {modifiedDamage}");
         }
         
         // Apply guard damage reduction if active
         if (IsGuarding)
         {
-            actualDamage = actualDamage * GuardDamageReductionMultiplier;
-            Debug.Log($"[Guard] {name} takes reduced damage due to guard stance: {damage} -> {actualDamage}");
+            modifiedDamage = modifiedDamage * GuardDamageReductionMultiplier;
+            // Round down again after applying guard reduction
+            modifiedDamage = Mathf.FloorToInt(modifiedDamage);
+            Debug.Log($"[Guard] {name} takes reduced damage due to guard stance: {wholeDamage} -> {modifiedDamage}");
         }
         
-        currentHealth = Mathf.Max(0, currentHealth - actualDamage);
+        // Ensure final damage is a whole number
+        int finalDamage = Mathf.FloorToInt(modifiedDamage);
+        currentHealth = Mathf.Max(0, currentHealth - finalDamage);
         
-        // Create damage popup
+        // Create damage popup with whole number damage, passing the transform for stacking
         Vector3 popupPosition = transform.position + Vector3.up * 0.5f; // Adjust the Y offset as needed
-        DamagePopup.Create(popupPosition, actualDamage, !isEnemy);
+        DamagePopup.Create(popupPosition, finalDamage, !isEnemy, transform);
+        
+        // Check if enemy is dead and needs to fade out
+        if (isEnemy && currentHealth <= 0)
+        {
+            StartCoroutine(FadeOutAndDestroy());
+        }
+    }
+
+    // Coroutine to fade out dead enemies and remove them from the scene
+    private IEnumerator FadeOutAndDestroy()
+    {
+        Debug.Log($"[Enemy Death] {name} is fading out");
+        
+        // Fade duration in seconds
+        float fadeDuration = 1.5f;
+        float fadeTimer = 0f;
+        
+        // Get all renderers on this enemy
+        SpriteRenderer[] renderers = GetComponentsInChildren<SpriteRenderer>();
+        
+        // Store original colors to properly fade them
+        Dictionary<SpriteRenderer, Color> originalColors = new Dictionary<SpriteRenderer, Color>();
+        foreach (SpriteRenderer renderer in renderers)
+        {
+            originalColors[renderer] = renderer.color;
+        }
+        
+        // Disable any status effect icons during fade
+        if (DefenseReductionIcon != null)
+            DefenseReductionIcon.SetActive(false);
+        
+        if (GuardIcon != null)
+            GuardIcon.SetActive(false);
+        
+        if (GuardedIcon != null)
+            GuardedIcon.SetActive(false);
+        
+        // Get UI image if available
+        Image characterUIImage = null;
+        if (characterImage != null)
+        {
+            characterUIImage = characterImage;
+            originalColors[null] = characterUIImage.color; // Use null key for UI image
+        }
+        
+        // Disable colliders to prevent interaction during fade
+        Collider2D[] colliders = GetComponentsInChildren<Collider2D>();
+        foreach (Collider2D collider in colliders)
+        {
+            collider.enabled = false;
+        }
+        
+        // Perform fade animation with easing
+        while (fadeTimer < fadeDuration)
+        {
+            fadeTimer += Time.deltaTime;
+            float normalizedTime = fadeTimer / fadeDuration;
+            
+            // Apply ease-out curve for smoother fade (start fast, end slow)
+            float easedAlpha = 1f - Mathf.Pow(normalizedTime, 2);
+            
+            // Fade all sprite renderers
+            foreach (SpriteRenderer renderer in renderers)
+            {
+                Color newColor = originalColors[renderer];
+                newColor.a = easedAlpha;
+                renderer.color = newColor;
+            }
+            
+            // Fade UI image if available
+            if (characterUIImage != null)
+            {
+                Color newColor = originalColors[null];
+                newColor.a = easedAlpha;
+                characterUIImage.color = newColor;
+            }
+            
+            // Fade health and action bars
+            if (healthFill != null)
+            {
+                Color healthColor = healthFill.color;
+                healthColor.a = easedAlpha;
+                healthFill.color = healthColor;
+            }
+            
+            if (actionFill != null)
+            {
+                Color actionColor = actionFill.color;
+                actionColor.a = easedAlpha;
+                actionFill.color = actionColor;
+            }
+            
+            yield return null;
+        }
+        
+        // Hide the enemy instead of destroying it immediately
+        // This allows the CombatManager to still reference it but it's visually gone
+        gameObject.SetActive(false);
+        
+        Debug.Log($"[Enemy Death] {name} has faded out and been hidden");
     }
 
     // Set up guarding relationship
@@ -590,22 +710,28 @@ public class CombatStats : MonoBehaviour
 
     public void HealHealth(float amount)
     {
-        currentHealth = Mathf.Min(maxHealth, currentHealth + amount);
+        // Round down the healing amount to a whole number
+        int wholeAmount = Mathf.FloorToInt(amount);
+        
+        currentHealth = Mathf.Min(maxHealth, currentHealth + wholeAmount);
         
         // Create healing popup
         Vector3 popupPosition = transform.position + Vector3.up * 0.5f; // Adjust the Y offset as needed
-        HealingPopup.CreateHealthPopup(popupPosition, amount);
+        HealingPopup.CreateHealthPopup(popupPosition, wholeAmount, transform);
     }
 
     public void HealSanity(float amount)
     {
         if (!isEnemy)
         {
-            currentSanity = Mathf.Min(maxSanity, currentSanity + amount);
+            // Round down the healing amount to a whole number
+            int wholeAmount = Mathf.FloorToInt(amount);
+            
+            currentSanity = Mathf.Min(maxSanity, currentSanity + wholeAmount);
             
             // Create sanity healing popup
             Vector3 popupPosition = transform.position + Vector3.up * 0.7f; // Slightly higher than health popup
-            HealingPopup.CreateSanityPopup(popupPosition, amount);
+            HealingPopup.CreateSanityPopup(popupPosition, wholeAmount, transform);
         }
     }
 
@@ -613,7 +739,9 @@ public class CombatStats : MonoBehaviour
     {
         if (!isEnemy)
         {
-            currentSanity = Mathf.Max(0, currentSanity - amount);
+            // Round down the sanity cost to a whole number
+            int wholeAmount = Mathf.FloorToInt(amount);
+            currentSanity = Mathf.Max(0, currentSanity - wholeAmount);
         }
     }
 

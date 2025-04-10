@@ -3,6 +3,7 @@ using Ink.Runtime;
 using System.Collections;
 using UnityEngine.SceneManagement;
 using System.Collections.Generic;
+using System;
 
 public class InkDialogueHandler : MonoBehaviour
 {
@@ -382,7 +383,28 @@ public class InkDialogueHandler : MonoBehaviour
         };
         
         // Start the fade with the callback
-        StartCoroutine(ScreenFader.Instance.FadeToBlack(afterFadeAction));
+        ScreenFader.EnsureExists();
+        if (ScreenFader.Instance != null)
+        {
+            StartCoroutine(ScreenFader.Instance.FadeToBlack());
+            // Wait for fade to complete, then execute the action
+            StartCoroutine(ExecuteAfterFade(afterFadeAction));
+        }
+        else
+        {
+            // If fader not available, just execute the action directly
+            afterFadeAction.Invoke();
+        }
+    }
+    
+    /// <summary>
+    /// Execute an action after a short delay (used for fade completion)
+    /// </summary>
+    private IEnumerator ExecuteAfterFade(Action action)
+    {
+        // Wait for fade duration plus a small buffer
+        yield return new WaitForSeconds(1.2f);
+        action.Invoke();
     }
     
     /// <summary>

@@ -1,5 +1,6 @@
 using UnityEngine;
 using TMPro;
+using System.Collections.Generic;
 
 public class DamagePopup : MonoBehaviour
 {
@@ -14,9 +15,42 @@ public class DamagePopup : MonoBehaviour
     private const float DISAPPEAR_TIMER_MAX = 2f;
     private const float MOVE_SPEED = 2f;
     private static int sortingOrder = 5000;
+    
+    // Track popup stacking within a frame
+    private static Dictionary<Transform, int> popupCountPerTarget = new Dictionary<Transform, int>();
+    private static float POPUP_STACK_OFFSET = 0.5f; // Vertical offset between stacked popups
+    private static float POPUP_RESET_DELAY = 1.0f; // Time before resetting the counter for a target
+    
+    // Time tracking to reset popup counts
+    private static float lastFrameTime = 0f;
 
-    public static DamagePopup Create(Vector3 position, float damageAmount, bool isPlayerDamage)
+    public static DamagePopup Create(Vector3 position, float damageAmount, bool isPlayerDamage, Transform targetTransform = null)
     {
+        // Ensure damage is always a whole number
+        int wholeDamage = Mathf.FloorToInt(damageAmount);
+        
+        // Check if we need to reset popup counts (if more than POPUP_RESET_DELAY has passed since last popup)
+        float currentTime = Time.time;
+        if (currentTime > lastFrameTime + POPUP_RESET_DELAY)
+        {
+            popupCountPerTarget.Clear();
+        }
+        lastFrameTime = currentTime;
+        
+        // If we have a target transform, use it to track popup stacking
+        if (targetTransform != null)
+        {
+            // Initialize or increment the popup count for this target
+            if (!popupCountPerTarget.ContainsKey(targetTransform))
+            {
+                popupCountPerTarget[targetTransform] = 0;
+            }
+            int popupCount = popupCountPerTarget[targetTransform]++;
+            
+            // Apply vertical offset based on number of existing popups
+            position += new Vector3(0, POPUP_STACK_OFFSET * popupCount, 0);
+        }
+        
         // Load the damage popup prefab from Resources folder
         GameObject damagePopupObject = new GameObject("DamagePopup");
         damagePopupObject.transform.position = position;
@@ -26,7 +60,7 @@ public class DamagePopup : MonoBehaviour
         // Find and assign the font asset
         damagePopup.permanentMarkerFont = Resources.Load<TMP_FontAsset>("Fonts/PermanentMarker-Regular SDF");
         
-        damagePopup.Setup(damageAmount, isPlayerDamage);
+        damagePopup.Setup(wholeDamage, isPlayerDamage);
 
         return damagePopup;
     }
@@ -38,12 +72,15 @@ public class DamagePopup : MonoBehaviour
 
     public void Setup(float damageAmount, bool isPlayerDamage)
     {
+        // Ensure damage is always a whole number
+        int wholeDamage = Mathf.FloorToInt(damageAmount);
+        
         // Increase font size for bigger numbers
         textMesh.fontSize = 5;
         textMesh.alignment = TextAlignmentOptions.Center;
         // Use red color for all physical damage (both player and enemy)
         textMesh.color = Color.red;
-        textMesh.text = damageAmount.ToString();
+        textMesh.text = wholeDamage.ToString();
         
         // Make text bold
         textMesh.fontStyle = FontStyles.Bold;

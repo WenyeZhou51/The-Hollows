@@ -592,11 +592,15 @@ public class CombatUI : MonoBehaviour
                     // Apply damage multiple times
                     for (int i = 0; i < hitCount; i++)
                     {
+                        // Small delay between hits for visual effect
+                        if (i > 0)
+                        {
+                            yield return new WaitForSeconds(0.2f);
+                        }
+                        
                         target.TakeDamage(fiendFireDamage);
                         totalDamage += fiendFireDamage;
                         
-                        // Small delay between hits would be nice in a full implementation
-                        // For now, just log each hit
                         Debug.Log($"[Skill Execution] Fiend Fire hit #{i+1} deals {fiendFireDamage} damage");
                     }
                     

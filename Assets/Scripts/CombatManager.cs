@@ -42,6 +42,13 @@ public class CombatManager : MonoBehaviour
     // Player inventory for combat
     private List<ItemData> playerInventoryItems;
 
+    // Add field for dialogue system integration
+    private BattleDialogueTrigger battleDialogueTrigger;
+
+    // Flag to track if we're in a phase transition
+    private bool isInPhaseTransition = false;
+    private bool isCombatEnded = false;
+
     private void Awake()
     {
         // Initialize lists
@@ -67,6 +74,9 @@ public class CombatManager : MonoBehaviour
 
         // Initialize character stats from PersistentGameManager BEFORE Start() is called
         InitializeCharacterStats();
+
+        // Find the battle dialogue trigger
+        battleDialogueTrigger = FindObjectOfType<BattleDialogueTrigger>();
     }
 
     private void Start()
@@ -173,6 +183,10 @@ public class CombatManager : MonoBehaviour
 
     private void Update()
     {
+        // Skip combat processing if dialogue is active
+        if (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive())
+            return;
+            
         if (!isCombatActive || isWaitingForPlayerInput) return;
 
         // Update action bars with null check
@@ -340,7 +354,7 @@ public class CombatManager : MonoBehaviour
 
     public List<CombatStats> GetLivingEnemies()
     {
-        return enemies.Where(e => e != null && !e.IsDead()).ToList();
+        return enemies.Where(e => e != null && !e.IsDead() && e.gameObject.activeSelf).ToList();
     }
 
     public void ExecutePlayerAction(string action, CombatStats target = null)
@@ -479,10 +493,22 @@ public class CombatManager : MonoBehaviour
         
         isWaitingForPlayerInput = false;
         activeCharacter = null;
+
+        // Increment turn counter after a player's turn
+        playerTurnCount++;
+        
+        // Check for any dialogue triggers on this turn
+        if (battleDialogueTrigger != null)
+        {
+            battleDialogueTrigger.CheckTurnBasedTriggers(playerTurnCount);
+        }
     }
 
     private void CheckBattleEnd()
     {
+        // Skip battle end check if we're in a phase transition
+        if (isInPhaseTransition) return;
+    
         // Log enemy status before checking end conditions
         Debug.Log("===== CHECKING BATTLE END CONDITIONS =====");
         foreach (var enemy in enemies)
@@ -493,7 +519,7 @@ public class CombatManager : MonoBehaviour
             }
             else
             {
-                Debug.Log($"Enemy {enemy.characterName} - Health: {enemy.currentHealth}/{enemy.maxHealth} - IsDead: {enemy.IsDead()}");
+                Debug.Log($"Enemy {enemy.characterName} - Health: {enemy.currentHealth}/{enemy.maxHealth} - IsDead: {enemy.IsDead()} - Active: {enemy.gameObject.activeSelf}");
             }
         }
         
@@ -501,7 +527,8 @@ public class CombatManager : MonoBehaviour
         bool allPlayersDead = players.All(p => p == null || p.IsDead());
         
         // Check if all enemies are dead (win condition)
-        bool allEnemiesDead = enemies.All(e => e == null || e.IsDead());
+        // Consider enemies that are inactive (faded out) as dead
+        bool allEnemiesDead = enemies.All(e => e == null || e.IsDead() || !e.gameObject.activeSelf);
         
         Debug.Log($"Battle end check: All players dead? {allPlayersDead} - All enemies dead? {allEnemiesDead}");
         
@@ -581,6 +608,7 @@ public class CombatManager : MonoBehaviour
                 
                 // Trigger the combat end event after a delay
                 Invoke("TriggerDefeat", 2f);
+                isCombatEnded = true;
             }
             else
             {
@@ -591,6 +619,9 @@ public class CombatManager : MonoBehaviour
                     combatUI.ShowTextPanel("You are victorious", 1f);
                 }
                 
+                // Set flag for phase transition and combat end notification
+                isInPhaseTransition = true;
+                
                 // Trigger the combat end event after a delay
                 Invoke("TriggerVictory", 1f);
             }
@@ -599,13 +630,9 @@ public class CombatManager : MonoBehaviour
 
     private void TriggerVictory()
     {
-        if (OnCombatEnd != null)
+        if (OnCombatEnd != null && !isCombatEnded)
         {
             OnCombatEnd(true);
-        }
-        else if (SceneTransitionManager.Instance != null)
-        {
-            SceneTransitionManager.Instance.EndCombat(true);
         }
     }
     
@@ -793,5 +820,45 @@ public class CombatManager : MonoBehaviour
         }
         
         return playerInventoryItems;
+    }
+
+    // Method to enable/disable combat
+    public void SetCombatActive(bool active)
+    {
+        isCombatActive = active;
+    }
+    
+    // Method to add new enemies during combat (for phase transitions)
+    public void AddEnemy(CombatStats enemy)
+    {
+        if (enemy != null)
+        {
+            enemies.Add(enemy);
+            Debug.Log($"Added new enemy to combat: {enemy.characterName} with {enemy.currentHealth}/{enemy.maxHealth} HP");
+        }
+    }
+    
+    // Method to reset combat end status for phase 2
+    public void ResetCombatEndStatus()
+    {
+        isCombatEnded = false;
+        isInPhaseTransition = false;
+        isCombatActive = true;
+        Debug.Log("Combat status reset for phase 2");
+    }
+    
+    // Method to proceed with victory after dialogue sequence
+    public void ProceedWithVictory()
+    {
+        if (OnCombatEnd != null && !isCombatEnded)
+        {
+            isCombatEnded = true;
+            OnCombatEnd(true);
+        }
+        else if (SceneTransitionManager.Instance != null && !isCombatEnded)
+        {
+            isCombatEnded = true;
+            SceneTransitionManager.Instance.EndCombat(true);
+        }
     }
 } 

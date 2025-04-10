@@ -93,6 +93,8 @@ public class AperatureBehaviorPre : EnemyBehavior
             int finalDamage = Mathf.FloorToInt(baseDamage);
             
             target.TakeDamage(finalDamage);
+            
+            Debug.Log($"Basic Attack hit {target.characterName} for {finalDamage} damage");
         }
     }
     
@@ -185,6 +187,21 @@ public class AperatureBehaviorPre : EnemyBehavior
         // Wait for action display to complete
         yield return WaitForActionDisplay();
         
+        // Fade to black effect for metamorphosis
+        ScreenFader.EnsureExists();
+        if (ScreenFader.Instance != null)
+        {
+            // Fade to black
+            yield return ScreenFader.Instance.FadeToBlack();
+            
+            // Wait a moment at black screen for dramatic effect
+            yield return new WaitForSeconds(0.5f);
+        }
+        else
+        {
+            Debug.LogWarning("ScreenFader not found, proceeding without fade effect");
+        }
+        
         // Transform into Aperature_post
         if (aperaturePostPrefab != null)
         {
@@ -247,6 +264,12 @@ public class AperatureBehaviorPre : EnemyBehavior
         else
         {
             Debug.LogError("Aperature_post prefab not assigned to AperatureBehaviorPre");
+        }
+        
+        // Fade back from black to show the transformation
+        if (ScreenFader.Instance != null)
+        {
+            yield return ScreenFader.Instance.FadeFromBlack();
         }
     }
 } 
