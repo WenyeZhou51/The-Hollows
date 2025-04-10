@@ -78,21 +78,25 @@ public class InkDialogueHandler : MonoBehaviour
             return "Error: No story loaded.";
         }
 
-        Debug.Log($"GetNextDialogueLine: Story state - canContinue: {_story.canContinue}, choiceCount: {_story.currentChoices.Count}");
+        Debug.Log($"[DEBUG OBELISK TRANSITION] GetNextDialogueLine: Story state - canContinue: {_story.canContinue}, choiceCount: {_story.currentChoices.Count}");
 
         if (_story.canContinue)
         {
-            Debug.Log("GetNextDialogueLine: Story can continue, getting next content...");
+            Debug.Log("[DEBUG OBELISK TRANSITION] Story can continue, getting next content...");
             string text = _story.Continue();
             text = text.Trim();
             
             // Process any tags before checking the text
             ProcessTags();
             
+            // Debug log the full text being returned with explicit line count/end of text markers
+            Debug.Log($"[DEBUG OBELISK TRANSITION] Dialogue line: \"{text}\" (Length: {text.Length}, Lines: {text.Split('\n').Length})");
+            Debug.Log($"[DEBUG OBELISK TRANSITION] Can continue after this line: {_story.canContinue}");
+            
             // Check if the text is empty or just "..." - if so, consider it as an end of dialogue marker
             if (text == "" || text == "...")
             {
-                Debug.Log("GetNextDialogueLine: Found empty node or '...' marker - treating as end of dialogue");
+                Debug.Log("[DEBUG OBELISK TRANSITION] Found empty node or '...' marker - treating as end of dialogue");
                 // Return a special end-of-dialogue signal that DialogueManager will recognize
                 return "END_OF_DIALOGUE";
             }
@@ -101,7 +105,7 @@ public class InkDialogueHandler : MonoBehaviour
             if (!_story.canContinue && _story.currentChoices.Count == 0)
             {
                 // If there's nowhere else to go in the story, this is the end
-                Debug.Log("GetNextDialogueLine: Choice led directly to end - treating as end of dialogue");
+                Debug.Log("[DEBUG OBELISK TRANSITION] Choice led directly to end - treating as end of dialogue");
                 return "END_OF_DIALOGUE";
             }
 
@@ -110,13 +114,13 @@ public class InkDialogueHandler : MonoBehaviour
             {
                 string originalText = text;
                 text = text.Substring(lastSelectedChoiceText.Length).Trim();
-                Debug.Log($"GetNextDialogueLine: Removed choice text from beginning of dialogue. Original: '{originalText}', New: '{text}'");
+                Debug.Log($"[DEBUG OBELISK TRANSITION] Removed choice text from beginning of dialogue. Original: '{originalText}', New: '{text}'");
             }
             
             // Clear the lastSelectedChoiceText to avoid affecting subsequent dialogue lines
             lastSelectedChoiceText = null;
             
-            Debug.Log($"GetNextDialogueLine: Returning text: \"{text.Substring(0, Mathf.Min(50, text.Length))}...\"");
+            Debug.Log($"[DEBUG OBELISK TRANSITION] Returning text: \"{text.Substring(0, Mathf.Min(50, text.Length))}...\"");
             return text;
         }
         else if (_story.currentChoices.Count > 0)
@@ -124,11 +128,11 @@ public class InkDialogueHandler : MonoBehaviour
             // CRITICAL FIX: Instead of formatting choices as text, return a special signal
             // that tells DialogueManager to handle choices properly.
             // This prevents "Choose an option:" from showing up in dialogue.
-            Debug.Log($"GetNextDialogueLine: Story has {_story.currentChoices.Count} choices, returning choice signal");
+            Debug.Log($"[DEBUG OBELISK TRANSITION] Story has {_story.currentChoices.Count} choices, returning choice signal");
             return "SHOW_CHOICES";
         }
 
-        Debug.Log("GetNextDialogueLine: No more content, returning end message");
+        Debug.Log("[DEBUG OBELISK TRANSITION] No more content, returning end message");
         return "END_OF_DIALOGUE";
     }
 

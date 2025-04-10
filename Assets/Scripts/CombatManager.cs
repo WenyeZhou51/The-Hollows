@@ -838,6 +838,33 @@ public class CombatManager : MonoBehaviour
         }
     }
     
+    // Method to clean up the enemy list by removing dead or null enemies
+    public void CleanupEnemyList()
+    {
+        if (enemies == null) return;
+        
+        // Create a temporary list to avoid modification during iteration
+        List<CombatStats> toRemove = new List<CombatStats>();
+        
+        // Find all dead or null enemies
+        foreach (var enemy in enemies)
+        {
+            if (enemy == null || enemy.IsDead() || !enemy.gameObject.activeSelf)
+            {
+                toRemove.Add(enemy);
+            }
+        }
+        
+        // Remove them from the main list
+        foreach (var enemy in toRemove)
+        {
+            enemies.Remove(enemy);
+            Debug.Log($"Removed dead/null enemy from combat manager's list during cleanup");
+        }
+        
+        Debug.Log($"Enemy list cleanup complete. Remaining enemies: {enemies.Count}");
+    }
+    
     // Method to reset combat end status for phase 2
     public void ResetCombatEndStatus()
     {

@@ -952,95 +952,74 @@ public class DialogueManager : MonoBehaviour
     {
         if (currentInkHandler == null)
         {
-            Debug.LogError("No active ink story to continue");
-            CloseDialogue(); // Properly close the dialogue if there's no handler
+            Debug.LogError("Cannot continue story: No Ink handler set");
             return;
         }
         
-        Debug.Log("ContinueInkStory - Starting to continue the story");
-        
-        // Reset the text fully revealed flag when starting a new dialogue line
-        textFullyRevealed = false;
-        
-        // Clear any existing choice buttons
-        ClearChoices();
-        
-        // IMPORTANT: Check if the story is initialized before continuing
-        if (!currentInkHandler.IsInitialized())
+        if (!currentInkHandler.HasNextLine())
         {
-            Debug.LogWarning("Ink story not initialized, initializing now");
-            currentInkHandler.InitializeStory();
+            Debug.Log("[DEBUG OBELISK TRANSITION] No more dialogue lines, closing dialogue");
+            CloseDialogue();
+            return;
         }
         
-        // Check if there's more content
-        bool hasNextLine = currentInkHandler.HasNextLine();
-        Debug.Log($"HasNextLine returned: {hasNextLine}");
+        string nextLine = currentInkHandler.GetNextDialogueLine();
+        Debug.Log($"[DEBUG OBELISK TRANSITION] Next line from Ink: '{nextLine}'");
         
-        if (hasNextLine)
+        // Clear any existing choices
+        ClearChoices();
+        
+        // Special strings for control flow
+        if (nextLine == "SHOW_CHOICES")
         {
-            try {
-                // Get the next line of dialogue
-                string nextLine = currentInkHandler.GetNextDialogueLine();
-                Debug.Log($"GetNextDialogueLine returned: \"{nextLine.Substring(0, Mathf.Min(50, nextLine.Length))}...\"");
-                
-                // Check for special end-of-dialogue marker
-                if (nextLine == "END_OF_DIALOGUE")
+            Debug.Log("[DEBUG OBELISK TRANSITION] Got SHOW_CHOICES signal, creating choice buttons");
+            CreateChoiceButtons();
+            return;
+        }
+        else if (nextLine == "END_OF_DIALOGUE")
+        {
+            Debug.Log("[DEBUG OBELISK TRANSITION] Got END_OF_DIALOGUE signal, closing dialogue");
+            CloseDialogue();
+            return;
+        }
+        
+        // Process any portrait tags in the line
+        nextLine = PreprocessText(nextLine);
+        
+        // Store the clean dialogue text for use if we need to fast-forward
+        currentCleanDialogueText = nextLine;
+        
+        // Show the dialogue
+        if (dialoguePanel != null && dialogueText != null)
+        {
+            // Show the dialogue panel
+            dialoguePanel.SetActive(true);
+            
+            // Display text based on portrait mode
+            TextMeshProUGUI targetTextComponent = isPortraitMode && portraitText != null ? portraitText : dialogueText;
+            
+            // Play typewriter effect if enabled
+            if (useTypewriterEffect)
+            {
+                // Clear any existing typewriter coroutine
+                if (typingCoroutine != null)
                 {
-                    Debug.Log("Received END_OF_DIALOGUE marker - closing dialogue");
-                    CloseDialogue();
-                    return;
+                    StopCoroutine(typingCoroutine);
                 }
                 
-                // CRITICAL FIX: Check for SHOW_CHOICES signal
-                if (nextLine == "SHOW_CHOICES")
-                {
-                    Debug.Log("Received SHOW_CHOICES signal - will display choice buttons without text");
-                    
-                    // Don't show any text, just display the choices directly
-                    // Make sure to display a blank dialogue or current dialogue text remains
-                    ShowDialogue("");
-                    
-                    // Set waitForKeyRelease to true when choices are shown
-                    waitForKeyRelease = true;
-                    
-                    // Show the choices immediately
-                    CreateChoiceButtons();
-                    
-                    return;
-                }
-                
-                // Reset portrait mode before processing new text
-                // This ensures each dialogue line's portrait setting is handled independently
-                isPortraitMode = false;
-                
-                // Show the dialogue
-                ShowDialogue(nextLine);
-                
-                // Set waitForKeyRelease to true when new dialogue is shown
-                waitForKeyRelease = true;
-                
-                // Check if we need to show choices
-                Story story = GetStoryFromHandler();
-                if (story != null)
-                {
-                    Debug.Log($"Story state after getting dialogue: canContinue={story.canContinue}, choiceCount={story.currentChoices.Count}");
-                    
-                    if (story.currentChoices.Count > 0)
-                    {
-                        Debug.Log($"Starting coroutine to show {story.currentChoices.Count} choices after delay");
-                        StartCoroutine(ShowChoicesAfterDelay(0.5f));
-                    }
-                }
+                Debug.Log($"[DEBUG OBELISK TRANSITION] Starting typewriter effect for text: '{nextLine.Substring(0, Mathf.Min(30, nextLine.Length))}'...");
+                typingCoroutine = StartCoroutine(TypeText(nextLine, targetTextComponent));
             }
-            catch (System.Exception e) {
-                Debug.LogError($"Error getting next dialogue line: {e.Message}");
-                CloseDialogue(); // Close dialogue if there's an error
+            else
+            {
+                // Just set the text directly
+                targetTextComponent.text = nextLine;
+                textFullyRevealed = true;
             }
         }
         else
         {
-            Debug.Log("No more content in the story, closing dialogue");
-            CloseDialogue();
+            Debug.LogError("[DEBUG OBELISK TRANSITION] Missing dialogue panel or text component!");
         }
     }
     
@@ -1330,142 +1309,64 @@ public class DialogueManager : MonoBehaviour
     
     private IEnumerator TypeText(string text, TextMeshProUGUI textComponent)
     {
-        if (string.IsNullOrEmpty(text))
-        {
-            Debug.LogWarning("TypeText received empty or null text");
-            textComponent.text = "";
-            textFullyRevealed = true;
-            yield break;
-        }
-        
-        // Debug the text being displayed
-        Debug.Log($"TypeText starting with text: \"{text}\"");
-        
-        // Make sure the clean text is properly saved for fast-forwarding
-        // This ensures we have the exact same text available when skipping the typewriter effect
-        if (currentCleanDialogueText != text)
-        {
-            Debug.Log($"Updating currentCleanDialogueText in TypeText to match actual text being typed");
-            currentCleanDialogueText = text;
-        }
-        
-        // Double-check for any remaining quotation marks in the text that wasn't caught by PreprocessText
-        // This ensures consistency between normal typing and fast-forwarding
-        if (text.StartsWith("\""))
-        {
-            Debug.Log("TypeText detected an uncaught starting quotation mark - removing it");
-            text = text.Substring(1);
-            // Also update the stored clean text to match
-            currentCleanDialogueText = text;
-        }
-        
-        textComponent.text = "";
         textFullyRevealed = false;
         
-        // Make sure the textComponent is valid
-        if (textComponent == null)
+        // Clear and append the first character immediately to avoid delay
+        textComponent.text = "";
+        
+        int visibleCharacters = 0;
+        float timePerChar = typingSpeed;
+        float elapsedTime = 0;
+        
+        // If the text is short, slow down slightly to make sure it's readable
+        if (text.Length < 20)
         {
-            Debug.LogError("Text component is null in TypeText coroutine");
-            textFullyRevealed = true;
-            yield break;
+            timePerChar *= 1.5f;
         }
 
-        // If not using typewriter effect, just set the text and return
-        if (!useTypewriterEffect)
+        Debug.Log($"[DEBUG OBELISK TRANSITION] TypeText starting for text: '{text}', Length: {text.Length}");
+        
+        while (visibleCharacters < text.Length)
         {
-            textComponent.text = text;
-            textFullyRevealed = true;
-            Debug.Log($"TypeText completed (no effect): \"{text}\"");
-            yield break;
+            // Update elapsed time
+            elapsedTime += Time.unscaledDeltaTime;
+            
+            // Calculate how many characters should be visible
+            int newVisibleCount = Mathf.FloorToInt(elapsedTime / timePerChar);
+            
+            // If we need to add more characters
+            if (newVisibleCount > visibleCharacters)
+            {
+                // How many new characters to add this frame
+                int charsToAdd = newVisibleCount - visibleCharacters;
+                
+                // Make sure we don't exceed the length of the string
+                if (visibleCharacters + charsToAdd > text.Length)
+                {
+                    charsToAdd = text.Length - visibleCharacters;
+                }
+                
+                // Get the next portion of characters to add
+                if (charsToAdd > 0 && visibleCharacters < text.Length)
+                {
+                    int endIndex = Mathf.Min(visibleCharacters + charsToAdd, text.Length);
+                    string newText = text.Substring(0, endIndex);
+                    textComponent.text = newText;
+                    visibleCharacters = endIndex;
+                }
+            }
+            
+            yield return null;
         }
         
-        // CRITICAL FIX: Pre-set rich text tags for TextMeshPro
-        // Allow rich text tags to be fully rendered from the start
-        List<TagInfo> tags = ExtractRichTextTags(text);
-        if (tags.Count > 0)
-        {
-            Debug.Log($"Found {tags.Count} rich text tags in dialogue");
-            foreach (TagInfo tag in tags)
-            {
-                Debug.Log($"Tag: {tag.tag}, Start: {tag.startIndex}, End: {tag.endIndex}, Opening: {tag.isOpening}");
-            }
-            
-            // Preload the text with all tags but no content
-            StringBuilder preload = new StringBuilder();
-            int currentPos = 0;
-            
-            foreach (TagInfo tag in tags)
-            {
-                // Add empty characters up to the tag position
-                while (currentPos < tag.startIndex)
-                {
-                    preload.Append(' ');
-                    currentPos++;
-                }
-                
-                // Add the tag
-                preload.Append(tag.tag);
-                currentPos = tag.endIndex + 1;
-            }
-            
-            // Set the preloaded text with all tags but empty content
-            textComponent.text = preload.ToString();
-        }
-        
-        // Use a time-independent approach that works even when Time.timeScale = 0
-        float timeSinceLastChar = 0f;
-        StringBuilder displayedText = new StringBuilder();
-        
-        // Skip tags when typing
-        int visibleCharIndex = 0;
-        
-        for (int i = 0; i < text.Length; i++)
-        {
-            char c = text[i];
-            
-            // Skip displaying rich text tags entirely - they're preloaded
-            bool isInTag = false;
-            foreach (TagInfo tag in tags)
-            {
-                if (i >= tag.startIndex && i <= tag.endIndex)
-                {
-                    isInTag = true;
-                    break;
-                }
-            }
-            
-            // Skip updating text when inside a tag
-            if (!isInTag)
-            {
-                // Add the character to our display text and update the UI
-                displayedText.Append(c);
-                visibleCharIndex++;
-                
-                // Only update the text with visible characters (not tags)
-                textComponent.text = displayedText.ToString();
-                
-                // Debug for this specific case - "Nothing Left"
-                if (text == "Nothing Left")
-                {
-                    Debug.Log($"Nothing Left progress: {displayedText.ToString()}");
-                }
-                
-                // Wait for the specified time
-                timeSinceLastChar = 0f;
-                while (timeSinceLastChar < typingSpeed)
-                {
-                    timeSinceLastChar += Time.unscaledDeltaTime;
-                    yield return null;
-                }
-            }
-        }
-        
-        // Ensure the complete text is shown at the end
+        // Ensure the final text is set correctly
         textComponent.text = text;
         
-        // Text is now fully revealed
+        Debug.Log($"[DEBUG OBELISK TRANSITION] TypeText completed for text: '{text}'");
+        
+        // Set flag that text is fully revealed
         textFullyRevealed = true;
-        Debug.Log($"TypeText completed: \"{text}\"");
+        typingCoroutine = null;
     }
 
     public void Initialize(GameObject panel, TextMeshProUGUI text, GameObject choices, GameObject buttonPrefab)
