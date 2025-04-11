@@ -5,6 +5,10 @@ using TMPro;
 
 public class OverworldMenuUI : MonoBehaviour
 {
+    [Header("Menu Button Colors")]
+    [SerializeField] private Color defaultButtonColor = new Color(0.2f, 0.2f, 0.2f, 0.8f);
+    [SerializeField] private Color highlightedButtonColor = new Color(0.4f, 0.4f, 0.4f, 0.8f);
+
     // Private references - no fields exposed in Inspector
     private GameObject itemsMenu;
     private GameObject charactersMenu;
@@ -20,39 +24,138 @@ public class OverworldMenuUI : MonoBehaviour
     private KeyCode menuToggleKey = KeyCode.Tab;
     
     private Dictionary<GameObject, TextMeshProUGUI> characterNameTexts = new Dictionary<GameObject, TextMeshProUGUI>();
+    private Dictionary<GameObject, TextMeshProUGUI> healthTexts = new Dictionary<GameObject, TextMeshProUGUI>();
+    private Dictionary<GameObject, TextMeshProUGUI> mindTexts = new Dictionary<GameObject, TextMeshProUGUI>();
     private Dictionary<GameObject, Slider> healthSliders = new Dictionary<GameObject, Slider>();
     private Dictionary<GameObject, Slider> mindSliders = new Dictionary<GameObject, Slider>();
     
     private void Awake()
     {
         Debug.Log("[OverworldMenuUI] Initializing...");
-        
-        // Find all required references automatically
-        FindMenus();
-        
-        // Create character panels if needed
-        if (charactersMenu != null)
+        FindAllMenuComponents();
+    }
+
+    private void Start()
+    {
+        // In case some references weren't found in Awake, try again
+        if (characterMenuButton == null || inventoryMenuButton == null)
         {
-            CreateCharacterPanelsIfNeeded();
+            Debug.Log("[OverworldMenuUI] Retrying component initialization in Start...");
+            FindAllMenuComponents();
+        }
+    }
+
+    private void FindAllMenuComponents()
+    {
+        Debug.Log("[OverworldMenuUI] Finding all menu components...");
+        
+        // Find menus first
+        Transform menuPanel = transform.Find("MenuPanel");
+        if (menuPanel != null)
+        {
+            Debug.Log($"[OverworldMenuUI] Found MenuPanel with {menuPanel.childCount} children");
+            
+            // Find the menus
+            itemsMenu = menuPanel.Find("ItemsMenu")?.gameObject;
+            charactersMenu = menuPanel.Find("CharactersMenu")?.gameObject;
+            
+            // Find NavBar and buttons
+            Transform navBar = menuPanel.Find("NavBar");
+            if (navBar != null)
+            {
+                Debug.Log($"[OverworldMenuUI] Found NavBar with {navBar.childCount} children");
+                navigationPanel = navBar.gameObject;
+                
+                // List all children in NavBar for debugging
+                for (int i = 0; i < navBar.childCount; i++)
+                {
+                    Transform child = navBar.GetChild(i);
+                    Debug.Log($"[OverworldMenuUI] NavBar child {i}: {child.name}");
+                }
+                
+                // Try multiple possible button names
+                string[] characterButtonNames = { "CharactersButton", "Characters Button", "CharacterButton", "Character Button" };
+                string[] inventoryButtonNames = { "InventoryButton", "Inventory Button", "ItemsButton", "Items Button" };
+                
+                // Try to find character button
+                foreach (string buttonName in characterButtonNames)
+                {
+                    Transform buttonTransform = navBar.Find(buttonName);
+                    if (buttonTransform != null)
+                    {
+                        characterMenuButton = buttonTransform.GetComponent<Button>();
+                        if (characterMenuButton != null)
+                        {
+                            Debug.Log($"[OverworldMenuUI] Found character button: {buttonName}");
+                            break;
+                        }
+                    }
+                }
+                
+                // Try to find inventory button
+                foreach (string buttonName in inventoryButtonNames)
+                {
+                    Transform buttonTransform = navBar.Find(buttonName);
+                    if (buttonTransform != null)
+                    {
+                        inventoryMenuButton = buttonTransform.GetComponent<Button>();
+                        if (inventoryMenuButton != null)
+                        {
+                            Debug.Log($"[OverworldMenuUI] Found inventory button: {buttonName}");
+                            break;
+                        }
+                    }
+                }
+                
+                // If buttons still not found, try to find by component type
+                if (characterMenuButton == null || inventoryMenuButton == null)
+                {
+                    Debug.LogWarning("[OverworldMenuUI] Could not find buttons by name, trying to find by component type...");
+                    
+                    Button[] buttons = navBar.GetComponentsInChildren<Button>();
+                    foreach (Button btn in buttons)
+                    {
+                        string btnName = btn.gameObject.name.ToLower();
+                        Debug.Log($"[OverworldMenuUI] Found button: {btn.gameObject.name}");
+                        
+                        if (characterMenuButton == null && 
+                            (btnName.Contains("character") || btnName.Contains("char")))
+                        {
+                            characterMenuButton = btn;
+                            Debug.Log("[OverworldMenuUI] Found Characters button by name contains!");
+                        }
+                        else if (inventoryMenuButton == null && 
+                                 (btnName.Contains("item") || btnName.Contains("inventory")))
+                        {
+                            inventoryMenuButton = btn;
+                            Debug.Log("[OverworldMenuUI] Found Items button by name contains!");
+                        }
+                    }
+                }
+                
+                // If still not found, create them
+                if (characterMenuButton == null || inventoryMenuButton == null)
+                {
+                    Debug.LogWarning("[OverworldMenuUI] Buttons not found, creating new ones...");
+                    CreateNavigationPanelIfNeeded();
+                }
+            }
+            else
+            {
+                Debug.LogError("[OverworldMenuUI] NavBar not found in MenuPanel!");
+                CreateNavigationPanelIfNeeded();
+            }
+        }
+        else
+        {
+            Debug.LogError("[OverworldMenuUI] MenuPanel not found!");
         }
         
-        // Initialize character panels
-        InitializeCharacterPanel(magicianPanel, "Magician");
-        InitializeCharacterPanel(fighterPanel, "Fighter");
-        InitializeCharacterPanel(bardPanel, "Bard");
-        InitializeCharacterPanel(rangerPanel, "Ranger");
-        
-        // Create navigation panel if needed
-        CreateNavigationPanelIfNeeded();
-        
-        // Set button callbacks
-        SetupButtonCallbacks();
-        
-        // Set initial menu state
-        ShowCharactersMenu();
-        
-        // Log detailed debug info
-        LogDebugInfo();
+        // Setup button callbacks if buttons were found
+        if (characterMenuButton != null && inventoryMenuButton != null)
+        {
+            SetupButtonCallbacks();
+        }
     }
     
     private void LogDebugInfo()
@@ -152,6 +255,8 @@ public class OverworldMenuUI : MonoBehaviour
     
     private void Update()
     {
+        Debug.Log("[OverworldMenuUI] Update method called");
+        
         // Toggle between menus when the toggle key is pressed
         if (Input.GetKeyDown(menuToggleKey))
         {
@@ -165,7 +270,7 @@ public class OverworldMenuUI : MonoBehaviour
             }
         }
         
-        // Update character stats
+        // Update character stats every frame
         UpdateCharacterStats();
     }
     
@@ -434,40 +539,134 @@ public class OverworldMenuUI : MonoBehaviour
     
     private void FindNavigationPanel()
     {
-        // Find the parent MenuPanel
+        Debug.Log("[OverworldMenuUI] Looking for navigation panel and buttons...");
+        
+        // First, look for the MenuPanel
         Transform menuPanel = transform.Find("MenuPanel");
         if (menuPanel == null)
         {
-            Transform menuCanvas = transform;
-            if (menuCanvas.name != "Menu Canvas")
+            Debug.LogWarning("[OverworldMenuUI] Could not find MenuPanel directly, trying GetChild(0)");
+            menuPanel = transform.GetChild(0);
+            if (menuPanel == null)
             {
-                menuCanvas = transform.Find("Menu Canvas");
-                if (menuCanvas == null) return;
+                Debug.LogError("[OverworldMenuUI] Menu Canvas has no children!");
+                return;
             }
-            
-            menuPanel = menuCanvas.Find("MenuPanel");
-            if (menuPanel == null) return;
         }
         
-        // Look for an existing navigation panel
-        navigationPanel = menuPanel.Find("NavigationPanel")?.gameObject;
+        Debug.Log($"[OverworldMenuUI] Found MenuPanel: {menuPanel.name}");
         
-        // If found, get the buttons
-        if (navigationPanel != null)
+        // Look for NavBar
+        navigationPanel = menuPanel.Find("NavBar")?.gameObject;
+        if (navigationPanel == null)
         {
-            // Find buttons by name
-            characterMenuButton = navigationPanel.transform.Find("CharactersButton")?.GetComponent<Button>();
-            inventoryMenuButton = navigationPanel.transform.Find("InventoryButton")?.GetComponent<Button>();
-            
-            // If not found by name, look for any buttons
-            if (characterMenuButton == null || inventoryMenuButton == null)
+            Debug.LogError("[OverworldMenuUI] Could not find NavBar!");
+            // List all children of MenuPanel to help debug
+            for (int i = 0; i < menuPanel.childCount; i++)
             {
-                Button[] buttons = navigationPanel.GetComponentsInChildren<Button>();
-                if (buttons.Length >= 2)
+                Debug.Log($"[OverworldMenuUI] MenuPanel child {i}: {menuPanel.GetChild(i).name}");
+            }
+            return;
+        }
+        
+        Debug.Log($"[OverworldMenuUI] Found NavBar with {navigationPanel.transform.childCount} children");
+        
+        // List all children in NavBar
+        for (int i = 0; i < navigationPanel.transform.childCount; i++)
+        {
+            Debug.Log($"[OverworldMenuUI] NavBar child {i}: {navigationPanel.transform.GetChild(i).name}");
+        }
+        
+        // Find buttons by their exact names (note the case sensitivity)
+        Transform charactersButtonTransform = navigationPanel.transform.Find("Characters Button");
+        Transform itemsButtonTransform = navigationPanel.transform.Find("Items button");
+        
+        if (charactersButtonTransform != null)
+        {
+            characterMenuButton = charactersButtonTransform.GetComponent<Button>();
+            if (characterMenuButton == null)
+            {
+                Debug.Log("[OverworldMenuUI] Adding Button component to Characters Button");
+                characterMenuButton = charactersButtonTransform.gameObject.AddComponent<Button>();
+            }
+            Debug.Log("[OverworldMenuUI] Found Characters Button!");
+        }
+        else
+        {
+            Debug.LogError("[OverworldMenuUI] Could not find Characters Button!");
+        }
+        
+        if (itemsButtonTransform != null)
+        {
+            inventoryMenuButton = itemsButtonTransform.GetComponent<Button>();
+            if (inventoryMenuButton == null)
+            {
+                Debug.Log("[OverworldMenuUI] Adding Button component to Items button");
+                inventoryMenuButton = itemsButtonTransform.gameObject.AddComponent<Button>();
+            }
+            Debug.Log("[OverworldMenuUI] Found Items button!");
+        }
+        else
+        {
+            Debug.LogError("[OverworldMenuUI] Could not find Items button!");
+        }
+        
+        // If buttons still not found, try case-insensitive search
+        if (characterMenuButton == null || inventoryMenuButton == null)
+        {
+            Debug.Log("[OverworldMenuUI] Some buttons not found, trying case-insensitive search...");
+            foreach (Transform child in navigationPanel.transform)
+            {
+                string childName = child.name.ToLower();
+                if (childName.Contains("characters"))
                 {
-                    characterMenuButton = buttons[0];
-                    inventoryMenuButton = buttons[1];
+                    characterMenuButton = child.GetComponent<Button>();
+                    if (characterMenuButton == null)
+                    {
+                        characterMenuButton = child.gameObject.AddComponent<Button>();
+                    }
+                    Debug.Log($"[OverworldMenuUI] Found Characters button by partial match: {child.name}");
                 }
+                else if (childName.Contains("items") || childName.Contains("inventory"))
+                {
+                    inventoryMenuButton = child.GetComponent<Button>();
+                    if (inventoryMenuButton == null)
+                    {
+                        inventoryMenuButton = child.gameObject.AddComponent<Button>();
+                    }
+                    Debug.Log($"[OverworldMenuUI] Found Items button by partial match: {child.name}");
+                }
+            }
+        }
+        
+        // Final status report
+        Debug.Log($"[OverworldMenuUI] Button search results:");
+        Debug.Log($"- Characters Button: {(characterMenuButton != null ? characterMenuButton.gameObject.name : "NULL")}");
+        Debug.Log($"- Items Button: {(inventoryMenuButton != null ? inventoryMenuButton.gameObject.name : "NULL")}");
+        
+        if (characterMenuButton != null)
+        {
+            Image charImage = characterMenuButton.GetComponent<Image>();
+            if (charImage != null)
+            {
+                Debug.Log($"[OverworldMenuUI] Characters button current color: {charImage.color}");
+            }
+            else
+            {
+                Debug.LogWarning("[OverworldMenuUI] Characters button has no Image component!");
+            }
+        }
+        
+        if (inventoryMenuButton != null)
+        {
+            Image invImage = inventoryMenuButton.GetComponent<Image>();
+            if (invImage != null)
+            {
+                Debug.Log($"[OverworldMenuUI] Items button current color: {invImage.color}");
+            }
+            else
+            {
+                Debug.LogWarning("[OverworldMenuUI] Items button has no Image component!");
             }
         }
     }
@@ -551,12 +750,22 @@ public class OverworldMenuUI : MonoBehaviour
         Button button = buttonObj.AddComponent<Button>();
         button.targetGraphic = image;
         
-        // Set up button colors
+        // Set up button colors using the serialized fields
         ColorBlock colors = button.colors;
-        colors.normalColor = new Color(0.2f, 0.2f, 0.2f, 0.8f);
-        colors.highlightedColor = new Color(0.3f, 0.3f, 0.3f, 0.8f);
-        colors.pressedColor = new Color(0.1f, 0.1f, 0.1f, 0.8f);
-        colors.selectedColor = new Color(0.4f, 0.4f, 0.4f, 0.8f);
+        colors.normalColor = defaultButtonColor;
+        colors.highlightedColor = new Color(
+            highlightedButtonColor.r + 0.1f,
+            highlightedButtonColor.g + 0.1f,
+            highlightedButtonColor.b + 0.1f,
+            highlightedButtonColor.a
+        );
+        colors.pressedColor = new Color(
+            defaultButtonColor.r - 0.1f,
+            defaultButtonColor.g - 0.1f,
+            defaultButtonColor.b - 0.1f,
+            defaultButtonColor.a
+        );
+        colors.selectedColor = highlightedButtonColor;
         button.colors = colors;
         
         // Add text
@@ -612,6 +821,58 @@ public class OverworldMenuUI : MonoBehaviour
         // Set name
         nameText.text = characterName;
         characterNameTexts[panel] = nameText;
+
+        // Get or create health text component
+        TextMeshProUGUI healthText = panel.transform.Find("HealthText")?.GetComponent<TextMeshProUGUI>();
+        if (healthText == null)
+        {
+            Debug.Log($"[OverworldMenuUI] Creating HealthText for {characterName}");
+            GameObject healthTextObj = new GameObject("HealthText");
+            healthTextObj.transform.SetParent(panel.transform, false);
+            
+            RectTransform rectTransform = healthTextObj.AddComponent<RectTransform>();
+            rectTransform.anchorMin = new Vector2(0, 0.5f);
+            rectTransform.anchorMax = new Vector2(1, 0.7f);
+            rectTransform.offsetMin = new Vector2(10, 0);
+            rectTransform.offsetMax = new Vector2(-10, 0);
+            
+            healthText = healthTextObj.AddComponent<TextMeshProUGUI>();
+            healthText.fontSize = 25;
+            healthText.alignment = TextAlignmentOptions.Left;
+            healthText.color = Color.white;
+        }
+        else
+        {
+            healthText.fontSize = 25;
+        }
+        
+        healthTexts[panel] = healthText;
+
+        // Get or create mind text component
+        TextMeshProUGUI mindText = panel.transform.Find("MindText")?.GetComponent<TextMeshProUGUI>();
+        if (mindText == null)
+        {
+            Debug.Log($"[OverworldMenuUI] Creating MindText for {characterName}");
+            GameObject mindTextObj = new GameObject("MindText");
+            mindTextObj.transform.SetParent(panel.transform, false);
+            
+            RectTransform rectTransform = mindTextObj.AddComponent<RectTransform>();
+            rectTransform.anchorMin = new Vector2(0, 0.2f);
+            rectTransform.anchorMax = new Vector2(1, 0.4f);
+            rectTransform.offsetMin = new Vector2(10, 0);
+            rectTransform.offsetMax = new Vector2(-10, 0);
+            
+            mindText = mindTextObj.AddComponent<TextMeshProUGUI>();
+            mindText.fontSize = 25;
+            mindText.alignment = TextAlignmentOptions.Left;
+            mindText.color = Color.white;
+        }
+        else
+        {
+            mindText.fontSize = 25;
+        }
+        
+        mindTexts[panel] = mindText;
         
         // Find or create HP slider
         Debug.Log($"[OverworldMenuUI] Searching for HP slider for {characterName}");
@@ -852,6 +1113,24 @@ public class OverworldMenuUI : MonoBehaviour
         int mind = PersistentGameManager.Instance.GetCharacterMind(characterName, 100);
         int maxMind = PersistentGameManager.Instance.GetCharacterMaxMind(characterName);
         
+        // Debug log UI component status
+        Debug.Log($"[OverworldMenuUI] {characterName} UI Components Status:");
+        Debug.Log($"- Health Text Found: {healthTexts.TryGetValue(panel, out TextMeshProUGUI _)}");
+        Debug.Log($"- Mind Text Found: {mindTexts.TryGetValue(panel, out TextMeshProUGUI _)}");
+        Debug.Log($"- HP Slider Found: {healthSliders.TryGetValue(panel, out Slider _)}");
+        Debug.Log($"- Mind Slider Found: {mindSliders.TryGetValue(panel, out Slider _)}");
+        
+        // Update text displays
+        if (healthTexts.TryGetValue(panel, out TextMeshProUGUI healthText))
+        {
+            healthText.text = $"Health: {health}/{maxHealth}";
+        }
+        
+        if (mindTexts.TryGetValue(panel, out TextMeshProUGUI mindText))
+        {
+            mindText.text = $"Mind: {mind}/{maxMind}";
+        }
+        
         // Debug log current stats
         if (Time.frameCount % 300 == 0) // Log every 300 frames to avoid spamming
         {
@@ -862,6 +1141,7 @@ public class OverworldMenuUI : MonoBehaviour
         if (healthSliders.TryGetValue(panel, out Slider hpSlider) && hpSlider != null)
         {
             float hpRatio = (float)health / maxHealth;
+            hpSlider.value = hpRatio;
             
             // Check if the value is actually changing
             if (Time.frameCount % 300 == 0) // Log every 300 frames to avoid spamming
@@ -886,8 +1166,6 @@ public class OverworldMenuUI : MonoBehaviour
                     }
                 }
             }
-            
-            hpSlider.value = hpRatio;
         }
         else
         {
@@ -901,6 +1179,7 @@ public class OverworldMenuUI : MonoBehaviour
         if (mindSliders.TryGetValue(panel, out Slider mindSlider) && mindSlider != null)
         {
             float mindRatio = (float)mind / maxMind;
+            mindSlider.value = mindRatio;
             
             // Check if the value is actually changing
             if (Time.frameCount % 300 == 0) // Log every 300 frames to avoid spamming
@@ -925,8 +1204,6 @@ public class OverworldMenuUI : MonoBehaviour
                     }
                 }
             }
-            
-            mindSlider.value = mindRatio;
         }
         else
         {
@@ -939,37 +1216,101 @@ public class OverworldMenuUI : MonoBehaviour
     
     public void ShowCharactersMenu()
     {
+        Debug.Log("[OverworldMenuUI] Showing Characters Menu");
+        
         if (charactersMenu != null) charactersMenu.SetActive(true);
         if (itemsMenu != null) itemsMenu.SetActive(false);
         
         // Update button visuals to show active state
         if (characterMenuButton != null && inventoryMenuButton != null)
         {
-            ColorBlock colors = characterMenuButton.colors;
-            colors.normalColor = new Color(0.4f, 0.4f, 0.4f, 0.8f);
-            characterMenuButton.colors = colors;
+            Debug.Log("[OverworldMenuUI] Found both buttons, updating colors...");
             
-            colors = inventoryMenuButton.colors;
-            colors.normalColor = new Color(0.2f, 0.2f, 0.2f, 0.8f);
-            inventoryMenuButton.colors = colors;
+            // Update the character button colors
+            Image charButtonImage = characterMenuButton.GetComponent<Image>();
+            if (charButtonImage != null)
+            {
+                Debug.Log($"[OverworldMenuUI] Characters button before color change: {charButtonImage.color}");
+                charButtonImage.color = highlightedButtonColor;
+                Debug.Log($"[OverworldMenuUI] Characters button after color change: {charButtonImage.color}");
+            }
+            else
+            {
+                Debug.LogError("[OverworldMenuUI] Characters button has no Image component!");
+                charButtonImage = characterMenuButton.gameObject.AddComponent<Image>();
+                charButtonImage.color = highlightedButtonColor;
+            }
+            
+            // Reset the inventory button colors
+            Image invButtonImage = inventoryMenuButton.GetComponent<Image>();
+            if (invButtonImage != null)
+            {
+                Debug.Log($"[OverworldMenuUI] Items button before color change: {invButtonImage.color}");
+                invButtonImage.color = defaultButtonColor;
+                Debug.Log($"[OverworldMenuUI] Items button after color change: {invButtonImage.color}");
+            }
+            else
+            {
+                Debug.LogError("[OverworldMenuUI] Items button has no Image component!");
+                invButtonImage = inventoryMenuButton.gameObject.AddComponent<Image>();
+                invButtonImage.color = defaultButtonColor;
+            }
+            
+            Debug.Log($"[OverworldMenuUI] Updated button colors - Characters highlighted (highlighted={highlightedButtonColor}, default={defaultButtonColor})");
+        }
+        else
+        {
+            Debug.LogError($"[OverworldMenuUI] Cannot update button colors - buttons not found! Characters button: {(characterMenuButton != null ? "Found" : "NULL")}, Items button: {(inventoryMenuButton != null ? "Found" : "NULL")}");
         }
     }
     
     public void ShowItemsMenu()
     {
+        Debug.Log("[OverworldMenuUI] Showing Items Menu");
+        
         if (charactersMenu != null) charactersMenu.SetActive(false);
         if (itemsMenu != null) itemsMenu.SetActive(true);
         
         // Update button visuals to show active state
         if (characterMenuButton != null && inventoryMenuButton != null)
         {
-            ColorBlock colors = characterMenuButton.colors;
-            colors.normalColor = new Color(0.2f, 0.2f, 0.2f, 0.8f);
-            characterMenuButton.colors = colors;
+            Debug.Log("[OverworldMenuUI] Found both buttons, updating colors...");
             
-            colors = inventoryMenuButton.colors;
-            colors.normalColor = new Color(0.4f, 0.4f, 0.4f, 0.8f);
-            inventoryMenuButton.colors = colors;
+            // Reset the character button colors
+            Image charButtonImage = characterMenuButton.GetComponent<Image>();
+            if (charButtonImage != null)
+            {
+                Debug.Log($"[OverworldMenuUI] Characters button before color change: {charButtonImage.color}");
+                charButtonImage.color = defaultButtonColor;
+                Debug.Log($"[OverworldMenuUI] Characters button after color change: {charButtonImage.color}");
+            }
+            else
+            {
+                Debug.LogError("[OverworldMenuUI] Characters button has no Image component!");
+                charButtonImage = characterMenuButton.gameObject.AddComponent<Image>();
+                charButtonImage.color = defaultButtonColor;
+            }
+            
+            // Update the inventory button colors
+            Image invButtonImage = inventoryMenuButton.GetComponent<Image>();
+            if (invButtonImage != null)
+            {
+                Debug.Log($"[OverworldMenuUI] Items button before color change: {invButtonImage.color}");
+                invButtonImage.color = highlightedButtonColor;
+                Debug.Log($"[OverworldMenuUI] Items button after color change: {invButtonImage.color}");
+            }
+            else
+            {
+                Debug.LogError("[OverworldMenuUI] Items button has no Image component!");
+                invButtonImage = inventoryMenuButton.gameObject.AddComponent<Image>();
+                invButtonImage.color = highlightedButtonColor;
+            }
+            
+            Debug.Log($"[OverworldMenuUI] Updated button colors - Items highlighted (highlighted={highlightedButtonColor}, default={defaultButtonColor})");
+        }
+        else
+        {
+            Debug.LogError($"[OverworldMenuUI] Cannot update button colors - buttons not found! Characters button: {(characterMenuButton != null ? "Found" : "NULL")}, Items button: {(inventoryMenuButton != null ? "Found" : "NULL")}");
         }
     }
 } 

@@ -1422,6 +1422,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ab97e5a962038b243afaf1cb473583c5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  defaultButtonColor: {r: 0.6855345, g: 0.6855345, b: 0.6855345, a: 1}
+  highlightedButtonColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1 &3311059983059052841
 GameObject:
   m_ObjectHideFlags: 0
@@ -1434,7 +1436,7 @@ GameObject:
   - component: {fileID: 3311059983059052842}
   - component: {fileID: 3311059983059052843}
   m_Layer: 5
-  m_Name: Panel (1)
+  m_Name: Characters Button
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1834,7 +1836,7 @@ GameObject:
   - component: {fileID: 3311059983601929933}
   - component: {fileID: 3311059983601929930}
   m_Layer: 5
-  m_Name: CharacterPanel
+  m_Name: CharactersMenu
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2932,7 +2934,7 @@ GameObject:
   - component: {fileID: 3311059984877865408}
   - component: {fileID: 3311059984877865409}
   m_Layer: 5
-  m_Name: Panel
+  m_Name: Items button
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
