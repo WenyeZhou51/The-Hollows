@@ -59,6 +59,34 @@ public class OverworldMenuUI : MonoBehaviour
             itemsMenu = menuPanel.Find("ItemsMenu")?.gameObject;
             charactersMenu = menuPanel.Find("CharactersMenu")?.gameObject;
             
+            // Try to find character panels
+            if (charactersMenu != null) 
+            {
+                Debug.Log($"[OverworldMenuUI] Finding character panels in {charactersMenu.name}");
+                FindExistingCharacterPanels();
+                
+                // If panels not found, create them
+                if (magicianPanel == null || fighterPanel == null || bardPanel == null || rangerPanel == null)
+                {
+                    Debug.Log("[OverworldMenuUI] Some character panels missing, creating them...");
+                    CreateCharacterPanelsIfNeeded();
+                }
+                
+                // Initialize the panels
+                Debug.Log("[OverworldMenuUI] Initializing character panels with UI components...");
+                if (magicianPanel != null) InitializeCharacterPanel(magicianPanel, "Magician");
+                if (fighterPanel != null) InitializeCharacterPanel(fighterPanel, "Fighter");
+                if (bardPanel != null) InitializeCharacterPanel(bardPanel, "Bard");
+                if (rangerPanel != null) InitializeCharacterPanel(rangerPanel, "Ranger");
+                
+                // Log debug info about panels
+                LogDebugInfo();
+            }
+            else
+            {
+                Debug.LogError("[OverworldMenuUI] CharactersMenu not found!");
+            }
+            
             // Find NavBar and buttons
             Transform navBar = menuPanel.Find("NavBar");
             if (navBar != null)
@@ -155,6 +183,32 @@ public class OverworldMenuUI : MonoBehaviour
         if (characterMenuButton != null && inventoryMenuButton != null)
         {
             SetupButtonCallbacks();
+        }
+        
+        // Make sure charactersMenu is active by default and itemsMenu is inactive
+        if (charactersMenu != null && itemsMenu != null)
+        {
+            Debug.Log("[OverworldMenuUI] Setting charactersMenu active by default");
+            charactersMenu.SetActive(true);
+            itemsMenu.SetActive(false);
+            
+            // Update button visuals to reflect default state
+            if (characterMenuButton != null && inventoryMenuButton != null)
+            {
+                Image charButtonImage = characterMenuButton.GetComponent<Image>();
+                if (charButtonImage != null)
+                {
+                    charButtonImage.color = highlightedButtonColor;
+                }
+                
+                Image invButtonImage = inventoryMenuButton.GetComponent<Image>();
+                if (invButtonImage != null)
+                {
+                    invButtonImage.color = defaultButtonColor;
+                }
+                
+                Debug.Log("[OverworldMenuUI] Button colors set to reflect default active menu");
+            }
         }
     }
     
@@ -257,6 +311,13 @@ public class OverworldMenuUI : MonoBehaviour
     {
         Debug.Log("[OverworldMenuUI] Update method called");
         
+        // Debug state before UpdateCharacterStats()
+        Debug.Log($"[OverworldMenuUI] PRE-UPDATE STATUS: charactersMenu exists: {charactersMenu != null}, " + 
+                 $"charactersMenu active: {charactersMenu != null && charactersMenu.activeSelf}, " +
+                 $"PersistentGameManager.Instance exists: {PersistentGameManager.Instance != null}, " +
+                 $"Character panels initialized: Magician={magicianPanel != null}, Fighter={fighterPanel != null}, " +
+                 $"Bard={bardPanel != null}, Ranger={rangerPanel != null}");
+        
         // Toggle between menus when the toggle key is pressed
         if (Input.GetKeyDown(menuToggleKey))
         {
@@ -272,6 +333,16 @@ public class OverworldMenuUI : MonoBehaviour
         
         // Update character stats every frame
         UpdateCharacterStats();
+        
+        // Log if character panels have sliders
+        if (Time.frameCount % 300 == 0) // Only log every 300 frames to avoid spamming
+        {
+            Debug.Log($"[OverworldMenuUI] PANEL SLIDERS STATUS: " +
+                     $"Magician HP Slider: {(magicianPanel != null && healthSliders.ContainsKey(magicianPanel))}, " +
+                     $"Fighter HP Slider: {(fighterPanel != null && healthSliders.ContainsKey(fighterPanel))}, " +
+                     $"Bard HP Slider: {(bardPanel != null && healthSliders.ContainsKey(bardPanel))}, " +
+                     $"Ranger HP Slider: {(rangerPanel != null && healthSliders.ContainsKey(rangerPanel))}");
+        }
     }
     
     private void FindMenus()
@@ -1091,10 +1162,46 @@ public class OverworldMenuUI : MonoBehaviour
     
     private void UpdateCharacterStats()
     {
-        if (charactersMenu == null || !charactersMenu.activeSelf) return;
+        // Debug why we might exit early
+        if (charactersMenu == null)
+        {
+            Debug.LogWarning("[OverworldMenuUI] UpdateCharacterStats early exit: charactersMenu is null");
+            return;
+        }
+        
+        if (!charactersMenu.activeSelf)
+        {
+            Debug.LogWarning("[OverworldMenuUI] UpdateCharacterStats early exit: charactersMenu is not active");
+            return;
+        }
         
         // Make sure PersistentGameManager exists
-        if (PersistentGameManager.Instance == null) return;
+        if (PersistentGameManager.Instance == null)
+        {
+            Debug.LogWarning("[OverworldMenuUI] UpdateCharacterStats early exit: PersistentGameManager.Instance is null");
+            return;
+        }
+        
+        // Debug character panel status
+        Debug.Log($"[OverworldMenuUI] UpdateCharacterStats proceeding with panels: " +
+                 $"Magician={magicianPanel != null}, Fighter={fighterPanel != null}, " +
+                 $"Bard={bardPanel != null}, Ranger={rangerPanel != null}");
+        
+        // Check if panels are initialized with UI components
+        bool panelsInitialized = 
+            (magicianPanel != null && healthSliders.ContainsKey(magicianPanel)) ||
+            (fighterPanel != null && healthSliders.ContainsKey(fighterPanel)) ||
+            (bardPanel != null && healthSliders.ContainsKey(bardPanel)) ||
+            (rangerPanel != null && healthSliders.ContainsKey(rangerPanel));
+            
+        if (!panelsInitialized)
+        {
+            Debug.LogWarning("[OverworldMenuUI] Character panels not initialized with UI components. Initializing now...");
+            if (magicianPanel != null) InitializeCharacterPanel(magicianPanel, "Magician");
+            if (fighterPanel != null) InitializeCharacterPanel(fighterPanel, "Fighter");
+            if (bardPanel != null) InitializeCharacterPanel(bardPanel, "Bard");
+            if (rangerPanel != null) InitializeCharacterPanel(rangerPanel, "Ranger");
+        }
         
         // Update each character panel with stats from PersistentGameManager
         UpdateCharacterPanel(magicianPanel, "Magician");
