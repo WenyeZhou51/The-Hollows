@@ -13,7 +13,7 @@ public class AperatureBehaviorPre : EnemyBehavior
     [Range(0, 100)]
     public float blindingLightsChance = 40f;
     
-    [Tooltip("Probability of using Wobble skill (deals 2 damage to target)")]
+    [Tooltip("Probability of using Wobble skill (deals 4 damage twice to target)")]
     [Range(0, 100)]
     public float wobbleChance = 40f;
     
@@ -162,12 +162,20 @@ public class AperatureBehaviorPre : EnemyBehavior
         int randomIndex = Random.Range(0, livingPlayers.Count);
         var target = livingPlayers[randomIndex];
         
-        // Deal 2 damage
-        float damage = 2f;
+        // Deal 4 damage twice
+        float damage = 4f;
         int finalDamage = Mathf.FloorToInt(damage);
-        target.TakeDamage(finalDamage);
         
-        Debug.Log($"Wobble hit {target.characterName} for {finalDamage} damage");
+        // First hit
+        target.TakeDamage(finalDamage);
+        Debug.Log($"Wobble hit {target.characterName} for {finalDamage} damage (first hit)");
+        
+        // Small delay between hits
+        yield return new WaitForSeconds(0.5f);
+        
+        // Second hit
+        target.TakeDamage(finalDamage);
+        Debug.Log($"Wobble hit {target.characterName} for {finalDamage} damage (second hit)");
     }
     
     private IEnumerator UseMetamorphosisSkill(CombatStats enemy, List<CombatStats> players, CombatUI combatUI)

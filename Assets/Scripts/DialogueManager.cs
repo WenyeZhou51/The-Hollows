@@ -105,25 +105,15 @@ public class DialogueManager : MonoBehaviour
             if (choiceButtonPrefab == null)
             {
                 Debug.Log("Choice button prefab not assigned in inspector, attempting to load from Resources...");
-                GameObject buttonPrefabFromResources = Resources.Load<GameObject>("DialogueButton");
+                GameObject buttonPrefabFromResources = Resources.Load<GameObject>("UI/DialogueButton");
                 if (buttonPrefabFromResources != null)
                 {
                     choiceButtonPrefab = buttonPrefabFromResources;
-                    Debug.Log("Loaded DialogueButton prefab from Resources");
+                    Debug.Log("Loaded DialogueButton prefab from Resources/UI folder");
                 }
                 else
                 {
-                    // Try to find it in Resources/UI folder as an alternative location
-                    buttonPrefabFromResources = Resources.Load<GameObject>("UI/DialogueButton");
-                    if (buttonPrefabFromResources != null)
-                    {
-                        choiceButtonPrefab = buttonPrefabFromResources;
-                        Debug.Log("Loaded DialogueButton prefab from Resources/UI folder");
-                    }
-                    else
-                    {
-                        Debug.LogError("Could not find DialogueButton prefab in Resources folder! Choice buttons will not appear correctly.");
-                    }
+                    Debug.LogError("Could not find DialogueButton prefab in Resources folder! Choice buttons will not appear correctly.");
                 }
             }
             else
@@ -655,16 +645,29 @@ public class DialogueManager : MonoBehaviour
             Debug.Log($"Removed opening quotation mark: \"{processedText}\"");
         }
         
-        // Step 4: Process any Ink variables in the text - pattern: {variableName}
+        // Step 4: IMPROVED - Process any Ink variables in the text - pattern: {variableName}
         // This would usually be handled by Ink itself, but for direct dialogue we need to check
         
-        // Use regex to find all variable patterns {name}
-        Regex variablePattern = new Regex(@"\{([^{}]+)\}");
-        MatchCollection matches = variablePattern.Matches(processedText);
+        // Use iterative approach to handle nested variables
+        bool hasVariables = true;
+        int safetyCounter = 0;
+        int maxIterations = 10; // Maximum iterations to prevent infinite loops
         
-        if (matches.Count > 0)
+        while (hasVariables && safetyCounter < maxIterations)
         {
-            Debug.Log($"Found {matches.Count} variable patterns in text");
+            safetyCounter++;
+            
+            // Use regex to find all variable patterns {name}
+            Regex variablePattern = new Regex(@"\{([^{}]+)\}");
+            MatchCollection matches = variablePattern.Matches(processedText);
+            
+            if (matches.Count == 0)
+            {
+                hasVariables = false;
+                continue;
+            }
+            
+            Debug.Log($"Found {matches.Count} variable patterns in text (iteration {safetyCounter})");
             
             // If we have currentInkHandler and active story, we can try to resolve variables
             if (currentInkHandler != null)
@@ -674,6 +677,9 @@ public class DialogueManager : MonoBehaviour
                 
                 if (story != null)
                 {
+                    // Build a list of all replacements to make
+                    Dictionary<string, string> replacements = new Dictionary<string, string>();
+                    
                     foreach (Match match in matches)
                     {
                         string variableName = match.Groups[1].Value.Trim();
@@ -686,8 +692,8 @@ public class DialogueManager : MonoBehaviour
                             {
                                 object variableValue = story.variablesState[variableName];
                                 string replacement = variableValue?.ToString() ?? "";
-                                processedText = processedText.Replace(match.Value, replacement);
-                                Debug.Log($"Replaced {match.Value} with {replacement}");
+                                replacements[match.Value] = replacement;
+                                Debug.Log($"Will replace {match.Value} with {replacement}");
                             }
                             else
                             {
@@ -699,8 +705,29 @@ public class DialogueManager : MonoBehaviour
                             Debug.LogError($"Error processing variable {variableName}: {e.Message}");
                         }
                     }
+                    
+                    // Apply all replacements at once
+                    foreach (var replacement in replacements)
+                    {
+                        processedText = processedText.Replace(replacement.Key, replacement.Value);
+                    }
+                }
+                else
+                {
+                    // No story found, break the loop
+                    hasVariables = false;
                 }
             }
+            else
+            {
+                // No ink handler, break the loop
+                hasVariables = false;
+            }
+        }
+        
+        if (safetyCounter >= maxIterations)
+        {
+            Debug.LogWarning($"Reached maximum variable processing iterations ({maxIterations}). Some variables might not be fully resolved.");
         }
         
         // Final verification - check specifically for Ravenbond dialogue issues
@@ -1314,19 +1341,51 @@ public class DialogueManager : MonoBehaviour
         // Clear and append the first character immediately to avoid delay
         textComponent.text = "";
         
+        // Process all variables in the text at the start - fixing the jarring text change issue
+        string processedText = text;
+        
+        // Check for any remaining unprocessed variable patterns - this is a safety check
+        Regex variablePattern = new Regex(@"\{([^{}]+)\}");
+        MatchCollection matches = variablePattern.Matches(processedText);
+        
+        if (matches.Count > 0 && currentInkHandler != null)
+        {
+            Story story = GetStoryFromHandler();
+            if (story != null)
+            {
+                foreach (Match match in matches)
+                {
+                    string variableName = match.Groups[1].Value.Trim();
+                    try
+                    {
+                        if (story.variablesState.GlobalVariableExistsWithName(variableName))
+                        {
+                            object variableValue = story.variablesState[variableName];
+                            string replacement = variableValue?.ToString() ?? "";
+                            processedText = processedText.Replace(match.Value, replacement);
+                        }
+                    }
+                    catch (System.Exception e)
+                    {
+                        Debug.LogError($"Error processing variable {variableName} in TypeText: {e.Message}");
+                    }
+                }
+            }
+        }
+        
         int visibleCharacters = 0;
         float timePerChar = typingSpeed;
         float elapsedTime = 0;
         
         // If the text is short, slow down slightly to make sure it's readable
-        if (text.Length < 20)
+        if (processedText.Length < 20)
         {
             timePerChar *= 1.5f;
         }
 
-        Debug.Log($"[DEBUG OBELISK TRANSITION] TypeText starting for text: '{text}', Length: {text.Length}");
+        Debug.Log($"[DEBUG OBELISK TRANSITION] TypeText starting for text: '{processedText}', Length: {processedText.Length}");
         
-        while (visibleCharacters < text.Length)
+        while (visibleCharacters < processedText.Length)
         {
             // Update elapsed time
             elapsedTime += Time.unscaledDeltaTime;
@@ -1341,16 +1400,16 @@ public class DialogueManager : MonoBehaviour
                 int charsToAdd = newVisibleCount - visibleCharacters;
                 
                 // Make sure we don't exceed the length of the string
-                if (visibleCharacters + charsToAdd > text.Length)
+                if (visibleCharacters + charsToAdd > processedText.Length)
                 {
-                    charsToAdd = text.Length - visibleCharacters;
+                    charsToAdd = processedText.Length - visibleCharacters;
                 }
                 
                 // Get the next portion of characters to add
-                if (charsToAdd > 0 && visibleCharacters < text.Length)
+                if (charsToAdd > 0 && visibleCharacters < processedText.Length)
                 {
-                    int endIndex = Mathf.Min(visibleCharacters + charsToAdd, text.Length);
-                    string newText = text.Substring(0, endIndex);
+                    int endIndex = Mathf.Min(visibleCharacters + charsToAdd, processedText.Length);
+                    string newText = processedText.Substring(0, endIndex);
                     textComponent.text = newText;
                     visibleCharacters = endIndex;
                 }
@@ -1360,9 +1419,9 @@ public class DialogueManager : MonoBehaviour
         }
         
         // Ensure the final text is set correctly
-        textComponent.text = text;
+        textComponent.text = processedText;
         
-        Debug.Log($"[DEBUG OBELISK TRANSITION] TypeText completed for text: '{text}'");
+        Debug.Log($"[DEBUG OBELISK TRANSITION] TypeText completed for text: '{processedText}'");
         
         // Set flag that text is fully revealed
         textFullyRevealed = true;

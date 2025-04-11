@@ -13,7 +13,7 @@ public class WeaverBehaviorPre : EnemyBehavior
     [Range(0, 100)]
     public float tangleChance = 40f;
     
-    [Tooltip("Probability of using Poke skill (deals 10 damage to target)")]
+    [Tooltip("Probability of using Poke skill (deals 5 damage to target)")]
     [Range(0, 100)]
     public float pokeChance = 50f;
     
@@ -157,8 +157,8 @@ public class WeaverBehaviorPre : EnemyBehavior
         int randomIndex = Random.Range(0, livingPlayers.Count);
         var target = livingPlayers[randomIndex];
         
-        // Deal 10 damage
-        float damage = 10f;
+        // Deal 5 damage
+        float damage = 5f;
         int finalDamage = Mathf.FloorToInt(damage);
         target.TakeDamage(finalDamage);
         

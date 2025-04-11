@@ -742,6 +742,10 @@ public class CombatStats : MonoBehaviour
             // Round down the sanity cost to a whole number
             int wholeAmount = Mathf.FloorToInt(amount);
             currentSanity = Mathf.Max(0, currentSanity - wholeAmount);
+            
+            // Create mind damage popup with yellow color (isMindDamage = true)
+            Vector3 popupPosition = transform.position + Vector3.up * 0.7f; // Slightly higher than health popup
+            DamagePopup.Create(popupPosition, wholeAmount, false, transform, true);
         }
     }
 

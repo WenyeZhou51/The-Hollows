@@ -17,7 +17,7 @@ public class ObeliskBehavior : EnemyBehavior
     [Range(0, 100)]
     public float unblinkingGazeChance = 40f;
     
-    [Tooltip("Probability of using Malice of Stone skill (deals 100 damage to all party members)")]
+    [Tooltip("Probability of using Malice of Stone skill (deals 40-70 damage to all party members)")]
     [Range(0, 100)]
     public float maliceOfStoneChance = 10f;
     
@@ -187,11 +187,11 @@ public class ObeliskBehavior : EnemyBehavior
         // Get all living players
         var livingPlayers = players.Where(p => !p.IsDead()).ToList();
         
-        // Deal 100 damage to all living players
+        // Deal 40-70 random damage to all living players
         foreach (var player in livingPlayers)
         {
-            // Base damage
-            float baseDamage = 100f;
+            // Random damage between 40-70
+            float baseDamage = Random.Range(40f, 70f);
             
             // Round down to whole number
             int finalDamage = Mathf.FloorToInt(baseDamage);
