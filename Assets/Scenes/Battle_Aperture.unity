@@ -1418,15 +1418,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8994421236109272904, guid: f6745ed2cc86d4749b8b811c86dc691a, type: 3}
       propertyPath: wobbleChance
-      value: 0
+      value: 50
       objectReference: {fileID: 0}
     - target: {fileID: 8994421236109272904, guid: f6745ed2cc86d4749b8b811c86dc691a, type: 3}
       propertyPath: metamorphosisChance
-      value: 100
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8994421236109272904, guid: f6745ed2cc86d4749b8b811c86dc691a, type: 3}
       propertyPath: blindingLightsChance
-      value: 0
+      value: 50
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: f6745ed2cc86d4749b8b811c86dc691a, type: 3}
@@ -2614,11 +2614,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8994421236109272904, guid: f6745ed2cc86d4749b8b811c86dc691a, type: 3}
       propertyPath: metamorphosisChance
-      value: 100
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8994421236109272904, guid: f6745ed2cc86d4749b8b811c86dc691a, type: 3}
       propertyPath: blindingLightsChance
-      value: 0
+      value: 100
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: f6745ed2cc86d4749b8b811c86dc691a, type: 3}

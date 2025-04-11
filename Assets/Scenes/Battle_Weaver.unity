@@ -1312,11 +1312,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 2664084081464988923, guid: 8766eeae86f616a42abef50f44e4debb, type: 3}
       propertyPath: pokeChance
-      value: 0
+      value: 50
       objectReference: {fileID: 0}
     - target: {fileID: 2664084081464988923, guid: 8766eeae86f616a42abef50f44e4debb, type: 3}
       propertyPath: tangleChance
-      value: 0
+      value: 50
       objectReference: {fileID: 0}
     - target: {fileID: 2664084081464988923, guid: 8766eeae86f616a42abef50f44e4debb, type: 3}
       propertyPath: weaverPostPrefab
@@ -1324,7 +1324,7 @@ PrefabInstance:
       objectReference: {fileID: 5636393689027812743, guid: 9a2c72fce4f932143810aaf32d6fc315, type: 3}
     - target: {fileID: 2664084081464988923, guid: 8766eeae86f616a42abef50f44e4debb, type: 3}
       propertyPath: metamorphosisChance
-      value: 100
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5606392298455665498, guid: 8766eeae86f616a42abef50f44e4debb, type: 3}
       propertyPath: m_Pivot.x

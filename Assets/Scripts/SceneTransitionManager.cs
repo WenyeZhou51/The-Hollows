@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using Random = UnityEngine.Random;
 
 public class SceneTransitionManager : MonoBehaviour
 {
@@ -14,7 +15,7 @@ public class SceneTransitionManager : MonoBehaviour
     
     // Scene names
     [SerializeField] private string overworldSceneName = "Overworld_Startroom";
-    [SerializeField] private string combatSceneName = "Battle_Obelisk";
+    [SerializeField] private string combatSceneName = "Battle_Obelisk"; // Will be set dynamically at runtime for enemies
     
     // Enemy that initiated the combat
     private GameObject enemyThatInitiatedCombat;
@@ -37,6 +38,9 @@ public class SceneTransitionManager : MonoBehaviour
     // New fields to track scene transitions
     private string targetSceneName;
     private string targetMarkerId;
+    
+    // New fields for multiple battle types
+    private string[] battleScenes = new string[] { "Battle_Weaver", "Battle_Aperture" };
     
     private void Awake()
     {
@@ -127,6 +131,12 @@ public class SceneTransitionManager : MonoBehaviour
             enemyIdThatInitiatedCombat = null;
         }
         
+        // CRITICAL CHANGE: Randomly select either Weaver or Aperture battle (50/50 chance)
+        // Never use Obelisk battle for random enemies
+        int randomIndex = Random.Range(0, battleScenes.Length);
+        combatSceneName = battleScenes[randomIndex];
+        Debug.Log($"Randomly selected battle scene: {combatSceneName}");
+        
         // Store player inventory and position
         playerInventory = player.GetComponent<PlayerInventory>();
         playerPosition = player.transform.position;
@@ -182,7 +192,7 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     private IEnumerator TransitionToCombat()
     {
-        Debug.Log($"Beginning transition to combat scene: {combatSceneName}");
+        Debug.Log($"Beginning transition to combat scene: {combatSceneName} (randomly selected from Weaver/Aperture)");
         
         // Validate the scene name before attempting transition
         if (!IsSceneValid(combatSceneName))
@@ -200,7 +210,7 @@ public class SceneTransitionManager : MonoBehaviour
         SceneManager.sceneLoaded += OnCombatSceneLoaded;
         
         // Load the combat scene
-        Debug.Log($"Now loading combat scene: {combatSceneName}");
+        Debug.Log($"Now loading randomly selected combat scene: {combatSceneName}");
         SceneManager.LoadScene(combatSceneName);
     }
     
@@ -209,8 +219,8 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     private void OnCombatSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        // Only execute this for the combat scene
-        if (scene.name == combatSceneName)
+        // Only execute this for combat scenes (Weaver or Aperture)
+        if (scene.name == combatSceneName || scene.name.StartsWith("Battle_"))
         {
             // Find the combat manager
             CombatManager combatManager = FindObjectOfType<CombatManager>();
@@ -222,7 +232,7 @@ public class SceneTransitionManager : MonoBehaviour
             }
             else
             {
-                Debug.LogError("CombatManager not found in combat scene!");
+                Debug.LogError($"CombatManager not found in combat scene: {scene.name}!");
             }
             
             // Fade from black once the scene is set up
@@ -409,6 +419,7 @@ public class SceneTransitionManager : MonoBehaviour
             }
             
             // Restore player position with the safe offset
+            Debug.Log($"Positioning player at {safePosition} after returning from combat");
             player.transform.position = safePosition;
             
             // Restore player inventory
@@ -714,10 +725,12 @@ public class SceneTransitionManager : MonoBehaviour
             
             if (!markerFound)
             {
-                // CRITICAL ERROR: Throw error instead of using fallback position
-                Debug.LogError($"CRITICAL ERROR: PlayerMarker with ID '{targetMarkerId}' not found in scene '{SceneManager.GetActiveScene().name}'! Cannot position player correctly.");
+                Debug.LogError($"CRITICAL ERROR: PlayerMarker with ID '{targetMarkerId}' not found in scene '{SceneManager.GetActiveScene().name}'!");
                 Debug.LogError("Make sure the marker exists in the scene and the ID matches exactly what's specified in the TransitionArea.");
-                // Note: We no longer use the fallback position, as requested
+                
+                // Without a marker, we cannot position the player properly.
+                // This is intentional - we never want to fall back to a default position.
+                // The game designers must ensure that all necessary markers exist in each scene.
             }
             
             // Restore player inventory if needed
