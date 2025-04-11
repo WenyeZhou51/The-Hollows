@@ -263,6 +263,14 @@ public class ScreenFader : MonoBehaviour
     {
         // Make sure our fade components are still valid after scene change
         InitializeFadeComponents();
+        
+        // CRITICAL FIX: Reset the screen to clear when a new scene loads
+        // This prevents permanent black screens during transitions
+        if (fadeImage != null && fadeImage.color.a > 0.5f)
+        {
+            Debug.Log($"ScreenFader detected black screen on scene load for {scene.name}, resetting to visible");
+            StartCoroutine(FadeFromBlack(defaultFadeDuration));
+        }
     }
     
     /// <summary>
@@ -270,12 +278,26 @@ public class ScreenFader : MonoBehaviour
     /// </summary>
     public void ResetToVisible()
     {
-        if (canvasGroup != null)
+        // Initialize components to ensure they exist
+        InitializeFadeComponents();
+        
+        // Reset the fadeImage alpha to 0 (fully transparent)
+        if (fadeImage != null)
+        {
+            isFading = false;
+            Color clearColor = fadeImage.color;
+            clearColor.a = 0f;
+            fadeImage.color = clearColor;
+            fadeImage.gameObject.SetActive(false);
+            Debug.Log("ScreenFader immediately reset to visible using fadeImage");
+        }
+        // Fallback to canvasGroup if it exists (legacy support)
+        else if (canvasGroup != null)
         {
             isFading = false;
             canvasGroup.alpha = 0f;
             canvasGroup.blocksRaycasts = false;
-            Debug.Log("ScreenFader immediately reset to visible");
+            Debug.Log("ScreenFader immediately reset to visible using canvasGroup");
         }
     }
 } 

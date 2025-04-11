@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class BattleDialogueTrigger : MonoBehaviour
 {
@@ -426,6 +427,21 @@ public class BattleDialogueTrigger : MonoBehaviour
                 Debug.Log($"[DEBUG OBELISK TRANSITION] Starting fade from black, duration: {fadeInDuration}");
                 yield return StartCoroutine(ScreenFader.Instance.FadeFromBlack(fadeInDuration));
                 Debug.Log("[DEBUG OBELISK TRANSITION] Fade from black complete");
+                
+                // CRITICAL FIX: Add safety check to ensure screen is properly reset
+                if (ScreenFader.Instance.gameObject.activeInHierarchy)
+                {
+                    // Force a second check after a brief delay to ensure fade completed properly
+                    yield return new WaitForSeconds(0.1f);
+                    
+                    // Force reset the screen to visible if it's still not clear
+                    Image fadeImage = ScreenFader.Instance.GetComponentInChildren<Image>();
+                    if (fadeImage != null && fadeImage.color.a > 0.05f)
+                    {
+                        Debug.LogWarning("[DEBUG OBELISK TRANSITION] ⚠️ Screen still not clear after fade! Forcing reset to visible");
+                        ScreenFader.Instance.ResetToVisible();
+                    }
+                }
             }
             else
             {
@@ -465,7 +481,23 @@ public class BattleDialogueTrigger : MonoBehaviour
             // Fade back in from black
             if (ScreenFader.Instance != null)
             {
+                Debug.Log("[DEBUG OBELISK TRANSITION] Normal victory - fading from black");
                 yield return StartCoroutine(ScreenFader.Instance.FadeFromBlack(fadeInDuration));
+                
+                // CRITICAL FIX: Add safety check to ensure screen is properly reset
+                if (ScreenFader.Instance.gameObject.activeInHierarchy)
+                {
+                    // Force a second check after a brief delay to ensure fade completed properly
+                    yield return new WaitForSeconds(0.1f);
+                    
+                    // Force reset the screen to visible if it's still not clear
+                    Image fadeImage = ScreenFader.Instance.GetComponentInChildren<Image>();
+                    if (fadeImage != null && fadeImage.color.a > 0.05f)
+                    {
+                        Debug.LogWarning("[DEBUG OBELISK TRANSITION] ⚠️ Screen still not clear after normal victory fade! Forcing reset to visible");
+                        ScreenFader.Instance.ResetToVisible();
+                    }
+                }
             }
             
             // Inform the combat manager we're done with the special sequence

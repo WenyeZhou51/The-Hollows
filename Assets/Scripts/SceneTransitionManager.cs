@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public class SceneTransitionManager : MonoBehaviour
 {
@@ -761,5 +762,20 @@ public class SceneTransitionManager : MonoBehaviour
         
         // Fade from black
         yield return StartCoroutine(ScreenFader.Instance.FadeFromBlack());
+
+        // CRITICAL FIX: Add safety check to ensure screen is properly reset
+        if (ScreenFader.Instance != null && ScreenFader.Instance.gameObject.activeInHierarchy)
+        {
+            // Force a second check after a brief delay to ensure fade completed properly
+            yield return new WaitForSeconds(0.1f);
+            
+            // Force reset the screen to visible if it's still not clear
+            Image fadeImage = ScreenFader.Instance.GetComponentInChildren<Image>();
+            if (fadeImage != null && fadeImage.color.a > 0.05f)
+            {
+                Debug.LogWarning("⚠️ Screen still not clear after scene transition fade! Forcing reset to visible");
+                ScreenFader.Instance.ResetToVisible();
+            }
+        }
     }
 } 
