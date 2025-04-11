@@ -37,7 +37,6 @@ public class SceneTransitionManager : MonoBehaviour
     // New fields to track scene transitions
     private string targetSceneName;
     private string targetMarkerId;
-    private Vector3 fallbackPosition;
     
     private void Awake()
     {
@@ -590,13 +589,21 @@ public class SceneTransitionManager : MonoBehaviour
             return;
         }
         
+        if (string.IsNullOrEmpty(markerId))
+        {
+            Debug.LogError("Cannot transition with empty marker ID");
+            return;
+        }
+        
         // Store transition details
         targetSceneName = sceneName;
         targetMarkerId = markerId;
         
-        // Store player inventory and current position as fallback
+        // Store player inventory for restoration after transition
         playerInventory = player.GetComponent<PlayerInventory>();
-        fallbackPosition = player.transform.position;
+        
+        // Log the transition in detail for debugging
+        Debug.Log($"[SCENE TRANSITION] Starting transition from '{SceneManager.GetActiveScene().name}' to '{sceneName}' with marker ID '{markerId}'");
         
         // Make sure ScreenFader exists
         ScreenFader.EnsureExists();
@@ -610,12 +617,12 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     private IEnumerator PerformSceneTransition()
     {
-        Debug.Log($"Beginning transition to scene: {targetSceneName} with marker ID: {targetMarkerId}");
+        Debug.Log($"[SCENE TRANSITION] Beginning transition to scene: {targetSceneName} with marker ID: {targetMarkerId}");
         
         // Validate the scene name before attempting transition
         if (!IsSceneValid(targetSceneName))
         {
-            Debug.LogError($"Scene '{targetSceneName}' does not exist in build settings. Make sure to add it in File > Build Settings.");
+            Debug.LogError($"[SCENE TRANSITION] CRITICAL ERROR: Scene '{targetSceneName}' does not exist in build settings. Make sure to add it in File > Build Settings.");
             // Fade back from black since we're not transitioning
             StartCoroutine(ScreenFader.Instance.FadeFromBlack());
             yield break;
@@ -628,7 +635,7 @@ public class SceneTransitionManager : MonoBehaviour
         SceneManager.sceneLoaded += OnSceneTransitionComplete;
         
         // Load the target scene
-        Debug.Log($"Now loading scene: {targetSceneName}");
+        Debug.Log($"[SCENE TRANSITION] Now loading scene: {targetSceneName}");
         SceneManager.LoadScene(targetSceneName);
     }
     
@@ -670,7 +677,8 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     private IEnumerator SetupPlayerAfterTransition()
     {
-        // Wait a frame to make sure all objects are initialized
+        // Wait for two frames to make sure all objects are fully initialized in the scene
+        yield return null;
         yield return null;
         
         // Find the player in the scene
@@ -682,17 +690,23 @@ public class SceneTransitionManager : MonoBehaviour
             bool markerFound = false;
             PlayerMarker[] markers = FindObjectsOfType<PlayerMarker>();
             
-            Debug.Log($"Looking for marker with ID '{targetMarkerId}' in scene '{targetSceneName}'");
+            // Log all markers to debug output to help diagnose issues
+            Debug.Log($"Looking for marker with ID '{targetMarkerId}' in scene '{SceneManager.GetActiveScene().name}'");
+            Debug.Log($"Found {markers.Length} PlayerMarker objects in the scene:");
             foreach (PlayerMarker marker in markers)
             {
-                Debug.Log($"Found marker with ID: {marker.MarkerId} in scene {SceneManager.GetActiveScene().name}");
-                
-                // Only compare the local ID part since we're already in the target scene
-                if (marker.MarkerId == targetMarkerId)
+                Debug.Log($"Available marker: ID='{marker.MarkerId}', Position={marker.transform.position}, GameObject={marker.gameObject.name}");
+            }
+            
+            // Search for the matching marker
+            foreach (PlayerMarker marker in markers)
+            {
+                // Case insensitive comparison to avoid common errors
+                if (string.Equals(marker.MarkerId, targetMarkerId, System.StringComparison.OrdinalIgnoreCase))
                 {
                     // Position the player at the marker
                     player.transform.position = marker.transform.position;
-                    Debug.Log($"Positioned player at marker with ID {targetMarkerId} in scene {targetSceneName}");
+                    Debug.Log($"Successfully positioned player at marker with ID '{targetMarkerId}' at position {marker.transform.position}");
                     markerFound = true;
                     break;
                 }
@@ -700,9 +714,10 @@ public class SceneTransitionManager : MonoBehaviour
             
             if (!markerFound)
             {
-                Debug.LogWarning($"PlayerMarker with ID '{targetMarkerId}' not found in scene {targetSceneName}. Using default position.");
-                // If no matching marker was found, use a fallback position
-                player.transform.position = fallbackPosition;
+                // CRITICAL ERROR: Throw error instead of using fallback position
+                Debug.LogError($"CRITICAL ERROR: PlayerMarker with ID '{targetMarkerId}' not found in scene '{SceneManager.GetActiveScene().name}'! Cannot position player correctly.");
+                Debug.LogError("Make sure the marker exists in the scene and the ID matches exactly what's specified in the TransitionArea.");
+                // Note: We no longer use the fallback position, as requested
             }
             
             // Restore player inventory if needed
