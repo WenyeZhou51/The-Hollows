@@ -2547,6 +2547,10 @@ PrefabInstance:
       propertyPath: m_LocalPosition.z
       value: 10
       objectReference: {fileID: 0}
+    - target: {fileID: 4948586307471512343, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
+      propertyPath: maliceOfStoneChance
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 5606392298455665498, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -2639,7 +2643,8 @@ PrefabInstance:
       propertyPath: m_LocalPosition.z
       value: 10
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 4948586307471512343, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
   m_SourcePrefab: {fileID: 100100000, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
 --- !u!224 &1365996798 stripped
 RectTransform:
@@ -2651,7 +2656,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 5636393689027812741, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
   m_PrefabInstance: {fileID: 1365996797}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 2142220757}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c0a4a9e82d695f6488406369bf9306ff, type: 3}
@@ -3568,6 +3573,29 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2127834880}
   m_CullTransparentMesh: 1
+--- !u!1 &2142220757 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5636393689027812743, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
+  m_PrefabInstance: {fileID: 1365996797}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &2142220760
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2142220757}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bf22e6528cb60a645be2017d43a7666c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maliceOfStoneChance: 0
+  sunderChance: 100
+  coinflipAnimator: {fileID: 0}
+  coinflipSuccessTrigger: PlayCoinflipSuccess
+  coinflipFailTrigger: PlayCoinflipFail
+  coinflipVisuals: {fileID: 0}
 --- !u!114 &2145273949 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}

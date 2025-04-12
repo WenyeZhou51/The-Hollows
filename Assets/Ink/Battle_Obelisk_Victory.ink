@@ -16,7 +16,9 @@ You listen, and hear only the night wind blowing.
 
 You feel so happy you could cry. Like a weight lifted off your entire body.
 
-You open your eyes…
+You open your eyes...
 
-and see the stars. # VICTORY_COMPLETE
+and see the stars. 
+
+# VICTORY_COMPLETE
 -> END 

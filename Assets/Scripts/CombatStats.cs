@@ -378,7 +378,7 @@ public class CombatStats : MonoBehaviour
         return currentHealth <= 0 || (!isEnemy && currentSanity <= 0);
     }
 
-    public void TakeDamage(float damage)
+    public void TakeDamage(float damage, bool isMiss = false)
     {
         // Round down incoming damage to whole numbers (no decimal damage)
         int wholeDamage = Mathf.FloorToInt(damage);
@@ -387,7 +387,7 @@ public class CombatStats : MonoBehaviour
         if (IsGuarded && Guardian != null && !Guardian.IsDead())
         {
             Debug.Log($"[Human Shield] {Guardian.name} takes {wholeDamage} damage instead of {name}");
-            Guardian.TakeDamage(wholeDamage);
+            Guardian.TakeDamage(wholeDamage, isMiss);
             return;
         }
         
@@ -416,7 +416,7 @@ public class CombatStats : MonoBehaviour
         
         // Create damage popup with whole number damage, passing the transform for stacking
         Vector3 popupPosition = transform.position + Vector3.up * 0.5f; // Adjust the Y offset as needed
-        DamagePopup.Create(popupPosition, finalDamage, !isEnemy, transform);
+        DamagePopup.Create(popupPosition, finalDamage, !isEnemy, transform, false, isMiss);
         
         // Check if enemy is dead and needs to fade out
         if (isEnemy && currentHealth <= 0)

@@ -24,7 +24,7 @@ public class DamagePopup : MonoBehaviour
     // Time tracking to reset popup counts
     private static float lastFrameTime = 0f;
 
-    public static DamagePopup Create(Vector3 position, float damageAmount, bool isPlayerDamage, Transform targetTransform = null, bool isMindDamage = false)
+    public static DamagePopup Create(Vector3 position, float damageAmount, bool isPlayerDamage, Transform targetTransform = null, bool isMindDamage = false, bool isMiss = false)
     {
         // Ensure damage is always a whole number
         int wholeDamage = Mathf.FloorToInt(damageAmount);
@@ -60,7 +60,7 @@ public class DamagePopup : MonoBehaviour
         // Find and assign the font asset
         damagePopup.permanentMarkerFont = Resources.Load<TMP_FontAsset>("Fonts/PermanentMarker-Regular SDF");
         
-        damagePopup.Setup(wholeDamage, isPlayerDamage, isMindDamage);
+        damagePopup.Setup(wholeDamage, isPlayerDamage, isMindDamage, isMiss);
 
         return damagePopup;
     }
@@ -70,7 +70,7 @@ public class DamagePopup : MonoBehaviour
         textMesh = gameObject.AddComponent<TextMeshPro>();
     }
 
-    public void Setup(float damageAmount, bool isPlayerDamage, bool isMindDamage = false)
+    public void Setup(float damageAmount, bool isPlayerDamage, bool isMindDamage = false, bool isMiss = false)
     {
         // Ensure damage is always a whole number
         int wholeDamage = Mathf.FloorToInt(damageAmount);
@@ -79,17 +79,27 @@ public class DamagePopup : MonoBehaviour
         textMesh.fontSize = 5;
         textMesh.alignment = TextAlignmentOptions.Center;
         
-        // Use red color for physical damage and yellow for mind damage
-        if (isMindDamage)
+        // Check if this is a miss (ignores other damage parameters)
+        if (isMiss || (wholeDamage == 0 && !isMindDamage))
         {
-            textMesh.color = Color.yellow;
+            // Use black color for "Miss" text
+            textMesh.color = Color.black;
+            textMesh.text = "Miss";
         }
         else
         {
-            textMesh.color = Color.red;
+            // Use red color for physical damage and yellow for mind damage
+            if (isMindDamage)
+            {
+                textMesh.color = Color.yellow;
+            }
+            else
+            {
+                textMesh.color = Color.red;
+            }
+            
+            textMesh.text = wholeDamage.ToString();
         }
-        
-        textMesh.text = wholeDamage.ToString();
         
         // Make text bold
         textMesh.fontStyle = FontStyles.Bold;
