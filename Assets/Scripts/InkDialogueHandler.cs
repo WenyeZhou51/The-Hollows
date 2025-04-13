@@ -101,14 +101,6 @@ public class InkDialogueHandler : MonoBehaviour
                 return "END_OF_DIALOGUE";
             }
             
-            // Check if this is the result of a choice that immediately ends the dialogue
-            if (!_story.canContinue && _story.currentChoices.Count == 0)
-            {
-                // If there's nowhere else to go in the story, this is the end
-                Debug.Log("[DEBUG OBELISK TRANSITION] Choice led directly to end - treating as end of dialogue");
-                return "END_OF_DIALOGUE";
-            }
-
             // If we have a stored choice text and the text starts with it, remove it
             if (lastSelectedChoiceText != null && text.StartsWith(lastSelectedChoiceText, System.StringComparison.OrdinalIgnoreCase))
             {
