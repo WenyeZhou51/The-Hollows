@@ -626,11 +626,14 @@ public class CombatUI : MonoBehaviour
                 // Get all living enemies
                 var enemies = combatManager.GetLivingEnemies();
                 
-                // Apply damage to each enemy
+                // Apply random damage to each enemy
                 foreach (var enemy in enemies)
                 {
-                    enemy.TakeDamage(slamDamage);
-                    Debug.Log($"[Skill Execution] Slam! hit {enemy.name} for {slamDamage} damage");
+                    // Calculate random damage between 15-30
+                    float baseDamage = UnityEngine.Random.Range(15f, 30.1f); // 30.1 to include 30 in the range
+                    float calculatedDamage = activeCharacter.CalculateDamage(baseDamage);
+                    enemy.TakeDamage(calculatedDamage);
+                    Debug.Log($"[Skill Execution] Slam! hit {enemy.name} for {calculatedDamage} damage");
                 }
                 
                 // Apply Strength status to the user
@@ -792,8 +795,69 @@ public class CombatUI : MonoBehaviour
                 }
                 else
                 {
-                    Debug.LogWarning($"[Skill Execution] Take a Break! Invalid target: {target?.name ?? "null"}");
+                    Debug.LogWarning($"[Skill Execution] Take a Break! Invalid target: {target?.name ?? "null"}. This skill requires an ally target.");
                 }
+                break;
+
+            case "What Doesn't Kill You":
+                // Check if target is a valid ally (not an enemy)
+                if (target != null && !target.isEnemy)
+                {
+                    Debug.Log($"[Skill Execution] What Doesn't Kill You! {activeCharacter.name} is using on ally {target.name}");
+                    
+                    // Deal damage to the ally
+                    target.TakeDamage(10f);
+                    
+                    // Apply STRENGTH status to the target
+                    StatusManager wdkyStatusMgr = StatusManager.Instance;
+                    if (wdkyStatusMgr != null)
+                    {
+                        // Apply Strength status with the status system
+                        wdkyStatusMgr.ApplyStatus(target, StatusType.Strength, 2);
+                        Debug.Log($"[Skill Execution] What Doesn't Kill You! {target.characterName} took 10 damage and gained Strength for 2 turns");
+                        
+                        // Show message in the text panel
+                        DisplayTurnAndActionMessage($"{target.characterName} gained STRENGTH but took 10 damage!");
+                    }
+                    else
+                    {
+                        // Fallback to direct modification if status manager not available
+                        target.attackMultiplier = 1.5f; // 50% increase
+                        Debug.LogWarning($"[Skill Execution] What Doesn't Kill You! StatusManager not found, applied direct attack multiplier to {target.characterName}");
+                    }
+                    
+                    // Use sanity
+                    activeCharacter.UseSanity(skill.sanityCost);
+                }
+                else
+                {
+                    Debug.LogWarning($"[Skill Execution] What Doesn't Kill You! Invalid target: {target?.name ?? "null"}. This skill requires an ally target.");
+                }
+                break;
+
+            case "Fortify":
+                Debug.Log($"[Skill Execution] Fortify! {activeCharacter.name} is fortifying themselves");
+                
+                // Heal the user for 10 HP
+                activeCharacter.HealHealth(10f);
+                
+                // Apply TOUGH status to the user
+                StatusManager fortifyStatusMgr = StatusManager.Instance;
+                if (fortifyStatusMgr != null)
+                {
+                    // Apply Tough status with the status system
+                    fortifyStatusMgr.ApplyStatus(activeCharacter, StatusType.Tough, 2);
+                    Debug.Log($"[Skill Execution] Fortify! {activeCharacter.characterName} healed for 10 HP and gained Tough status for 2 turns");
+                }
+                else
+                {
+                    // Fallback to direct modification if status manager not available
+                    activeCharacter.defenseMultiplier = 0.5f; // 50% damage reduction
+                    Debug.LogWarning($"[Skill Execution] Fortify! StatusManager not found, applied direct defense multiplier to {activeCharacter.characterName}");
+                }
+                
+                // Use sanity
+                activeCharacter.UseSanity(skill.sanityCost);
                 break;
         }
         

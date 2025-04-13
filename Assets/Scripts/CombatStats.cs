@@ -265,8 +265,8 @@ public class CombatStats : MonoBehaviour
             // Add the Slam! skill
             skills.Add(new SkillData(
                 "Slam!",
-                "Deal 10 damage to all enemies",
-                0f,  // Costs 0 sanity
+                "Deal 15-30 damage to all enemies",
+                15f,  // Costs 15 sanity
                 false // Does not require a target (hits all enemies)
             ));
             
@@ -276,6 +276,22 @@ public class CombatStats : MonoBehaviour
                 "Protect an ally by taking all damage they would receive until your next turn",
                 0f,  // Costs 0 sanity
                 true  // Requires a target (the ally to protect)
+            ));
+            
+            // Add the What Doesn't Kill You skill
+            skills.Add(new SkillData(
+                "What Doesn't Kill You",
+                "Deal 10 damage to an ally and give them STRENGTH (+50% attack) for 2 turns",
+                5f,  // Costs 5 sanity
+                true  // Requires a target (the ally to buff)
+            ));
+            
+            // Add the Fortify skill
+            skills.Add(new SkillData(
+                "Fortify",
+                "Heal self for 10 HP and gain TOUGH (50% damage reduction) for 2 turns",
+                10f,  // Costs 10 sanity
+                false  // Does not require a target (self-targeting)
             ));
             
             // Debug log to verify skills were added

@@ -83,6 +83,8 @@ public class SkillManager : MonoBehaviour
             case "The Fighter":
                 characterSkills.Add(GetSkillData("Slam!"));
                 characterSkills.Add(GetSkillData("Human Shield!"));
+                characterSkills.Add(GetSkillData("What Doesn't Kill You"));
+                characterSkills.Add(GetSkillData("Fortify"));
                 break;
                 
             case "The Bard":

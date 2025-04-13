@@ -583,14 +583,19 @@ public class MenuSelector : MonoBehaviour
         Debug.Log($"[DEBUG TARGETING] StartTargetSelection - SelectedSkill: {selectedSkill?.name ?? "none"}, SelectedItem: {selectedItem?.name ?? "none"}");
 
         // Check if we're selecting a target for ally-targeting skills
-        if (selectedSkill != null && (selectedSkill.name == "Human Shield!" || selectedSkill.name == "Healing Words"))
+        if (selectedSkill != null && (selectedSkill.name == "Human Shield!" || 
+                                    selectedSkill.name == "Healing Words" || 
+                                    selectedSkill.name == "Take a Break!" ||
+                                    selectedSkill.name == "What Doesn't Kill You"))
         {
             Debug.Log($"[DEBUG TARGETING] Detected ally-targeting SKILL: {selectedSkill.name}");
             // For ally-targeting skills, we target allies instead of enemies
             currentTargets = new List<CombatStats>(combatManager.players);
             
-            // Remove the active character (can't target yourself)
-            currentTargets.Remove(combatManager.ActiveCharacter);
+            // Remove the active character for skills that can't target self
+            if (selectedSkill.name == "Human Shield!") {
+                currentTargets.Remove(combatManager.ActiveCharacter);
+            }
             
             Debug.Log($"[Ally Targeting] Starting ally selection with {currentTargets.Count} potential targets for {selectedSkill.name}");
             
