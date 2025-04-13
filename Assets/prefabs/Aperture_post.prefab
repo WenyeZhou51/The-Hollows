@@ -264,7 +264,7 @@ MonoBehaviour:
   currentSanity: 0
   maxAction: 100
   currentAction: 0
-  actionSpeed: 45
+  actionSpeed: 55
   baseActionSpeed: 0
   attackMultiplier: 1
   defenseMultiplier: 1

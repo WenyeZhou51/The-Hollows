@@ -77,6 +77,20 @@ public class StatusManager : MonoBehaviour
             statusDurations[character] = new Dictionary<StatusType, int>();
         }
         
+        // Check for opposing status effects that cancel each other out
+        StatusType? opposingStatus = GetOpposingStatus(statusType);
+        if (opposingStatus.HasValue && HasStatus(character, opposingStatus.Value))
+        {
+            // If opposing status exists, remove it and reset the appropriate multiplier
+            Debug.Log($"[Status Manager] {statusType} status is canceling out {opposingStatus.Value} status on {character.characterName}");
+            RemoveStatus(character, opposingStatus.Value);
+            
+            // Reset the appropriate multiplier based on the status effect pair
+            ResetAppropriateMultiplier(character, statusType);
+            
+            return; // Exit without applying the new status since they cancel out
+        }
+        
         // Apply the status effect
         switch (statusType)
         {
@@ -114,10 +128,62 @@ public class StatusManager : MonoBehaviour
         UpdateStatusIcons(character);
     }
     
+    // Helper method to reset the appropriate multiplier when status effects cancel each other
+    private void ResetAppropriateMultiplier(CombatStats character, StatusType statusType)
+    {
+        switch (statusType)
+        {
+            case StatusType.Strength:
+            case StatusType.Weakness:
+                // Reset attack multiplier
+                character.attackMultiplier = 1.0f;
+                Debug.Log($"[Status Manager] Reset attack multiplier to 1.0 for {character.characterName}");
+                break;
+                
+            case StatusType.Tough:
+            case StatusType.Vulnerable:
+                // Reset defense multiplier
+                character.defenseMultiplier = 1.0f;
+                Debug.Log($"[Status Manager] Reset defense multiplier to 1.0 for {character.characterName}");
+                break;
+                
+            case StatusType.Agile:
+            case StatusType.Slowed:
+                // Reset action speed to base speed
+                character.actionSpeed = character.baseActionSpeed;
+                Debug.Log($"[Status Manager] Reset action speed to base speed ({character.baseActionSpeed}) for {character.characterName}");
+                break;
+        }
+    }
+    
+    // Helper method to determine the opposing status for cancellation
+    private StatusType? GetOpposingStatus(StatusType statusType)
+    {
+        switch (statusType)
+        {
+            case StatusType.Strength:
+                return StatusType.Weakness;
+            case StatusType.Weakness:
+                return StatusType.Strength;
+            case StatusType.Tough:
+                return StatusType.Vulnerable;
+            case StatusType.Vulnerable:
+                return StatusType.Tough;
+            case StatusType.Agile:
+                return StatusType.Slowed;
+            case StatusType.Slowed:
+                return StatusType.Agile;
+            default:
+                return null; // No opposing status for Guarded
+        }
+    }
+    
     // Remove a status effect from a character
     public void RemoveStatus(CombatStats character, StatusType statusType)
     {
         if (character == null || !characterStatuses.ContainsKey(character)) return;
+        
+        Debug.Log($"[Status Manager] Removing {statusType} status from {character.characterName}");
         
         // Remove the status effect
         switch (statusType)
@@ -148,7 +214,11 @@ public class StatusManager : MonoBehaviour
         // Remove the status icon
         if (characterStatuses[character].ContainsKey(statusType))
         {
-            Destroy(characterStatuses[character][statusType]);
+            if (characterStatuses[character][statusType] != null)
+            {
+                Destroy(characterStatuses[character][statusType]);
+                Debug.Log($"[Status Manager] Destroyed status icon for {statusType} on {character.characterName}");
+            }
             characterStatuses[character].Remove(statusType);
         }
         

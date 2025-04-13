@@ -35,4 +35,10 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Battle_Weaver.unity
     guid: 13f683c6580dd794497a519e67810ecd
+  - enabled: 1
+    path: Assets/Scenes/Overworld_Junction.unity
+    guid: bb291fd0c6a860647869743f070bc809
+  - enabled: 1
+    path: Assets/Scenes/Overworld_Junction_Up.unity
+    guid: 98e8fe506b519a04792a4a817b099298
   m_configObjects: {}

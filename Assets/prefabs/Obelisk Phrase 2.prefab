@@ -82,7 +82,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: -1
-  m_Sprite: {fileID: 21300000, guid: a802c00d23afea544a28e517a845eb58, type: 3}
+  m_Sprite: {fileID: 21300000, guid: d1f2b4879233b204382060f7f37f89d4, type: 3}
   m_Color: {r: 0.73333335, g: 0.73333335, b: 0.73333335, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -116,6 +116,9 @@ MonoBehaviour:
   maxAction: 100
   currentAction: 0
   actionSpeed: 100
+  baseActionSpeed: 0
+  attackMultiplier: 1
+  defenseMultiplier: 1
   isEnemy: 1
   enemyBehavior: {fileID: 1739423494122572608}
   highlightColor: {r: 1, g: 1, b: 1, a: 1}
@@ -145,8 +148,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maliceOfStoneChance: 0
   sunderChance: 100
-  coinflipSuccessTrigger: PlayCoinflipSuccess
-  coinflipFailTrigger: PlayCoinflipFail
   coinflipVisuals: {fileID: 5385292820047147705}
   verticalOffset: 1.2
   animationSpeed: 1
