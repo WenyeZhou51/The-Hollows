@@ -9,13 +9,17 @@ using UnityEngine;
 public class WeaverBehaviorPre : EnemyBehavior
 {
     [Header("Skill Probabilities")]
-    [Tooltip("Probability of using Tangle skill (deals 4 damage and reduces speed by 50%)")]
+    [Tooltip("Probability of using Tangle skill (deals 4-7 damage and applies SLOW status)")]
     [Range(0, 100)]
     public float tangleChance = 40f;
     
-    [Tooltip("Probability of using Poke skill (deals 5 damage to target)")]
+    [Tooltip("Probability of using Poke skill (deals 7-12 damage to target)")]
     [Range(0, 100)]
-    public float pokeChance = 50f;
+    public float pokeChance = 30f;
+    
+    [Tooltip("Probability of using Connect skill (gives STRENGTH to a random ally or self)")]
+    [Range(0, 100)]
+    public float connectChance = 20f;
     
     [Tooltip("Probability of using Metamorphosis skill (transforms into Weaver_post)")]
     [Range(0, 100)]
@@ -28,7 +32,7 @@ public class WeaverBehaviorPre : EnemyBehavior
     public override IEnumerator ExecuteTurn(CombatStats enemy, List<CombatStats> players, CombatUI combatUI)
     {
         // Normalize chance values to ensure they add up to 100%
-        float totalChance = tangleChance + pokeChance + metamorphosisChance;
+        float totalChance = tangleChance + pokeChance + connectChance + metamorphosisChance;
         if (totalChance <= 0)
         {
             Debug.LogWarning("All Weaver_pre skill chances are set to 0, defaulting to basic attack");
@@ -39,6 +43,7 @@ public class WeaverBehaviorPre : EnemyBehavior
         // Calculate normalized probabilities
         float normalizedTangle = tangleChance / totalChance * 100f;
         float normalizedPoke = pokeChance / totalChance * 100f;
+        float normalizedConnect = connectChance / totalChance * 100f;
         float normalizedMetamorphosis = metamorphosisChance / totalChance * 100f;
         
         // Roll for skill selection
@@ -51,6 +56,10 @@ public class WeaverBehaviorPre : EnemyBehavior
         else if (roll < normalizedTangle + normalizedPoke)
         {
             yield return UsePokeSkill(enemy, players, combatUI);
+        }
+        else if (roll < normalizedTangle + normalizedPoke + normalizedConnect)
+        {
+            yield return UseConnectSkill(enemy, players, combatUI);
         }
         else
         {
@@ -117,20 +126,38 @@ public class WeaverBehaviorPre : EnemyBehavior
         int randomIndex = Random.Range(0, livingPlayers.Count);
         var target = livingPlayers[randomIndex];
         
-        // Deal 4 damage
-        float damage = 4f;
-        int finalDamage = Mathf.FloorToInt(damage);
+        // Deal 4-7 damage
+        float damage = Random.Range(4f, 7.1f); // 7.1 to include 7 in the range
+        
+        // Apply the enemy's attack multiplier
+        float calculatedDamage = enemy.CalculateDamage(damage);
+        
+        // Round to whole number
+        int finalDamage = Mathf.FloorToInt(calculatedDamage);
+        
+        // Apply damage
         target.TakeDamage(finalDamage);
         
-        // Apply speed reduction (50%)
-        // Store original action speed if this is the first debuff
-        float baseActionSpeed = target.actionSpeed;
-        float newSpeed = baseActionSpeed * 0.5f; // 50% reduction
+        // Apply SLOW status to target
+        StatusManager statusManager = StatusManager.Instance;
+        if (statusManager != null)
+        {
+            statusManager.ApplyStatus(target, StatusType.Slowed, 2); // Apply slow for 2 turns
+            Debug.Log($"[Tangle] Applied Slowed status to {target.characterName} for 2 turns");
+        }
+        else
+        {
+            // Fallback to old system if status manager not available
+            // Store original action speed if this is the first debuff
+            float baseActionSpeed = target.actionSpeed;
+            float newSpeed = baseActionSpeed * 0.5f; // 50% reduction
+            
+            // Set the new action speed directly
+            target.actionSpeed = newSpeed;
+            Debug.LogWarning("[Tangle] StatusManager not found, using legacy speed reduction system");
+        }
         
-        // Set the new action speed directly
-        target.actionSpeed = newSpeed;
-        
-        Debug.Log($"Tangle hit {target.characterName} for {finalDamage} damage and reduced speed by 50%");
+        Debug.Log($"Tangle hit {target.characterName} for {finalDamage} damage and applied SLOW status");
     }
     
     private IEnumerator UsePokeSkill(CombatStats enemy, List<CombatStats> players, CombatUI combatUI)
@@ -157,12 +184,82 @@ public class WeaverBehaviorPre : EnemyBehavior
         int randomIndex = Random.Range(0, livingPlayers.Count);
         var target = livingPlayers[randomIndex];
         
-        // Deal 5 damage
-        float damage = 5f;
-        int finalDamage = Mathf.FloorToInt(damage);
+        // Deal 7-12 damage
+        float damage = Random.Range(7f, 12.1f); // 12.1 to include 12 in the range
+        
+        // Apply the enemy's attack multiplier
+        float calculatedDamage = enemy.CalculateDamage(damage);
+        
+        // Round to whole number
+        int finalDamage = Mathf.FloorToInt(calculatedDamage);
+        
+        // Apply damage
         target.TakeDamage(finalDamage);
         
         Debug.Log($"Poke hit {target.characterName} for {finalDamage} damage");
+    }
+    
+    private IEnumerator UseConnectSkill(CombatStats enemy, List<CombatStats> players, CombatUI combatUI)
+    {
+        // Display ability message in text panel
+        if (combatUI != null && combatUI.turnText != null)
+        {
+            combatUI.DisplayTurnAndActionMessage($"{enemy.characterName} weaves a strengthening thread!");
+        }
+        
+        // Display specific skill name in action display label
+        if (combatUI != null)
+        {
+            combatUI.DisplayActionLabel("Connect");
+        }
+        
+        // Wait for action display to complete
+        yield return WaitForActionDisplay();
+        
+        // Get all living enemies (potential allies)
+        var allEnemies = GameObject.FindObjectsOfType<CombatStats>()
+            .Where(e => e.isEnemy && !e.IsDead() && e != enemy) // exclude self for now
+            .ToList();
+        
+        CombatStats target = null;
+        
+        // Try to find a random ally first
+        if (allEnemies.Count > 0)
+        {
+            int randomIndex = Random.Range(0, allEnemies.Count);
+            target = allEnemies[randomIndex];
+            
+            if (combatUI != null && combatUI.turnText != null)
+            {
+                combatUI.DisplayTurnAndActionMessage($"{enemy.characterName} connects with {target.characterName}!");
+            }
+            yield return WaitForActionDisplay();
+        }
+        else
+        {
+            // No allies available, buff self
+            target = enemy;
+            
+            if (combatUI != null && combatUI.turnText != null)
+            {
+                combatUI.DisplayTurnAndActionMessage($"{enemy.characterName} strengthens itself!");
+            }
+            yield return WaitForActionDisplay();
+        }
+        
+        // Apply STRENGTH status to target
+        StatusManager statusManager = StatusManager.Instance;
+        if (statusManager != null)
+        {
+            statusManager.ApplyStatus(target, StatusType.Strength, 2); // Apply for 2 turns
+            Debug.Log($"[Connect] Applied Strength status to {target.characterName} for 2 turns");
+        }
+        else
+        {
+            // Fallback to direct stat modifier if status manager not available
+            target.attackMultiplier = 1.5f; // 50% more damage
+            Debug.LogWarning("[Connect] StatusManager not found, using direct attack multiplier increase");
+        }
     }
     
     private IEnumerator UseMetamorphosisSkill(CombatStats enemy, List<CombatStats> players, CombatUI combatUI)

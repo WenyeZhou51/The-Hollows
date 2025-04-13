@@ -108,8 +108,8 @@ MonoBehaviour:
   spriteRenderer: {fileID: 5636393689027812746}
   healthFill: {fileID: 5972926927154482544}
   actionFill: {fileID: 2635387471165526119}
-  maxHealth: 100
-  currentHealth: 100
+  maxHealth: 300
+  currentHealth: 300
   maxSanity: 100
   currentSanity: 0
   maxAction: 100
@@ -145,9 +145,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a5a48c4d2195ca458546e90d126d74c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  triangulationChance: 50
-  unblinkingGazeChance: 50
-  maliceOfStoneChance: 0
+  triangulationChance: 30
+  unblinkingGazeChance: 30
+  cripplingDoubtChance: 30
+  maliceOfStoneChance: 10
 --- !u!1001 &225591125460024129
 PrefabInstance:
   m_ObjectHideFlags: 0

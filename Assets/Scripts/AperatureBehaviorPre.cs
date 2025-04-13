@@ -122,18 +122,32 @@ public class AperatureBehaviorPre : EnemyBehavior
         int randomIndex = Random.Range(0, livingPlayers.Count);
         var target = livingPlayers[randomIndex];
         
-        // Deal 5 damage
-        float damage = 5f;
-        int finalDamage = Mathf.FloorToInt(damage);
+        // Deal 5-10 random damage
+        float damage = Random.Range(5f, 10.1f); // 10.1 to include 10 in the range
+        
+        // Apply the enemy's attack multiplier
+        float calculatedDamage = enemy.CalculateDamage(damage);
+        
+        // Round to whole number
+        int finalDamage = Mathf.FloorToInt(calculatedDamage);
+        
+        Debug.Log($"[COMBAT] {enemy.name} Blinding Lights with base damage: {damage}, attackMultiplier: {enemy.attackMultiplier}, final damage: {finalDamage}");
+        
         target.TakeDamage(finalDamage);
         
-        // Apply attack reduction (50%)
-        // Store the fact that this player is blinded
-        blindedPlayers[target] = true;
-        
-        // In a full implementation, you would need to actually reduce the player's attack
-        // This would require adding attack reduction logic to the CombatStats class
-        // For this example, we're just tracking it in the dictionary
+        // Apply WEAKEN status (50% attack reduction)
+        StatusManager statusManager = StatusManager.Instance;
+        if (statusManager != null)
+        {
+            statusManager.ApplyStatus(target, StatusType.Weakness, 2); // Apply for 2 turns
+            Debug.Log($"[Blinding Lights] Applied Weakness status to {target.characterName} for 2 turns");
+        }
+        else
+        {
+            // Fallback to old system if status manager not available
+            blindedPlayers[target] = true;
+            Debug.LogWarning("[Blinding Lights] StatusManager not found, using legacy system instead");
+        }
         
         Debug.Log($"Blinding Lights hit {target.characterName} for {finalDamage} damage and reduced attack by 50%");
     }

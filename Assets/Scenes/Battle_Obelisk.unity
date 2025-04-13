@@ -846,7 +846,7 @@ MonoBehaviour:
   slowedIcon: {fileID: 21300000, guid: ec6fe38bb5858e24bb0e5ef7fc612349, type: 3}
   guardedIcon: {fileID: 21300000, guid: db4656fe4492fd946afbd91e850dcca8, type: 3}
   statusIconSize: 1
-  statusIconSpacing: 0.3
+  statusIconSpacing: 0.7
   statusIconBaseOffset: {x: 0, y: 2, z: 0}
 --- !u!1 &483746019
 GameObject:
@@ -3001,7 +3001,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
       propertyPath: actionSpeed
-      value: 30
+      value: 200
       objectReference: {fileID: 0}
     - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
       propertyPath: highlightColor.b

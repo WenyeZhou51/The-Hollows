@@ -9,38 +9,26 @@ using UnityEngine;
 public class WeaverBehaviorPost : EnemyBehavior
 {
     [Header("Skill Probabilities")]
-    [Tooltip("Probability of using Gordian Knot skill (deals 10 damage + 10 damage per turn)")]
+    [Tooltip("Probability of using Gordian Knot skill (deals 20-30 damage to all players and SLOW all players)")]
     [Range(0, 100)]
     public float gordianKnotChance = 40f;
     
-    [Tooltip("Probability of using Dodge and Weave skill (increases defense of all enemies by 50%)")]
+    [Tooltip("Probability of using Dodge and Weave skill (gives TOUGH to all allies and heals them for 5)")]
     [Range(0, 100)]
     public float dodgeAndWeaveChance = 30f;
     
-    [Tooltip("Probability of using Hangman skill (deals 30 damage and reduces speed by 50%)")]
+    [Tooltip("Probability of using Hangman skill (deals 30-35 damage to target and applies VULNERABLE)")]
     [Range(0, 100)]
     public float hangmanChance = 30f;
     
-    [Header("Gordian Knot Settings")]
-    [Tooltip("Duration of the 'Tangled' effect in turns")]
-    public int tangledEffectDuration = 3;
-    
     [Header("Status Effect Tracking")]
-    // Track which players are currently tangled
-    private List<CombatStats> tangledPlayers = new List<CombatStats>();
+    // Dictionary to track players affected by Hangman vulnerability
+    private Dictionary<CombatStats, bool> hangmanAffectedPlayers = new Dictionary<CombatStats, bool>();
     // Track if Dodge and Weave is active
     private bool dodgeAndWeaveActive = false;
-    // Dictionary to track players affected by Hangman speed reduction
-    private Dictionary<CombatStats, bool> hangmanAffectedPlayers = new Dictionary<CombatStats, bool>();
-    
-    // Dictionary to track how many turns remain for each tangled player
-    private Dictionary<CombatStats, int> tangledTurnsRemaining = new Dictionary<CombatStats, int>();
 
     public override IEnumerator ExecuteTurn(CombatStats enemy, List<CombatStats> players, CombatUI combatUI)
     {
-        // Apply Tangled damage for any players with the effect at the start of turn
-        yield return ApplyTangledEffectDamage(enemy, players, combatUI);
-        
         // Normalize chance values to ensure they add up to 100%
         float totalChance = gordianKnotChance + dodgeAndWeaveChance + hangmanChance;
         if (totalChance <= 0)
@@ -64,96 +52,12 @@ public class WeaverBehaviorPost : EnemyBehavior
         }
         else if (roll < normalizedGordianKnot + normalizedDodgeAndWeave)
         {
-            // Only use Dodge and Weave if not already active
-            if (!dodgeAndWeaveActive)
-            {
-                yield return UseDodgeAndWeaveSkill(enemy, players, combatUI);
-            }
-            else
-            {
-                // If already active, use a different skill or fallback to basic attack
-                if (Random.value < 0.5f && CanUseGordianKnot(players))
-                {
-                    yield return UseGordianKnotSkill(enemy, players, combatUI);
-                }
-                else
-                {
-                    yield return UseHangmanSkill(enemy, players, combatUI);
-                }
-            }
+            yield return UseDodgeAndWeaveSkill(enemy, players, combatUI);
         }
         else
         {
             yield return UseHangmanSkill(enemy, players, combatUI);
         }
-    }
-    
-    private IEnumerator ApplyTangledEffectDamage(CombatStats enemy, List<CombatStats> players, CombatUI combatUI)
-    {
-        List<CombatStats> playersToRemove = new List<CombatStats>();
-        
-        // Apply damage to each tangled player
-        foreach (var player in tangledPlayers)
-        {
-            if (player == null || player.IsDead())
-            {
-                playersToRemove.Add(player);
-                continue;
-            }
-            
-            // Reduce turns remaining
-            if (tangledTurnsRemaining.ContainsKey(player))
-            {
-                tangledTurnsRemaining[player]--;
-                
-                // Apply 10 damage from Tangled effect
-                if (combatUI != null && combatUI.turnText != null)
-                {
-                    combatUI.DisplayTurnAndActionMessage($"{player.characterName} takes damage from being tangled!");
-                }
-                
-                // Display effect name
-                if (combatUI != null)
-                {
-                    combatUI.DisplayActionLabel("Tangled Effect");
-                }
-                
-                // Wait for UI display
-                yield return WaitForActionDisplay();
-                
-                // Apply damage
-                player.TakeDamage(10);
-                
-                Debug.Log($"Tangled effect dealt 10 damage to {player.characterName}. Turns remaining: {tangledTurnsRemaining[player]}");
-                
-                // If effect expired, add to removal list
-                if (tangledTurnsRemaining[player] <= 0)
-                {
-                    playersToRemove.Add(player);
-                }
-            }
-            else
-            {
-                playersToRemove.Add(player);
-            }
-        }
-        
-        // Remove players whose effect has expired
-        foreach (var player in playersToRemove)
-        {
-            tangledPlayers.Remove(player);
-            if (tangledTurnsRemaining.ContainsKey(player))
-            {
-                tangledTurnsRemaining.Remove(player);
-            }
-            Debug.Log($"Removed Tangled effect from {(player != null ? player.characterName : "unknown player")}");
-        }
-    }
-    
-    private bool CanUseGordianKnot(List<CombatStats> players)
-    {
-        // Check if there's at least one player who isn't already tangled
-        return players.Any(p => p != null && !p.IsDead() && !tangledPlayers.Contains(p));
     }
     
     private IEnumerator UseBasicAttack(CombatStats enemy, List<CombatStats> players, CombatUI combatUI)
@@ -208,39 +112,45 @@ public class WeaverBehaviorPost : EnemyBehavior
         // Wait for action display to complete
         yield return WaitForActionDisplay();
         
-        // Get all living players who aren't already tangled
-        var eligiblePlayers = players
-            .Where(p => !p.IsDead() && !tangledPlayers.Contains(p))
-            .ToList();
+        // Get all living players
+        var livingPlayers = players.Where(p => !p.IsDead()).ToList();
+        if (livingPlayers.Count == 0) yield break;
         
-        if (eligiblePlayers.Count == 0)
+        // Get status manager
+        StatusManager statusManager = StatusManager.Instance;
+        
+        // Deal 20-30 damage to ALL players
+        foreach (var player in livingPlayers)
         {
-            // If all players are already tangled, just do damage to a random player
-            var livingPlayers = players.Where(p => !p.IsDead()).ToList();
-            if (livingPlayers.Count > 0)
+            // Generate random damage for each player
+            float damage = Random.Range(20f, 30.1f); // 30.1 to include 30 in the range
+            
+            // Apply the enemy's attack multiplier
+            float calculatedDamage = enemy.CalculateDamage(damage);
+            
+            // Round to whole number
+            int finalDamage = Mathf.FloorToInt(calculatedDamage);
+            
+            // Apply damage
+            player.TakeDamage(finalDamage);
+            
+            // Apply SLOW status to all players
+            if (statusManager != null)
             {
-                int randomIndex = Random.Range(0, livingPlayers.Count);
-                var randomTarget = livingPlayers[randomIndex];
-                
-                // Deal 10 damage
-                randomTarget.TakeDamage(10);
-                Debug.Log($"Gordian Knot hit {randomTarget.characterName} for 10 damage (already tangled)");
+                statusManager.ApplyStatus(player, StatusType.Slowed, 2); // Apply for 2 turns
+                Debug.Log($"[Gordian Knot] Hit {player.characterName} for {finalDamage} damage and applied Slowed status for 2 turns");
             }
-            yield break;
+            else
+            {
+                // Fallback to old system if status manager not available
+                float baseActionSpeed = player.actionSpeed;
+                float newSpeed = baseActionSpeed * 0.5f; // 50% reduction
+                player.actionSpeed = newSpeed;
+                Debug.LogWarning($"[Gordian Knot] StatusManager not found, using legacy speed reduction for {player.characterName}");
+            }
         }
         
-        // Select a random eligible player
-        int index = Random.Range(0, eligiblePlayers.Count);
-        var target = eligiblePlayers[index];
-        
-        // Deal 10 initial damage
-        target.TakeDamage(10);
-        
-        // Apply Tangled effect
-        tangledPlayers.Add(target);
-        tangledTurnsRemaining[target] = tangledEffectDuration;
-        
-        Debug.Log($"Gordian Knot hit {target.characterName} for 10 damage and applied Tangled effect for {tangledEffectDuration} turns");
+        Debug.Log($"Gordian Knot hit all players for 20-30 damage and applied SLOW status");
     }
     
     private IEnumerator UseDodgeAndWeaveSkill(CombatStats enemy, List<CombatStats> players, CombatUI combatUI)
@@ -263,28 +173,34 @@ public class WeaverBehaviorPost : EnemyBehavior
         // Get status manager
         StatusManager statusManager = StatusManager.Instance;
         
-        // Get all living enemies
+        // Get all living enemies (allies of this enemy)
         var allEnemies = GameObject.FindObjectsOfType<CombatStats>()
             .Where(e => e.isEnemy && !e.IsDead())
             .ToList();
         
-        // Apply Tough status to all enemies
+        // Apply Tough status to all enemies and heal them for 5
         foreach (var enemyChar in allEnemies)
         {
+            // Heal all allies for 5 HP
+            enemyChar.HealHealth(5f);
+            
             if (statusManager != null)
             {
-                // Apply status with the new system
+                // Apply TOUGH status with the new system
                 statusManager.ApplyStatus(enemyChar, StatusType.Tough, 2);
-                Debug.Log($"Dodge and Weave applied Tough status to {enemyChar.characterName} for 2 turns");
+                Debug.Log($"[Dodge and Weave] Applied Tough status to {enemyChar.characterName} for 2 turns and healed for 5 HP");
             }
             else
             {
                 // Legacy implementation
                 // Set a flag that dodge and weave is active
                 dodgeAndWeaveActive = true;
-                Debug.Log($"Dodge and Weave activated for all enemies using legacy system");
+                enemyChar.defenseMultiplier = 0.5f; // Take 50% less damage
+                Debug.LogWarning($"[Dodge and Weave] StatusManager not found, using legacy defense boost for {enemyChar.characterName}");
             }
         }
+        
+        Debug.Log($"Dodge and Weave healed all allies for 5 HP and applied TOUGH status");
     }
     
     private IEnumerator UseHangmanSkill(CombatStats enemy, List<CombatStats> players, CombatUI combatUI)
@@ -314,21 +230,33 @@ public class WeaverBehaviorPost : EnemyBehavior
         // Get status manager
         StatusManager statusManager = StatusManager.Instance;
         
-        // Deal 30 damage and apply Slowed status
-        float baseDamage = 30f;
-        target.TakeDamage(baseDamage);
+        // Deal 30-35 damage
+        float damage = Random.Range(30f, 35.1f); // 35.1 to include 35 in the range
         
+        // Apply the enemy's attack multiplier
+        float calculatedDamage = enemy.CalculateDamage(damage);
+        
+        // Round to whole number
+        int finalDamage = Mathf.FloorToInt(calculatedDamage);
+        
+        // Apply damage
+        target.TakeDamage(finalDamage);
+        
+        // Apply VULNERABLE status
         if (statusManager != null)
         {
-            // Apply Slowed status with the new system
-            statusManager.ApplyStatus(target, StatusType.Slowed, 2);
-            Debug.Log($"Hangman hit {target.characterName} for {baseDamage} damage and applied Slowed status for 2 turns");
+            // Apply Vulnerable status with the new system
+            statusManager.ApplyStatus(target, StatusType.Vulnerable, 2);
+            Debug.Log($"[Hangman] Hit {target.characterName} for {finalDamage} damage and applied Vulnerable status for 2 turns");
         }
         else
         {
             // Legacy implementation
             hangmanAffectedPlayers[target] = true;
-            Debug.Log($"Hangman hit {target.characterName} for {baseDamage} damage and reduced speed (legacy)");
+            target.defenseMultiplier = 1.5f; // Take 50% more damage
+            Debug.LogWarning($"[Hangman] StatusManager not found, using legacy vulnerability for {target.characterName}");
         }
+        
+        Debug.Log($"Hangman hit {target.characterName} for {finalDamage} damage and applied VULNERABLE status");
     }
 } 

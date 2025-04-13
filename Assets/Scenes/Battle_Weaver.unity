@@ -634,6 +634,7 @@ GameObject:
   - component: {fileID: 397013371}
   - component: {fileID: 397013370}
   - component: {fileID: 397013369}
+  - component: {fileID: 397013372}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -825,6 +826,28 @@ MonoBehaviour:
   - {fileID: 1829947766}
   actionBarFillRate: 20
   isItemMenuActive: 0
+--- !u!114 &397013372
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 397013364}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e5d606c5762c6cd48af7caeba445259a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  strengthIcon: {fileID: 21300000, guid: 4851fed577d76a0459400165118fd1cd, type: 3}
+  weaknessIcon: {fileID: 21300000, guid: 4d8520be02601e74cb4d472ea5d31f1d, type: 3}
+  toughIcon: {fileID: 21300000, guid: eae8161b95511a44f8fd537e7f42d7ea, type: 3}
+  vulnerableIcon: {fileID: 21300000, guid: c756c0b20fed9cf48b1c909c2ad8c339, type: 3}
+  agileIcon: {fileID: 21300000, guid: 2a38b06c759d14143bf37656ee684489, type: 3}
+  slowedIcon: {fileID: 21300000, guid: ec6fe38bb5858e24bb0e5ef7fc612349, type: 3}
+  guardedIcon: {fileID: 21300000, guid: db4656fe4492fd946afbd91e850dcca8, type: 3}
+  statusIconSize: 1
+  statusIconSpacing: 0.7
+  statusIconBaseOffset: {x: 0, y: 2, z: 0}
 --- !u!1 &483746019
 GameObject:
   m_ObjectHideFlags: 0
@@ -1312,11 +1335,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 2664084081464988923, guid: 8766eeae86f616a42abef50f44e4debb, type: 3}
       propertyPath: pokeChance
-      value: 50
+      value: 30
       objectReference: {fileID: 0}
     - target: {fileID: 2664084081464988923, guid: 8766eeae86f616a42abef50f44e4debb, type: 3}
       propertyPath: tangleChance
-      value: 50
+      value: 30
+      objectReference: {fileID: 0}
+    - target: {fileID: 2664084081464988923, guid: 8766eeae86f616a42abef50f44e4debb, type: 3}
+      propertyPath: connectChance
+      value: 20
       objectReference: {fileID: 0}
     - target: {fileID: 2664084081464988923, guid: 8766eeae86f616a42abef50f44e4debb, type: 3}
       propertyPath: weaverPostPrefab
@@ -1324,7 +1351,7 @@ PrefabInstance:
       objectReference: {fileID: 5636393689027812743, guid: 9a2c72fce4f932143810aaf32d6fc315, type: 3}
     - target: {fileID: 2664084081464988923, guid: 8766eeae86f616a42abef50f44e4debb, type: 3}
       propertyPath: metamorphosisChance
-      value: 0
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 5606392298455665498, guid: 8766eeae86f616a42abef50f44e4debb, type: 3}
       propertyPath: m_Pivot.x
@@ -2487,6 +2514,63 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 7996043435322746187, guid: e85eee2301682ee47afe49d65bc1e553, type: 3}
   m_PrefabInstance: {fileID: 909108656}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &1779746375
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 2084907224194558601, guid: 87d1a8e94e530074fbcdd0201db94ada, type: 3}
+      propertyPath: m_RootOrder
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 2084907224194558601, guid: 87d1a8e94e530074fbcdd0201db94ada, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -0.14
+      objectReference: {fileID: 0}
+    - target: {fileID: 2084907224194558601, guid: 87d1a8e94e530074fbcdd0201db94ada, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.83
+      objectReference: {fileID: 0}
+    - target: {fileID: 2084907224194558601, guid: 87d1a8e94e530074fbcdd0201db94ada, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -8.513576
+      objectReference: {fileID: 0}
+    - target: {fileID: 2084907224194558601, guid: 87d1a8e94e530074fbcdd0201db94ada, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2084907224194558601, guid: 87d1a8e94e530074fbcdd0201db94ada, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2084907224194558601, guid: 87d1a8e94e530074fbcdd0201db94ada, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2084907224194558601, guid: 87d1a8e94e530074fbcdd0201db94ada, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2084907224194558601, guid: 87d1a8e94e530074fbcdd0201db94ada, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2084907224194558601, guid: 87d1a8e94e530074fbcdd0201db94ada, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2084907224194558601, guid: 87d1a8e94e530074fbcdd0201db94ada, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4040807682210440755, guid: 87d1a8e94e530074fbcdd0201db94ada, type: 3}
+      propertyPath: m_Name
+      value: Background
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 87d1a8e94e530074fbcdd0201db94ada, type: 3}
 --- !u!1001 &1829947763
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2495,9 +2579,25 @@ PrefabInstance:
     m_TransformParent: {fileID: 652821767}
     m_Modifications:
     - target: {fileID: 2664084081464988923, guid: 8766eeae86f616a42abef50f44e4debb, type: 3}
+      propertyPath: pokeChance
+      value: 30
+      objectReference: {fileID: 0}
+    - target: {fileID: 2664084081464988923, guid: 8766eeae86f616a42abef50f44e4debb, type: 3}
+      propertyPath: tangleChance
+      value: 30
+      objectReference: {fileID: 0}
+    - target: {fileID: 2664084081464988923, guid: 8766eeae86f616a42abef50f44e4debb, type: 3}
+      propertyPath: connectChance
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 2664084081464988923, guid: 8766eeae86f616a42abef50f44e4debb, type: 3}
       propertyPath: weaverPostPrefab
       value: 
       objectReference: {fileID: 5636393689027812743, guid: 9a2c72fce4f932143810aaf32d6fc315, type: 3}
+    - target: {fileID: 2664084081464988923, guid: 8766eeae86f616a42abef50f44e4debb, type: 3}
+      propertyPath: metamorphosisChance
+      value: 10
+      objectReference: {fileID: 0}
     - target: {fileID: 5606392298455665498, guid: 8766eeae86f616a42abef50f44e4debb, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5

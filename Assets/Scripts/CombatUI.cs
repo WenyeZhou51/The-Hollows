@@ -563,75 +563,85 @@ public class CombatUI : MonoBehaviour
     
     private IEnumerator ExecuteSkillAfterMessage(SkillData skill, CombatStats target, CombatStats activeCharacter)
     {
-        // Wait a tiny amount just to ensure the action label coroutine has started
-        yield return null;
+        // Wait for the action display duration before executing skill
+        yield return new WaitForSeconds(actionDisplayDuration);
         
-        // Wait for the game to resume (after action display is done)
-        while (Time.timeScale == 0)
-            yield return null;
-        
+        // Hide the action display label after waiting
+        if (actionDisplayLabel != null)
+        {
+            actionDisplayLabel.SetActive(false);
+        }
+
+        // Execute the skill based on name
         switch (skill.name)
         {
             case "Before Your Eyes":
-                if (target != null)
+                // Check if target is a valid enemy
+                if (target != null && target.isEnemy)
                 {
+                    Debug.Log($"[Skill Execution] Before Your Eyes! {activeCharacter.name} is using the skill on {target.name}");
+                    
+                    // Reset target's action gauge to 0
                     target.ResetAction();
+                    
+                    // Use sanity
                     activeCharacter.UseSanity(skill.sanityCost);
+                }
+                else
+                {
+                    Debug.LogWarning($"[Skill Execution] Before Your Eyes! Invalid target: {target?.name ?? "null"}");
                 }
                 break;
                 
             case "Fiend Fire":
-                if (target != null)
+                // Check if target is a valid enemy
+                if (target != null && target.isEnemy)
                 {
-                    // Determine number of hits (1-5 random)
-                    int hitCount = UnityEngine.Random.Range(1, 6); // 1 to 5 inclusive
-                    float totalDamage = 0;
+                    Debug.Log($"[Skill Execution] Fiend Fire! {activeCharacter.name} is attacking {target.name}");
                     
-                    Debug.Log($"[Skill Execution] Fiend Fire hits {hitCount} times for {fiendFireDamage} damage each");
+                    // Calculate random number of hits (1-5)
+                    int hits = UnityEngine.Random.Range(1, 6); // 1 to 5 hits
                     
-                    // Apply damage multiple times
-                    for (int i = 0; i < hitCount; i++)
-                    {
-                        // Small delay between hits for visual effect
-                        if (i > 0)
-                        {
-                            yield return new WaitForSeconds(0.2f);
-                        }
-                        
-                        target.TakeDamage(fiendFireDamage);
-                        totalDamage += fiendFireDamage;
-                        
-                        Debug.Log($"[Skill Execution] Fiend Fire hit #{i+1} deals {fiendFireDamage} damage");
-                    }
+                    // Calculate total damage
+                    float totalDamage = fiendFireDamage * hits;
                     
-                    Debug.Log($"[Skill Execution] Fiend Fire total damage: {totalDamage}");
+                    // Apply damage to the enemy
+                    target.TakeDamage(totalDamage);
                     
-                    // Use sanity (0 in this case, but keeping the code for consistency)
+                    // Show the number of hits in the text panel
+                    DisplayTurnAndActionMessage($"Hit {hits} times for a total of {totalDamage} damage!");
+                    
+                    // Use sanity
                     activeCharacter.UseSanity(skill.sanityCost);
+                }
+                else
+                {
+                    Debug.LogWarning($"[Skill Execution] Fiend Fire! Invalid target: {target?.name ?? "null"}");
                 }
                 break;
                 
             case "Slam!":
-                // Get all enemies
-                var enemies = combatManager.enemies;
-                int totalEnemiesHit = 0;
+                Debug.Log($"[Skill Execution] Slam! {activeCharacter.name} is using area attack");
                 
-                Debug.Log($"[Skill Execution] Slam! targeting all {enemies.Count} enemies for {slamDamage} damage each");
+                // Get all living enemies
+                var enemies = combatManager.GetLivingEnemies();
                 
-                // Apply damage to all enemies
+                // Apply damage to each enemy
                 foreach (var enemy in enemies)
                 {
-                    if (enemy != null && !enemy.IsDead())
-                    {
-                        enemy.TakeDamage(slamDamage);
-                        totalEnemiesHit++;
-                        Debug.Log($"[Skill Execution] Slam! hit enemy {enemy.name} for {slamDamage} damage");
-                    }
+                    enemy.TakeDamage(slamDamage);
+                    Debug.Log($"[Skill Execution] Slam! hit {enemy.name} for {slamDamage} damage");
                 }
                 
-                Debug.Log($"[Skill Execution] Slam! hit {totalEnemiesHit} enemies for a total of {totalEnemiesHit * slamDamage} damage");
+                // Apply Strength status to the user
+                StatusManager statusManager = StatusManager.Instance;
+                if (statusManager != null)
+                {
+                    statusManager.ApplyStatus(activeCharacter, StatusType.Strength, 2);
+                    Debug.Log($"[Skill Execution] Slam! {activeCharacter.name} gains Strength status for 2 turns");
+                }
                 
-                // Use sanity (0 in this case, but keeping the code for consistency)
+                // Use sanity
                 activeCharacter.UseSanity(skill.sanityCost);
                 break;
                 
@@ -657,25 +667,19 @@ public class CombatUI : MonoBehaviour
                 break;
                 
             case "Healing Words":
-                // Check if target is a valid ally (not an enemy and not self)
-                if (target != null && !target.isEnemy && target != activeCharacter)
+                // Check if target is valid (can heal allies or self)
+                if (target != null && !target.isEnemy)
                 {
                     Debug.Log($"[Skill Execution] Healing Words! {activeCharacter.name} is healing {target.name}");
                     
-                    // Heal the target using the configurable amount
+                    // Heal the target for the configured amounts
                     target.HealHealth(healingWordsHealthAmount);
-                    
-                    // Restore sanity to the target using the configurable amount
-                    if (target.currentSanity < target.maxSanity)
-                    {
-                        target.HealSanity(healingWordsSanityAmount);
-                        Debug.Log($"[Skill Execution] Healing Words restored {healingWordsSanityAmount} sanity to {target.name}");
-                    }
-                    
-                    // Use sanity from the caster
-                    activeCharacter.UseSanity(skill.sanityCost);
+                    target.HealSanity(healingWordsSanityAmount);
                     
                     Debug.Log($"[Skill Execution] Healing Words healed {target.name} for {healingWordsHealthAmount} HP and {healingWordsSanityAmount} sanity");
+                    
+                    // Use sanity
+                    activeCharacter.UseSanity(skill.sanityCost);
                 }
                 else
                 {
@@ -707,6 +711,88 @@ public class CombatUI : MonoBehaviour
                 else
                 {
                     Debug.LogWarning($"[Skill Execution] Piercing Shot! Invalid target: {target?.name ?? "null"}");
+                }
+                break;
+                
+            case "Disappearing Trick":
+                Debug.Log($"[Skill Execution] Disappearing Trick! {activeCharacter.name} is removing status effects from allies");
+                
+                // Get all players
+                var allPlayers = combatManager.players;
+                
+                // Get StatusManager instance
+                StatusManager statusMgr = StatusManager.Instance;
+                if (statusMgr != null)
+                {
+                    int clearedCount = 0;
+                    
+                    // Loop through all players
+                    foreach (CombatStats player in allPlayers)
+                    {
+                        // Skip self (the caster)
+                        if (player == activeCharacter) continue;
+                        
+                        if (player != null && !player.IsDead())
+                        {
+                            // Clear all status effects from this ally
+                            statusMgr.ClearAllStatuses(player);
+                            clearedCount++;
+                            
+                            Debug.Log($"[Skill Execution] Disappearing Trick cleared all status effects from {player.characterName}");
+                        }
+                    }
+                    
+                    if (clearedCount > 0)
+                    {
+                        DisplayTurnAndActionMessage($"Cleared status effects from {clearedCount} allies!");
+                    }
+                    else
+                    {
+                        DisplayTurnAndActionMessage("No allies had status effects to clear!");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning("[Skill Execution] Disappearing Trick! StatusManager not found. Skill had no effect.");
+                }
+                
+                // Use sanity
+                activeCharacter.UseSanity(skill.sanityCost);
+                break;
+                
+            case "Take a Break!":
+                // Check if target is a valid ally (not an enemy)
+                if (target != null && !target.isEnemy)
+                {
+                    Debug.Log($"[Skill Execution] Take a Break! {activeCharacter.name} is helping {target.name} rest");
+                    
+                    // Heal the target for 20 HP and 20 Mind
+                    target.HealHealth(20f);
+                    target.HealSanity(20f);
+                    
+                    // Apply SLOW status to target
+                    StatusManager slowStatusMgr = StatusManager.Instance;
+                    if (slowStatusMgr != null)
+                    {
+                        // Apply Slowed status with the status system
+                        slowStatusMgr.ApplyStatus(target, StatusType.Slowed, 2);
+                        Debug.Log($"[Skill Execution] Take a Break! {target.characterName} healed for 20 HP and 20 Mind, and is now SLOW for 2 turns");
+                    }
+                    else
+                    {
+                        // Fallback to direct modification if status manager not available
+                        float baseActionSpeed = target.actionSpeed;
+                        float newSpeed = baseActionSpeed * 0.5f; // 50% reduction
+                        target.actionSpeed = newSpeed;
+                        Debug.LogWarning($"[Skill Execution] Take a Break! StatusManager not found, applied direct speed reduction to {target.characterName}");
+                    }
+                    
+                    // Use sanity
+                    activeCharacter.UseSanity(skill.sanityCost);
+                }
+                else
+                {
+                    Debug.LogWarning($"[Skill Execution] Take a Break! Invalid target: {target?.name ?? "null"}");
                 }
                 break;
         }

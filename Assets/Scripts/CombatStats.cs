@@ -236,6 +236,22 @@ public class CombatStats : MonoBehaviour
                 true // Requires a target
             ));
             
+            // Add the Disappearing Trick skill
+            skills.Add(new SkillData(
+                "Disappearing Trick",
+                "Remove all status effects from allies (not including self). Costs 5 Mind.",
+                5f,   // Costs 5 sanity
+                false // Does not require a target
+            ));
+            
+            // Add the Take a Break! skill
+            skills.Add(new SkillData(
+                "Take a Break!",
+                "Target ally recovers 20 HP and 20 Mind but becomes SLOW for 2 turns.",
+                5f,   // Costs 5 sanity
+                true  // Requires a target (an ally)
+            ));
+            
             // Debug log to verify skills were added
             Debug.Log($"The Magician now has {skills.Count} skills: {string.Join(", ", skills.Select(s => s.name))}");
         }

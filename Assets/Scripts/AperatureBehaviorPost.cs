@@ -117,8 +117,13 @@ public class AperatureBehaviorPost : EnemyBehavior
             // Base damage
             float baseDamage = 5f;
             
-            // Round down to whole number
-            int finalDamage = Mathf.FloorToInt(baseDamage);
+            // Apply the enemy's attack multiplier
+            float calculatedDamage = enemy.CalculateDamage(baseDamage);
+            
+            // Round to whole number
+            int finalDamage = Mathf.FloorToInt(calculatedDamage);
+            
+            Debug.Log($"[COMBAT] {enemy.name} basic attack with base damage: {baseDamage}, attackMultiplier: {enemy.attackMultiplier}, final damage: {finalDamage}");
             
             focusedTarget.TakeDamage(finalDamage);
             
@@ -157,47 +162,36 @@ public class AperatureBehaviorPost : EnemyBehavior
         // Wait for action display to complete
         yield return WaitForActionDisplay();
         
-        // Determine number of hits (between minTunneledFocusHits and maxTunneledFocusHits)
-        int hitCount = Random.Range(minTunneledFocusHits, maxTunneledFocusHits + 1);
+        // Deal 10-20 random damage
+        float damage = Random.Range(10f, 20.1f); // 20.1 to include 20 in the range
         
-        // Deal 5 damage for each hit
-        float damagePerHit = 5f;
-        int finalDamagePerHit = Mathf.FloorToInt(damagePerHit);
-        int totalDamage = 0;
+        // Apply the enemy's attack multiplier
+        float calculatedDamage = enemy.CalculateDamage(damage);
         
-        // Apply the hits one by one with a small delay between each
-        for (int i = 0; i < hitCount; i++)
+        // Round to whole number
+        int finalDamage = Mathf.FloorToInt(calculatedDamage);
+        
+        Debug.Log($"[COMBAT] {enemy.name} Tunneled Focus with base damage: {damage}, attackMultiplier: {enemy.attackMultiplier}, final damage: {finalDamage}");
+        
+        // Apply damage
+        focusedTarget.TakeDamage(finalDamage);
+        
+        Debug.Log($"Tunneled Focus hit {focusedTarget.characterName} for {finalDamage} damage");
+        
+        // Apply VULNERABLE status (50% more damage taken)
+        StatusManager statusManager = StatusManager.Instance;
+        if (statusManager != null)
         {
-            // Display hit message
-            if (combatUI != null && combatUI.turnText != null)
-            {
-                combatUI.DisplayTurnAndActionMessage($"Hit {i+1} of {hitCount}!");
-            }
-            
-            // Wait for a moment between hits
-            yield return new WaitForSeconds(0.2f);
-            
-            // Deal damage
-            focusedTarget.TakeDamage(finalDamagePerHit);
-            totalDamage += finalDamagePerHit;
-            
-            // Check if target died
-            if (focusedTarget.IsDead())
-            {
-                // Target died, stop attacking
-                break;
-            }
+            statusManager.ApplyStatus(focusedTarget, StatusType.Vulnerable, 2); // Apply for 2 turns
+            Debug.Log($"[Tunneled Focus] Applied Vulnerable status to {focusedTarget.characterName} for 2 turns");
         }
-        
-        // Apply defense reduction (50%)
-        // Store the fact that this player has reduced defense
-        defenseReducedPlayers[focusedTarget] = true;
-        
-        // If the CombatStats class has a defense reduction method, call it here
-        // For this example, we're just using ApplyDefenseReduction which was seen in the CombatStats class
-        focusedTarget.ApplyDefenseReduction();
-        
-        Debug.Log($"Tunneled Focus hit {focusedTarget.characterName} {hitCount} times for a total of {totalDamage} damage and reduced defense by 50%");
+        else
+        {
+            // Fallback to old system if status manager not available
+            defenseReducedPlayers[focusedTarget] = true;
+            focusedTarget.ApplyDefenseReduction();
+            Debug.LogWarning("[Tunneled Focus] StatusManager not found, using legacy defense reduction system instead");
+        }
     }
     
     private IEnumerator UseCascadingGazeSkill(CombatStats enemy, List<CombatStats> players, CombatUI combatUI)
@@ -226,16 +220,83 @@ public class AperatureBehaviorPost : EnemyBehavior
         // Wait for action display to complete
         yield return WaitForActionDisplay();
         
-        // Determine number of hits (between minTunneledFocusHits and maxTunneledFocusHits)
-        int hitCount = Random.Range(minTunneledFocusHits, maxTunneledFocusHits + 1);
+        // Check if target has Vulnerable status
+        bool isTargetVulnerable = false;
+        StatusManager statusManager = StatusManager.Instance;
+        if (statusManager != null)
+        {
+            isTargetVulnerable = statusManager.HasStatus(focusedTarget, StatusType.Vulnerable);
+            Debug.Log($"[Cascading Gaze] Target {focusedTarget.characterName} vulnerability status: {isTargetVulnerable}");
+        }
+        else
+        {
+            // Fall back to legacy system
+            isTargetVulnerable = defenseReducedPlayers.ContainsKey(focusedTarget) && defenseReducedPlayers[focusedTarget];
+            Debug.LogWarning("[Cascading Gaze] StatusManager not found, using legacy system to check vulnerability");
+        }
         
-        // Calculate damage (5 damage multiplied by the number of hits)
-        float damagePerHit = 5f;
-        int totalDamage = Mathf.FloorToInt(damagePerHit * hitCount);
+        // Fixed at 5 hits
+        int hitCount = 5;
+        int totalDamage = 0;
         
-        // Deal damage all at once
-        focusedTarget.TakeDamage(totalDamage);
+        // Determine damage range based on vulnerability
+        float minDamage, maxDamage;
+        if (isTargetVulnerable) {
+            // 7-10 damage if vulnerable (before vulnerability modifier)
+            minDamage = 7f;
+            maxDamage = 10.1f; // Add 0.1 to include 10 in the range
+        } else {
+            // 2-4 damage if not vulnerable
+            minDamage = 2f;
+            maxDamage = 4.1f; // Add 0.1 to include 4 in the range
+        }
         
-        Debug.Log($"Cascading Gaze hit {focusedTarget.characterName} for {totalDamage} damage ({hitCount} hits at {damagePerHit} damage each)");
+        Debug.Log($"[Cascading Gaze] Using damage range {minDamage}-{maxDamage-0.1f} for {hitCount} hits");
+        
+        // Process each hit individually without pausing
+        for (int i = 0; i < hitCount; i++)
+        {
+            // Random damage within the appropriate range
+            float damage = Random.Range(minDamage, maxDamage);
+            
+            // Apply enemy's attack multiplier
+            float calculatedDamage = enemy.CalculateDamage(damage);
+            
+            // Important: For vulnerable targets, we need to apply damage BEFORE
+            // the vulnerability modifier, so we'll apply damage directly
+            int finalDamage;
+            if (isTargetVulnerable) {
+                // Apply damage directly without vulnerability modifier
+                // We need to manually adjust for the defenseMultiplier that would be applied in TakeDamage
+                // Vulnerability applies a 1.5x defenseMultiplier, so we divide by 1.5 to get the pre-modifier damage
+                finalDamage = Mathf.FloorToInt(calculatedDamage / 1.5f);
+                
+                // This will ensure the final damage after TakeDamage applies the 1.5x modifier
+                // will be in the 7-10 range as required
+                Debug.Log($"[Cascading Gaze] Base vulnerability hit: {calculatedDamage}, adjusted to: {finalDamage} before vulnerability modifier");
+                
+                focusedTarget.TakeDamage(finalDamage);
+            } else {
+                // For non-vulnerable targets, apply damage normally
+                finalDamage = Mathf.FloorToInt(calculatedDamage);
+                focusedTarget.TakeDamage(finalDamage);
+            }
+            
+            // Add to total for logging
+            totalDamage += finalDamage;
+            
+            Debug.Log($"[Cascading Gaze] Hit {i+1}: {finalDamage} damage");
+            
+            // Brief pause between hits (very short)
+            yield return new WaitForSeconds(0.1f);
+        }
+        
+        // Display total damage summary after all hits
+        if (combatUI != null && combatUI.turnText != null)
+        {
+            combatUI.DisplayTurnAndActionMessage($"Cascading Gaze hit {focusedTarget.characterName} {hitCount} times for a total of {totalDamage} damage!");
+        }
+        
+        Debug.Log($"[Cascading Gaze] Complete attack on {focusedTarget.characterName}: {hitCount} hits for {totalDamage} total damage");
     }
 } 

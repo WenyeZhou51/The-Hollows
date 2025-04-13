@@ -53,7 +53,7 @@ public class StatusManager : MonoBehaviour
             return;
         }
         
-        _instance = this;
+            _instance = this;
         DontDestroyOnLoad(gameObject);
         
         // Log the configured settings

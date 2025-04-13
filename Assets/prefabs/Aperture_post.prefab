@@ -265,6 +265,9 @@ MonoBehaviour:
   maxAction: 100
   currentAction: 0
   actionSpeed: 40
+  baseActionSpeed: 0
+  attackMultiplier: 1
+  defenseMultiplier: 1
   isEnemy: 1
   enemyBehavior: {fileID: 3791791853206849646}
   highlightColor: {r: 1, g: 1, b: 1, a: 1}
@@ -292,8 +295,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2aec4fb4a3a462488c0a8aa066cf332, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  tunneledFocusChance: 50
-  cascadingGazeChance: 50
+  tunneledFocusChance: 60
+  cascadingGazeChance: 40
   minTunneledFocusHits: 4
   maxTunneledFocusHits: 6
   cascadingGazeBaseDamage: 10

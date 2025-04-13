@@ -265,6 +265,9 @@ MonoBehaviour:
   maxAction: 100
   currentAction: 0
   actionSpeed: 30
+  baseActionSpeed: 0
+  attackMultiplier: 1
+  defenseMultiplier: 1
   isEnemy: 1
   enemyBehavior: {fileID: 2664084081464988923}
   highlightColor: {r: 1, g: 1, b: 1, a: 1}
@@ -292,8 +295,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2911528326b0f274789e7613d71b2a9a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  tangleChance: 40
-  pokeChance: 50
+  tangleChance: 30
+  pokeChance: 30
+  connectChance: 20
   metamorphosisChance: 10
   weaverPostPrefab: {fileID: 0}
 --- !u!1 &6656742641168095109

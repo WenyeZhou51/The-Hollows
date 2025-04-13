@@ -265,6 +265,9 @@ MonoBehaviour:
   maxAction: 100
   currentAction: 0
   actionSpeed: 40
+  baseActionSpeed: 0
+  attackMultiplier: 1
+  defenseMultiplier: 1
   isEnemy: 1
   enemyBehavior: {fileID: 5509414653500420475}
   highlightColor: {r: 1, g: 1, b: 1, a: 1}
@@ -292,10 +295,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e21c1454d706d3248a0a4fbe81f5b1d0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gordianKnotChance: 40
-  dodgeAndWeaveChance: 30
-  hangmanChance: 30
-  tangledEffectDuration: 10
+  gordianKnotChance: 50
+  dodgeAndWeaveChance: 10
+  hangmanChance: 40
 --- !u!1 &6656742641168095109
 GameObject:
   m_ObjectHideFlags: 0

@@ -342,8 +342,13 @@ public class CombatManager : MonoBehaviour
             // Base damage
             float baseDamage = 30f;
             
+            // Apply the attackMultiplier from status effects
+            float calculatedDamage = enemy.CalculateDamage(baseDamage);
+            
             // Round down to whole number
-            int finalDamage = Mathf.FloorToInt(baseDamage);
+            int finalDamage = Mathf.FloorToInt(calculatedDamage);
+            
+            Debug.Log($"[COMBAT] {enemy.name} basic attack with base damage: {baseDamage}, attackMultiplier: {enemy.attackMultiplier}, final damage: {finalDamage}");
             
             target.TakeDamage(finalDamage);
         }
@@ -433,8 +438,13 @@ public class CombatManager : MonoBehaviour
         float variance = UnityEngine.Random.Range(0.8f, 1.2f);
         float damageWithVariance = baseDamage * variance;
         
+        // Apply the attackMultiplier for weakness/strength statuses
+        float calculatedDamage = activeCharacter.CalculateDamage(damageWithVariance);
+        
         // Round down to whole number
-        int finalDamage = Mathf.FloorToInt(damageWithVariance);
+        int finalDamage = Mathf.FloorToInt(calculatedDamage);
+        
+        Debug.Log($"[COMBAT] {activeCharacter.name} attacks with base damage: {baseDamage}, variance: {variance}, attackMultiplier: {activeCharacter.attackMultiplier}, final damage: {finalDamage}");
         
         // Deal the damage
         target.TakeDamage(finalDamage);
