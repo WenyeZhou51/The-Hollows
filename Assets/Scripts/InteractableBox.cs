@@ -6,6 +6,8 @@ public class InteractableBox : MonoBehaviour, IInteractable
     [SerializeField] private bool hasBeenLooted = false;
     [SerializeField] private TextAsset inkFile;
     [SerializeField] private LootTable lootTable;
+    [Tooltip("If enabled, the box will be destroyed after being looted")]
+    [SerializeField] private bool destroyWhenLooted = false;
     
     private InkDialogueHandler inkHandler;
     
@@ -78,6 +80,13 @@ public class InteractableBox : MonoBehaviour, IInteractable
             gameObject.name,
             hasBeenLooted
         );
+        
+        // If box has been looted and destroyWhenLooted is true, destroy the game object
+        if (hasBeenLooted && destroyWhenLooted)
+        {
+            Destroy(gameObject);
+            Debug.Log($"Box {gameObject.name} destroyed after being looted");
+        }
     }
     
     /// <summary>
@@ -190,7 +199,7 @@ public class InteractableBox : MonoBehaviour, IInteractable
                             Debug.LogWarning("Using fallback due to Ink variable issues");
                             DialogueManager.Instance?.ShowDialogue($"You found: <b>{actualItemName}</b>!");
                             hasBeenLooted = true;
-                            SaveState(); // Save the looted state
+                            SaveState(); // Save the looted state and handle destroyWhenLooted
                             return;
                         }
                     }
@@ -211,7 +220,7 @@ public class InteractableBox : MonoBehaviour, IInteractable
                     if (!inkVariableSet || !hasBeenLootedSet) {
                         DialogueManager.Instance?.ShowDialogue("The box is empty.");
                         hasBeenLooted = true;
-                        SaveState(); // Save the looted state
+                        SaveState(); // Save the looted state and handle destroyWhenLooted
                         return;
                     }
                 }
@@ -220,7 +229,7 @@ public class InteractableBox : MonoBehaviour, IInteractable
                 hasBeenLooted = true;
                 
                 // Save the looted state
-                SaveState();
+                SaveState(); // This will now handle destroyWhenLooted if needed
             }
             
             // Start the ink dialogue - the Ink script will handle different responses based on hasBeenLooted
@@ -292,7 +301,7 @@ public class InteractableBox : MonoBehaviour, IInteractable
                 hasBeenLooted = true;
                 
                 // Save the looted state
-                SaveState();
+                SaveState(); // This will now handle destroyWhenLooted if needed
             }
         }
         
