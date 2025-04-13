@@ -20,6 +20,9 @@ public class CombatStats : MonoBehaviour
     public float maxAction = 100f;
     public float currentAction;
     public float actionSpeed = 20f; // Action points gained per second
+    public float baseActionSpeed;
+    public float attackMultiplier = 1.0f;
+    public float defenseMultiplier = 1.0f;
     public bool isEnemy;
     
     // Reference to enemy behavior script for enemies
@@ -71,9 +74,6 @@ public class CombatStats : MonoBehaviour
     public GameObject DefenseReductionIcon { get; private set; } = null;
 
     // Properties for Speed Boost effect
-    [Header("Speed Boost Settings")]
-    [Tooltip("The original action speed value before any boosts")]
-    private float baseActionSpeed;
     private float speedBoostMultiplier = 1f;
     private int speedBoostTurnsRemaining = 0;
     
@@ -301,6 +301,32 @@ public class CombatStats : MonoBehaviour
             // Debug log to verify skills were added
             Debug.Log($"The Ranger now has {skills.Count} skills: {string.Join(", ", skills.Select(s => s.name))}");
         }
+
+        // Initialize current values
+        currentHealth = maxHealth;
+        currentSanity = maxSanity;
+        currentAction = 0f;
+        
+        // Store base action speed for status effects
+        baseActionSpeed = actionSpeed;
+        
+        // Set the original color
+        if (isEnemy)
+        {
+            defaultColor = enemyDefaultColor;
+        }
+        else
+        {
+            defaultColor = allyDefaultColor;
+        }
+        
+        if (spriteRenderer != null)
+        {
+            originalColor = spriteRenderer.color;
+        }
+        
+        // Initialize highlighting to off
+        isHighlighted = false;
     }
 
     private void Update()
@@ -378,51 +404,55 @@ public class CombatStats : MonoBehaviour
         return currentHealth <= 0 || (!isEnemy && currentSanity <= 0);
     }
 
-    public void TakeDamage(float damage, bool isMiss = false)
+    public void TakeDamage(float amount)
     {
-        // Round down incoming damage to whole numbers (no decimal damage)
-        int wholeDamage = Mathf.FloorToInt(damage);
+        // Apply defense multiplier from status effects
+        float adjustedAmount = amount * defenseMultiplier;
         
-        // If this character is guarded, redirect damage to the guardian
+        // Check if guarded by another character via status system
+        StatusManager statusManager = StatusManager.Instance;
+        if (statusManager != null && statusManager.HasStatus(this, StatusType.Guarded))
+        {
+            CombatStats guardian = statusManager.GetGuardian(this);
+            if (guardian != null && !guardian.IsDead())
+            {
+                // Redirect damage to guardian
+                guardian.TakeDamage(adjustedAmount);
+                Debug.Log($"{name} is guarded by {guardian.name}. Redirecting {adjustedAmount} damage.");
+                return;
+            }
+        }
+        
+        // Old guard/protection logic for backward compatibility
         if (IsGuarded && Guardian != null && !Guardian.IsDead())
         {
-            Debug.Log($"[Human Shield] {Guardian.name} takes {wholeDamage} damage instead of {name}");
-            Guardian.TakeDamage(wholeDamage, isMiss);
+            Guardian.TakeDamage(adjustedAmount);
+            Debug.Log($"{name} is guarded by {Guardian.name}. Redirecting {adjustedAmount} damage.");
             return;
         }
         
-        // Apply defense reduction multiplier if active
-        float modifiedDamage = wholeDamage;
-        if (HasReducedDefense)
-        {
-            modifiedDamage = wholeDamage * DefenseReductionMultiplier;
-            // Round down again after applying multiplier
-            modifiedDamage = Mathf.FloorToInt(modifiedDamage);
-            Debug.Log($"[Piercing Shot] {name} takes increased damage due to reduced defense: {wholeDamage} -> {modifiedDamage}");
-        }
-        
-        // Apply guard damage reduction if active
+        // If in guard mode, reduce damage
         if (IsGuarding)
         {
-            modifiedDamage = modifiedDamage * GuardDamageReductionMultiplier;
-            // Round down again after applying guard reduction
-            modifiedDamage = Mathf.FloorToInt(modifiedDamage);
-            Debug.Log($"[Guard] {name} takes reduced damage due to guard stance: {wholeDamage} -> {modifiedDamage}");
+            adjustedAmount *= GuardDamageReductionMultiplier;
+            Debug.Log($"{name} is in guard stance. Reducing damage to {adjustedAmount}.");
         }
         
-        // Ensure final damage is a whole number
-        int finalDamage = Mathf.FloorToInt(modifiedDamage);
-        currentHealth = Mathf.Max(0, currentHealth - finalDamage);
+        // Apply the damage
+        currentHealth -= adjustedAmount;
+        Debug.Log($"{name} takes {adjustedAmount} damage. Current health: {currentHealth}/{maxHealth}");
         
-        // Create damage popup with whole number damage, passing the transform for stacking
-        Vector3 popupPosition = transform.position + Vector3.up * 0.5f; // Adjust the Y offset as needed
-        DamagePopup.Create(popupPosition, finalDamage, !isEnemy, transform, false, isMiss);
+        // Create a damage popup
+        ShowDamagePopup(adjustedAmount);
         
-        // Check if enemy is dead and needs to fade out
-        if (isEnemy && currentHealth <= 0)
+        // Ensure health doesn't go below 0
+        if (currentHealth < 0)
         {
-            StartCoroutine(FadeOutAndDestroy());
+            currentHealth = 0;
         }
+        
+        // Update health bar
+        UpdateHealthBar();
     }
 
     // Coroutine to fade out dead enemies and remove them from the scene
@@ -522,19 +552,36 @@ public class CombatStats : MonoBehaviour
     // Set up guarding relationship
     public void GuardAlly(CombatStats ally)
     {
-        if (ally == null || ally == this || ally.isEnemy) return;
+        // Check if status manager exists
+        StatusManager statusManager = StatusManager.Instance;
+        if (statusManager != null)
+        {
+            // Use the new status system
+            statusManager.GuardAlly(this, ally);
+            
+            // Set IsGuarding status
+            IsGuarding = true;
+            
+            Debug.Log($"{name} is now guarding {ally.name} using status system.");
+            return;
+        }
         
-        // Set this character as the guardian of the ally
+        // Legacy system as fallback
+        // Set this character as the guardian
+        IsGuarding = true;
+        ProtectedAlly = ally;
+        
+        // Set the ally as being guarded
         ally.IsGuarded = true;
         ally.Guardian = this;
         
-        // Set the ally as the protected character for this guardian
-        this.ProtectedAlly = ally;
+        Debug.Log($"{name} is now guarding {ally.name} using legacy system.");
         
-        Debug.Log($"[Human Shield] {name} is now guarding {ally.name}");
+        // Show guard icon
+        ShowGuardIcon();
         
-        // Create guarded icon for the ally
-        CreateGuardedIcon(ally);
+        // Show guarded icon on ally
+        ally.ShowGuardedIcon();
     }
     
     // Remove guarding relationship
@@ -826,23 +873,44 @@ public class CombatStats : MonoBehaviour
 
     public void ApplyDefenseReduction()
     {
+        Debug.LogWarning($"[DEPRECATED] {name} is using old ApplyDefenseReduction() method. Use StatusManager.ApplyStatus(character, StatusType.Vulnerable) instead!");
+        
         HasReducedDefense = true;
         DefenseReductionTurnsLeft = defenseReductionDefaultDuration;
         DefenseReductionMultiplier = defenseReductionMultiplier;
-        Debug.Log($"[Piercing Shot] {name} now has reduced defense. Turns left: {DefenseReductionTurnsLeft}, Multiplier: {DefenseReductionMultiplier}");
         
-        // Create defense reduction icon
-        CreateDefenseReductionIcon();
+        // Apply the same effect through the status system if available
+        StatusManager statusManager = StatusManager.Instance;
+        if (statusManager != null)
+        {
+            statusManager.ApplyStatus(this, StatusType.Vulnerable, defenseReductionDefaultDuration);
+            Debug.Log($"[Status Conversion] Converted legacy defense reduction to Vulnerable status for {name}");
+        }
+        else
+        {
+            Debug.LogError($"StatusManager not found! Falling back to legacy defense reduction for {name}");
+            // Create defense reduction icon only if status manager isn't available
+            CreateDefenseReductionIcon();
+        }
     }
 
     public void RemoveDefenseReduction()
     {
+        Debug.LogWarning($"[DEPRECATED] {name} is using old RemoveDefenseReduction() method. Use StatusManager.RemoveStatus(character, StatusType.Vulnerable) instead!");
+        
         HasReducedDefense = false;
         DefenseReductionTurnsLeft = 0;
         DefenseReductionMultiplier = 1.0f;
-        Debug.Log($"[Piercing Shot] {name} defense reduction removed. Turns left: {DefenseReductionTurnsLeft}, Multiplier: {DefenseReductionMultiplier}");
         
-        // Remove defense reduction icon
+        // Remove the status through the status system if available
+        StatusManager statusManager = StatusManager.Instance;
+        if (statusManager != null)
+        {
+            statusManager.RemoveStatus(this, StatusType.Vulnerable);
+            Debug.Log($"[Status Conversion] Removed Vulnerable status for {name}");
+        }
+        
+        // Always remove the legacy icon
         if (DefenseReductionIcon != null)
         {
             Destroy(DefenseReductionIcon);
@@ -972,5 +1040,89 @@ public class CombatStats : MonoBehaviour
                 Debug.Log($"{name}'s speed boost remaining: {speedBoostTurnsRemaining} turns");
             }
         }
+    }
+
+    // Method to calculate attack damage with status effects
+    public float CalculateDamage(float baseDamage)
+    {
+        return baseDamage * attackMultiplier;
+    }
+
+    // Method to end turn - check for status effects ending
+    public void EndTurn()
+    {
+        // Reset guarding status at end of turn
+        if (IsGuarding)
+        {
+            RemoveGuardStatus();
+        }
+        
+        // Update status effects
+        StatusManager statusManager = StatusManager.Instance;
+        if (statusManager != null)
+        {
+            statusManager.UpdateStatusDurations(this);
+        }
+    }
+
+    // Method to show damage popup
+    private void ShowDamagePopup(float amount)
+    {
+        // Round down the damage to a whole number
+        int wholeDamage = Mathf.FloorToInt(amount);
+        
+        // Create damage popup
+        Vector3 popupPosition = transform.position + Vector3.up * 0.5f;
+        DamagePopup.Create(popupPosition, wholeDamage, !isEnemy, transform, false);
+        
+        // Check if enemy is dead and needs to fade out
+        if (isEnemy && currentHealth <= 0)
+        {
+            StartCoroutine(FadeOutAndDestroy());
+        }
+    }
+
+    // Method to update health bar visuals
+    private void UpdateHealthBar()
+    {
+        if (healthFill != null)
+        {
+            float healthPercent = currentHealth / maxHealth;
+            // Change the local position based on the fill amount to keep left-aligned
+            healthFill.transform.localPosition = new Vector3(-0.5f + (healthPercent * 0.5f), 0, 0);
+            healthFill.transform.localScale = new Vector3(healthPercent, 1, 1);
+        }
+    }
+
+    // Method to show guard icon
+    public void ShowGuardIcon()
+    {
+        CreateGuardIcon();
+    }
+
+    // Method to show guarded icon
+    public void ShowGuardedIcon()
+    {
+        CreateGuardedIcon(this);
+    }
+
+    // Method to remove guard status
+    public void RemoveGuardStatus()
+    {
+        // Reset guarding status
+        IsGuarding = false;
+        
+        // Stop guarding ally (if any)
+        StopGuarding();
+        
+        // Destroy guard icon
+        if (GuardIcon != null)
+        {
+            Destroy(GuardIcon);
+            GuardIcon = null;
+        }
+        
+        // Log the change
+        Debug.Log($"{name} guard status removed");
     }
 } 

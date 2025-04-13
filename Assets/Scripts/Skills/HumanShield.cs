@@ -15,8 +15,20 @@ public class HumanShield : BaseSkill
     {
         if (target != null && !target.isEnemy)
         {
-            user.GuardAlly(target);
-            Debug.Log($"{Name} used: {user.name} is now protecting {target.name}");
+            // Get the status manager
+            StatusManager statusManager = StatusManager.Instance;
+            if (statusManager != null)
+            {
+                // Apply the guarded status using the new system
+                statusManager.GuardAlly(user, target);
+                Debug.Log($"{Name} used: {user.name} is now protecting {target.name} using status system");
+            }
+            else
+            {
+                // Fall back to the legacy system
+                user.GuardAlly(target);
+                Debug.Log($"{Name} used: {user.name} is now protecting {target.name} using legacy system");
+            }
             
             // Deduct sanity cost
             user.UseSanity(SPCost);

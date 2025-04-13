@@ -204,8 +204,9 @@ public class Phase2ObeliskBehavior : EnemyBehavior
         
         if (playerSurvives)
         {
-            // Deal 0 damage to target with isMiss=true to show "Miss" text instead of "0"
-            target.TakeDamage(0, true);
+            // Create a miss popup directly instead of using TakeDamage with isMiss flag
+            Vector3 popupPosition = target.transform.position + Vector3.up * 0.5f;
+            DamagePopup.Create(popupPosition, 0, !target.isEnemy, target.transform, false, true);
             Debug.Log($"Sunder failed against {target.characterName} - target survives!");
             
             if (combatUI != null && combatUI.turnText != null)

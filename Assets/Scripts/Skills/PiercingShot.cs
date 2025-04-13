@@ -4,12 +4,12 @@ using UnityEngine;
 public class PiercingShot : BaseSkill
 {
     [SerializeField] private float damage = 10f;
-    [SerializeField] private int defenseReductionTurns = 2;
+    [SerializeField] private int vulnerableDuration = 2;
     
     private void OnEnable()
     {
         Name = "Piercing Shot";
-        Description = "Deal 10 damage and reduce target's defense by 50% for 2 turns.";
+        Description = "Deal 10 damage and apply Vulnerable status (50% more damage taken) for 2 turns.";
         SPCost = 0f;
         RequiresTarget = true;
     }
@@ -18,13 +18,26 @@ public class PiercingShot : BaseSkill
     {
         if (target != null)
         {
-            // Deal damage
-            target.TakeDamage(damage);
+            // Calculate damage with user's attack multiplier
+            float calculatedDamage = user.CalculateDamage(damage);
             
-            // Apply defense reduction
-            target.ApplyDefenseReduction();
+            // Apply damage
+            target.TakeDamage(calculatedDamage);
             
-            Debug.Log($"{Name} used: Hit {target.name} for {damage} damage and reduced defense for {defenseReductionTurns} turns");
+            // Apply the Vulnerable status effect using the status system ONLY
+            StatusManager statusManager = StatusManager.Instance;
+            if (statusManager != null)
+            {
+                Debug.Log($"[PiercingShot] Applying Vulnerable status to {target.characterName} for {vulnerableDuration} turns");
+                statusManager.ApplyStatus(target, StatusType.Vulnerable, vulnerableDuration);
+                Debug.Log($"[PiercingShot] Hit {target.characterName} for {calculatedDamage} damage with Vulnerable status");
+            }
+            else
+            {
+                Debug.LogError("[PiercingShot] StatusManager not found! Cannot apply Vulnerable status.");
+                
+                // No fallback to legacy system - we want to identify issues with status system
+            }
             
             // Deduct sanity cost
             user.UseSanity(SPCost);

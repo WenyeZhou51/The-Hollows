@@ -248,7 +248,7 @@ public class WeaverBehaviorPost : EnemyBehavior
         // Display skill message in text panel
         if (combatUI != null && combatUI.turnText != null)
         {
-            combatUI.DisplayTurnAndActionMessage($"{enemy.characterName} begins to dodge and weave!");
+            combatUI.DisplayTurnAndActionMessage($"{enemy.characterName} weaves a protective pattern!");
         }
         
         // Display specific skill name in action display label
@@ -260,27 +260,30 @@ public class WeaverBehaviorPost : EnemyBehavior
         // Wait for action display to complete
         yield return WaitForActionDisplay();
         
-        // Find all living enemies
-        var combatManager = FindObjectOfType<CombatManager>();
-        if (combatManager != null)
+        // Get status manager
+        StatusManager statusManager = StatusManager.Instance;
+        
+        // Get all living enemies
+        var allEnemies = GameObject.FindObjectsOfType<CombatStats>()
+            .Where(e => e.isEnemy && !e.IsDead())
+            .ToList();
+        
+        // Apply Tough status to all enemies
+        foreach (var enemyChar in allEnemies)
         {
-            var livingEnemies = combatManager.GetLivingEnemies();
-            
-            // Apply defense boost to all enemies
-            foreach (var enemyChar in livingEnemies)
+            if (statusManager != null)
             {
-                // We don't have direct access to defense stat in CombatStats
-                // So we'll add a tag to indicate the Dodge and Weave effect is active
-                // In a real implementation, this would modify defense stats
-                
-                // For demonstration, we'll just log it
-                Debug.Log($"Dodge and Weave increased {enemyChar.characterName}'s defense by 50%");
+                // Apply status with the new system
+                statusManager.ApplyStatus(enemyChar, StatusType.Tough, 2);
+                Debug.Log($"Dodge and Weave applied Tough status to {enemyChar.characterName} for 2 turns");
             }
-            
-            // Mark Dodge and Weave as active so it doesn't stack
-            dodgeAndWeaveActive = true;
-            
-            Debug.Log("Dodge and Weave is now active for all enemies");
+            else
+            {
+                // Legacy implementation
+                // Set a flag that dodge and weave is active
+                dodgeAndWeaveActive = true;
+                Debug.Log($"Dodge and Weave activated for all enemies using legacy system");
+            }
         }
     }
     
@@ -289,7 +292,7 @@ public class WeaverBehaviorPost : EnemyBehavior
         // Display attack message in text panel
         if (combatUI != null && combatUI.turnText != null)
         {
-            combatUI.DisplayTurnAndActionMessage($"{enemy.characterName} prepares a deadly noose!");
+            combatUI.DisplayTurnAndActionMessage($"{enemy.characterName} weaves a crippling pattern!");
         }
         
         // Display specific skill name in action display label
@@ -301,44 +304,31 @@ public class WeaverBehaviorPost : EnemyBehavior
         // Wait for action display to complete
         yield return WaitForActionDisplay();
         
-        // Get all living players who aren't already affected by Hangman
-        var eligiblePlayers = players
-            .Where(p => !p.IsDead() && (!hangmanAffectedPlayers.ContainsKey(p) || !hangmanAffectedPlayers[p]))
-            .ToList();
+        // Get all living players
+        var livingPlayers = players.Where(p => !p.IsDead()).ToList();
+        if (livingPlayers.Count == 0) yield break;
         
-        if (eligiblePlayers.Count == 0)
+        // Find player with highest action
+        var target = livingPlayers.OrderByDescending(p => p.currentAction).First();
+        
+        // Get status manager
+        StatusManager statusManager = StatusManager.Instance;
+        
+        // Deal 30 damage and apply Slowed status
+        float baseDamage = 30f;
+        target.TakeDamage(baseDamage);
+        
+        if (statusManager != null)
         {
-            // If all players are already affected, just do damage to a random player
-            var livingPlayers = players.Where(p => !p.IsDead()).ToList();
-            if (livingPlayers.Count > 0)
-            {
-                int randomIndex = Random.Range(0, livingPlayers.Count);
-                var randomTarget = livingPlayers[randomIndex];
-                
-                // Deal 30 damage
-                randomTarget.TakeDamage(30);
-                Debug.Log($"Hangman hit {randomTarget.characterName} for 30 damage (already speed reduced)");
-            }
-            yield break;
+            // Apply Slowed status with the new system
+            statusManager.ApplyStatus(target, StatusType.Slowed, 2);
+            Debug.Log($"Hangman hit {target.characterName} for {baseDamage} damage and applied Slowed status for 2 turns");
         }
-        
-        // Select a random eligible player
-        int index = Random.Range(0, eligiblePlayers.Count);
-        var target = eligiblePlayers[index];
-        
-        // Deal 30 damage
-        target.TakeDamage(30);
-        
-        // Apply speed reduction (50%)
-        float baseActionSpeed = target.actionSpeed;
-        float newSpeed = baseActionSpeed * 0.5f;
-        
-        // Set the new action speed directly
-        target.actionSpeed = newSpeed;
-        
-        // Mark this player as affected by Hangman
-        hangmanAffectedPlayers[target] = true;
-        
-        Debug.Log($"Hangman hit {target.characterName} for 30 damage and reduced speed by 50%");
+        else
+        {
+            // Legacy implementation
+            hangmanAffectedPlayers[target] = true;
+            Debug.Log($"Hangman hit {target.characterName} for {baseDamage} damage and reduced speed (legacy)");
+        }
     }
 } 

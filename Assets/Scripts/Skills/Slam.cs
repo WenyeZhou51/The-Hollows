@@ -5,11 +5,12 @@ using System.Collections.Generic;
 public class Slam : BaseSkill
 {
     [SerializeField] private float damage = 10f;
+    [SerializeField] private int strengthDuration = 2; // Duration for the Strength status
     
     private void OnEnable()
     {
         Name = "Slam!";
-        Description = "Deal 10 damage to all enemies";
+        Description = "Deal 10 damage to all enemies and gain Strength (+50% attack) for 2 turns";
         SPCost = 0f;
         RequiresTarget = false;
     }
@@ -23,12 +24,23 @@ public class Slam : BaseSkill
             // Get all enemies
             List<CombatStats> enemies = new List<CombatStats>(combatManager.enemies);
             
+            // Apply Strength status to the user
+            StatusManager statusManager = StatusManager.Instance;
+            if (statusManager != null)
+            {
+                statusManager.ApplyStatus(user, StatusType.Strength, strengthDuration);
+                Debug.Log($"{Name} used: {user.name} gains Strength status for {strengthDuration} turns");
+            }
+            
+            // Calculate damage with user's attack multiplier
+            float calculatedDamage = user.CalculateDamage(damage);
+            
             foreach (CombatStats enemy in enemies)
             {
                 if (enemy != null && !enemy.IsDead())
                 {
-                    enemy.TakeDamage(damage);
-                    Debug.Log($"{Name} used: Hit {enemy.name} for {damage} damage");
+                    enemy.TakeDamage(calculatedDamage);
+                    Debug.Log($"{Name} used: Hit {enemy.name} for {calculatedDamage} damage");
                 }
             }
             
