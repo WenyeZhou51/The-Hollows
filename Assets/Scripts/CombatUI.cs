@@ -45,7 +45,7 @@ public class CombatUI : MonoBehaviour
     [Tooltip("Damage dealt by the Piercing Shot skill")]
     [SerializeField] private float piercingShotDamage = 10f;
     [Tooltip("Amount of health restored by Healing Words")]
-    [SerializeField] private float healingWordsHealthAmount = 50f;
+    [SerializeField] private float healingWordsHealthAmount = 70f;
     [Tooltip("Amount of sanity restored by Healing Words")]
     [SerializeField] private float healingWordsSanityAmount = 30f;
 
@@ -690,30 +690,264 @@ public class CombatUI : MonoBehaviour
                 }
                 break;
                 
+            case "Crescendo":
+                // Check if target is a valid ally (not an enemy)
+                if (target != null && !target.isEnemy)
+                {
+                    Debug.Log($"[Skill Execution] Crescendo! {activeCharacter.name} is making {target.name} AGILE");
+                    
+                    // Apply AGILE status to the target
+                    StatusManager crescendoStatusMgr = StatusManager.Instance;
+                    if (crescendoStatusMgr != null)
+                    {
+                        // Apply Agile status with the status system
+                        crescendoStatusMgr.ApplyStatus(target, StatusType.Agile, 2);
+                        Debug.Log($"[Skill Execution] Crescendo made {target.characterName} AGILE for 2 turns");
+                        
+                        // Show message in the text panel
+                        DisplayTurnAndActionMessage($"{target.characterName} is now AGILE!");
+                    }
+                    else
+                    {
+                        // Fallback to direct modification if status manager not available
+                        target.BoostActionSpeed(0.5f, 2); // 50% speed boost for 2 turns
+                        Debug.LogWarning($"[Skill Execution] Crescendo! StatusManager not found, applied direct speed boost to {target.characterName}");
+                    }
+                    
+                    // Use sanity
+                    activeCharacter.UseSanity(skill.sanityCost);
+                }
+                else
+                {
+                    Debug.LogWarning($"[Skill Execution] Crescendo! Invalid target: {target?.name ?? "null"}. This skill requires an ally target.");
+                }
+                break;
+                
+            case "Primordial Pile":
+                // Check if target is a valid enemy
+                if (target != null && target.isEnemy)
+                {
+                    Debug.Log($"[Skill Execution] Primordial Pile! {activeCharacter.name} is attacking {target.name}");
+                    
+                    float totalDamage = 0f;
+                    // Deal 2-4 damage 3 times
+                    for (int i = 0; i < 3; i++)
+                    {
+                        float damage = UnityEngine.Random.Range(2f, 4f);
+                        target.TakeDamage(damage);
+                        totalDamage += damage;
+                    }
+                    
+                    // Apply WEAKNESS status to the target if not dead
+                    if (!target.IsDead())
+                    {
+                        StatusManager pileStatusMgr = StatusManager.Instance;
+                        if (pileStatusMgr != null)
+                        {
+                            // Apply Weakness status with the status system
+                            pileStatusMgr.ApplyStatus(target, StatusType.Weakness, 2);
+                            Debug.Log($"[Skill Execution] Primordial Pile dealt {totalDamage} damage to {target.name} and applied WEAKNESS for 2 turns");
+                            
+                            // Show message in the text panel
+                            DisplayTurnAndActionMessage($"Hit for {totalDamage:F1} damage and applied WEAKNESS!");
+                        }
+                        else
+                        {
+                            // Fallback to direct modification if status manager not available
+                            target.attackMultiplier = 0.5f; // 50% reduction
+                            Debug.LogWarning($"[Skill Execution] Primordial Pile! StatusManager not found, applied direct attack reduction to {target.name}");
+                        }
+                    }
+                    
+                    // Use sanity
+                    activeCharacter.UseSanity(skill.sanityCost);
+                }
+                else
+                {
+                    Debug.LogWarning($"[Skill Execution] Primordial Pile! Invalid target: {target?.name ?? "null"}. This skill requires an enemy target.");
+                }
+                break;
+                
+            case "Encore":
+                // Check if target is a valid ally (not an enemy)
+                if (target != null && !target.isEnemy)
+                {
+                    Debug.Log($"[Skill Execution] Encore! {activeCharacter.name} is filling {target.name}'s action bar");
+                    
+                    // Fill the target's action bar to maximum
+                    float currentAction = target.currentAction;
+                    float maxAction = target.maxAction;
+                    
+                    // Set the current action to max
+                    target.currentAction = maxAction;
+                    
+                    Debug.Log($"[Skill Execution] Encore filled {target.characterName}'s action bar from {currentAction} to {maxAction}");
+                    
+                    // Show message in the text panel
+                    DisplayTurnAndActionMessage($"{target.characterName}'s action bar filled!");
+                    
+                    // No sanity cost for this skill
+                }
+                else
+                {
+                    Debug.LogWarning($"[Skill Execution] Encore! Invalid target: {target?.name ?? "null"}. This skill requires an ally target.");
+                }
+                break;
+                
             case "Piercing Shot":
                 // Check if target is a valid enemy
                 if (target != null && target.isEnemy)
                 {
                     Debug.Log($"[Skill Execution] Piercing Shot! {activeCharacter.name} is shooting {target.name}");
                     
-                    // Deal damage using the configurable amount
-                    target.TakeDamage(piercingShotDamage);
+                    // Calculate random damage between 10-15
+                    float baseDamage = UnityEngine.Random.Range(10f, 15f);
+                    float calculatedDamage = activeCharacter.CalculateDamage(baseDamage);
                     
-                    // Apply defense reduction for 2 turns
+                    // Deal damage
+                    target.TakeDamage(calculatedDamage);
+                    
+                    // Apply Vulnerable status for 2 turns
                     if (!target.IsDead())
                     {
-                        // Apply defense reduction effect using the proper method
-                        target.ApplyDefenseReduction();
-                        
-                        Debug.Log($"[Skill Execution] Piercing Shot reduced {target.name}'s defense by 50% for 2 turns");
+                        StatusManager piercingShotStatusMgr = StatusManager.Instance;
+                        if (piercingShotStatusMgr != null)
+                        {
+                            // Apply Vulnerable status with the status system
+                            piercingShotStatusMgr.ApplyStatus(target, StatusType.Vulnerable, 2);
+                            Debug.Log($"[Skill Execution] Piercing Shot hit {target.name} for {calculatedDamage} damage and applied VULNERABLE for 2 turns");
+                            
+                            // Show message in the text panel
+                            DisplayTurnAndActionMessage($"Hit for {calculatedDamage:F1} damage and applied VULNERABLE!");
+                        }
+                        else
+                        {
+                            // Fallback to direct modification if status manager not available
+                            Debug.LogWarning($"[Skill Execution] Piercing Shot! StatusManager not found, applied direct vulnerable effect to {target.name}");
+                        }
                     }
                     
-                    // Use sanity (0 in this case, but keeping the code for consistency)
+                    // Use sanity
                     activeCharacter.UseSanity(skill.sanityCost);
                 }
                 else
                 {
                     Debug.LogWarning($"[Skill Execution] Piercing Shot! Invalid target: {target?.name ?? "null"}");
+                }
+                break;
+                
+            case "Signal Flare":
+                Debug.Log($"[Skill Execution] Signal Flare! {activeCharacter.name} is removing status effects from all enemies");
+                
+                // Get all living enemies
+                var livingEnemies = combatManager.GetLivingEnemies();
+                
+                // Get StatusManager instance
+                StatusManager signalFlareStatusMgr = StatusManager.Instance;
+                if (signalFlareStatusMgr != null)
+                {
+                    int clearedCount = 0;
+                    
+                    // Loop through all enemies
+                    foreach (CombatStats enemy in livingEnemies)
+                    {
+                        if (enemy != null && !enemy.IsDead())
+                        {
+                            // Clear all status effects from this enemy
+                            signalFlareStatusMgr.ClearAllStatuses(enemy);
+                            clearedCount++;
+                            
+                            Debug.Log($"[Skill Execution] Signal Flare cleared all status effects from {enemy.characterName}");
+                        }
+                    }
+                    
+                    if (clearedCount > 0)
+                    {
+                        DisplayTurnAndActionMessage($"Cleared status effects from {clearedCount} enemies!");
+                    }
+                    else
+                    {
+                        DisplayTurnAndActionMessage("No enemies had status effects to clear!");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning("[Skill Execution] Signal Flare! StatusManager not found. Skill had no effect.");
+                }
+                
+                // Use sanity
+                activeCharacter.UseSanity(skill.sanityCost);
+                break;
+                
+            case "Gaintkiller":
+                // Check if target is a valid enemy
+                if (target != null && target.isEnemy)
+                {
+                    Debug.Log($"[Skill Execution] Gaintkiller! {activeCharacter.name} is attacking {target.name}");
+                    
+                    // Calculate random damage between 60-80
+                    float giantkillerDamage = UnityEngine.Random.Range(60f, 80f);
+                    float calculatedGiantkillerDamage = activeCharacter.CalculateDamage(giantkillerDamage);
+                    
+                    // Deal damage
+                    target.TakeDamage(calculatedGiantkillerDamage);
+                    
+                    Debug.Log($"[Skill Execution] Gaintkiller hit {target.name} for {calculatedGiantkillerDamage} damage!");
+                    
+                    // Show message in the text panel
+                    DisplayTurnAndActionMessage($"Hit for {calculatedGiantkillerDamage:F1} massive damage!");
+                    
+                    // Use sanity
+                    activeCharacter.UseSanity(skill.sanityCost);
+                }
+                else
+                {
+                    Debug.LogWarning($"[Skill Execution] Gaintkiller! Invalid target: {target?.name ?? "null"}");
+                }
+                break;
+                
+            case "Bola":
+                // Check if target is a valid enemy
+                if (target != null && target.isEnemy)
+                {
+                    Debug.Log($"[Skill Execution] Bola! {activeCharacter.name} is attacking {target.name}");
+                    
+                    // Calculate random damage between 2-4
+                    float bolaDamage = UnityEngine.Random.Range(2f, 4f);
+                    float calculatedBolaDamage = activeCharacter.CalculateDamage(bolaDamage);
+                    
+                    // Deal damage
+                    target.TakeDamage(calculatedBolaDamage);
+                    
+                    // Apply SLOWED status to the target if not dead
+                    if (!target.IsDead())
+                    {
+                        StatusManager bolaStatusMgr = StatusManager.Instance;
+                        if (bolaStatusMgr != null)
+                        {
+                            // Apply Slowed status with the status system
+                            bolaStatusMgr.ApplyStatus(target, StatusType.Slowed, 2);
+                            Debug.Log($"[Skill Execution] Bola hit {target.name} for {calculatedBolaDamage} damage and applied SLOWED for 2 turns");
+                            
+                            // Show message in the text panel
+                            DisplayTurnAndActionMessage($"Hit for {calculatedBolaDamage:F1} damage and applied SLOWED!");
+                        }
+                        else
+                        {
+                            // Fallback to direct modification if status manager not available
+                            float baseSpeed = target.actionSpeed;
+                            float newSpeed = baseSpeed * 0.5f; // 50% reduction
+                            target.actionSpeed = newSpeed;
+                            Debug.LogWarning($"[Skill Execution] Bola! StatusManager not found, applied direct speed reduction to {target.name}");
+                        }
+                    }
+                    
+                    // Use sanity
+                    activeCharacter.UseSanity(skill.sanityCost);
+                }
+                else
+                {
+                    Debug.LogWarning($"[Skill Execution] Bola! Invalid target: {target?.name ?? "null"}");
                 }
                 break;
                 

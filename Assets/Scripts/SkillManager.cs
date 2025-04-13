@@ -89,10 +89,16 @@ public class SkillManager : MonoBehaviour
                 
             case "The Bard":
                 characterSkills.Add(GetSkillData("Healing Words"));
+                characterSkills.Add(GetSkillData("Crescendo"));
+                characterSkills.Add(GetSkillData("Primordial Pile"));
+                characterSkills.Add(GetSkillData("Encore"));
                 break;
                 
             case "The Ranger":
                 characterSkills.Add(GetSkillData("Piercing Shot"));
+                characterSkills.Add(GetSkillData("Signal Flare"));
+                characterSkills.Add(GetSkillData("Gaintkiller"));
+                characterSkills.Add(GetSkillData("Bola"));
                 break;
                 
             default:

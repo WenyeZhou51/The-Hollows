@@ -258,13 +258,13 @@ MonoBehaviour:
   spriteRenderer: {fileID: 5636393689027812746}
   healthFill: {fileID: 5972926927154482544}
   actionFill: {fileID: 2635387471165526119}
-  maxHealth: 100
+  maxHealth: 90
   currentHealth: 0
-  maxSanity: 100
+  maxSanity: 90
   currentSanity: 0
   maxAction: 100
   currentAction: 0
-  actionSpeed: 40
+  actionSpeed: 45
   baseActionSpeed: 0
   attackMultiplier: 1
   defenseMultiplier: 1

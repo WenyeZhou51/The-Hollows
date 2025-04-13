@@ -1565,7 +1565,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
       propertyPath: actionSpeed
-      value: 100
+      value: 30
       objectReference: {fileID: 0}
     - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
       propertyPath: characterName
@@ -2421,6 +2421,10 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 1195803888}
     m_Modifications:
+    - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
+      propertyPath: actionSpeed
+      value: 100
+      objectReference: {fileID: 0}
     - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
       propertyPath: characterName
       value: The Ranger

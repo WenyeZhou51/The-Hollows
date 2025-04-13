@@ -440,6 +440,7 @@ public class MenuSelector : MonoBehaviour
         }
         else
         {
+            // Skills like "Disappearing Trick" or "Signal Flare" that don't require a target
             Debug.Log($"[SkillButton Lifecycle] Skill does not require target, executing immediately");
             combatUI.ExecuteSkill(skill, null);
         }
@@ -586,7 +587,9 @@ public class MenuSelector : MonoBehaviour
         if (selectedSkill != null && (selectedSkill.name == "Human Shield!" || 
                                     selectedSkill.name == "Healing Words" || 
                                     selectedSkill.name == "Take a Break!" ||
-                                    selectedSkill.name == "What Doesn't Kill You"))
+                                    selectedSkill.name == "What Doesn't Kill You" ||
+                                    selectedSkill.name == "Crescendo" ||
+                                    selectedSkill.name == "Encore"))
         {
             Debug.Log($"[DEBUG TARGETING] Detected ally-targeting SKILL: {selectedSkill.name}");
             // For ally-targeting skills, we target allies instead of enemies

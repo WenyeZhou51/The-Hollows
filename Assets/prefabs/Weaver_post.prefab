@@ -258,9 +258,9 @@ MonoBehaviour:
   spriteRenderer: {fileID: 5636393689027812746}
   healthFill: {fileID: 5972926927154482544}
   actionFill: {fileID: 2635387471165526119}
-  maxHealth: 100
+  maxHealth: 120
   currentHealth: 0
-  maxSanity: 100
+  maxSanity: 120
   currentSanity: 0
   maxAction: 100
   currentAction: 0

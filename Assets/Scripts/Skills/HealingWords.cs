@@ -3,14 +3,14 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "HealingWords", menuName = "Skills/Healing Words")]
 public class HealingWords : BaseSkill
 {
-    [SerializeField] private float healthHealAmount = 50f;
+    [SerializeField] private float healthHealAmount = 70f;
     [SerializeField] private float sanityHealAmount = 30f;
     
     private void OnEnable()
     {
         Name = "Healing Words";
-        Description = "Heal an ally for 50 HP and 30 sanity. Costs 10 sanity to cast.";
-        SPCost = 10f;
+        Description = "Heal an ally for 70 HP and 30 sanity. Costs 20 sanity to cast.";
+        SPCost = 20f;
         RequiresTarget = true;
     }
     

@@ -307,9 +307,33 @@ public class CombatStats : MonoBehaviour
             // Add the Healing Words skill with updated healing values
             skills.Add(new SkillData(
                 "Healing Words",
-                "Heal an ally for 50 HP and 30 sanity. Costs 10 sanity to cast.",
-                10f,  // Costs 10 sanity
+                "Heal an ally for 70 HP and 30 sanity. Costs 20 sanity to cast.",
+                20f,  // Costs 20 sanity
                 true  // Requires a target (the ally to heal)
+            ));
+            
+            // Add the Crescendo skill
+            skills.Add(new SkillData(
+                "Crescendo",
+                "Make an ally AGILE (+50% action speed) for 2 turns. Targets allies only.",
+                10f,  // Costs 10 sanity
+                true  // Requires a target (the ally to buff)
+            ));
+            
+            // Add the Primordial Pile skill
+            skills.Add(new SkillData(
+                "Primordial Pile",
+                "Deal 2-4 damage to a target enemy 3 times and apply WEAKNESS (-50% attack) for 2 turns. Costs 10 sanity.",
+                10f,  // Costs 10 sanity
+                true  // Requires a target (the enemy to attack)
+            ));
+            
+            // Add the Encore skill
+            skills.Add(new SkillData(
+                "Encore",
+                "Instantly fills an ally's action bar to maximum. Costs 0 sanity.",
+                0f,  // Costs 0 sanity
+                true  // Requires a target (the ally to boost)
             ));
             
             // Debug log to verify skills were added
@@ -325,8 +349,32 @@ public class CombatStats : MonoBehaviour
             // Add the Piercing Shot skill
             skills.Add(new SkillData(
                 "Piercing Shot",
-                "Deal 10 damage and reduce target's defense by 50% for 2 turns.",
-                0f,  // Costs 0 sanity
+                "Deal 10-15 damage and apply Vulnerable status (50% more damage taken) for 2 turns.",
+                10f,  // Costs 10 sanity
+                true  // Requires a target (the enemy to hit)
+            ));
+            
+            // Add the Signal Flare skill
+            skills.Add(new SkillData(
+                "Signal Flare",
+                "Remove all status effects from all enemies. Costs 5 sanity.",
+                5f,   // Costs 5 sanity
+                false // Does not require a target (affects all enemies)
+            ));
+            
+            // Add the Gaintkiller skill
+            skills.Add(new SkillData(
+                "Gaintkiller",
+                "Deal 60-80 damage to a target enemy. Costs 70 sanity.",
+                70f,  // Costs 70 sanity
+                true  // Requires a target (the enemy to hit)
+            ));
+            
+            // Add the Bola skill
+            skills.Add(new SkillData(
+                "Bola",
+                "Deal 2-4 damage to a target enemy and apply SLOWED (-50% action speed) for 2 turns. Costs 20 sanity.",
+                20f,  // Costs 20 sanity
                 true  // Requires a target (the enemy to hit)
             ));
             

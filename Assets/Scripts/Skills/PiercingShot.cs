@@ -3,14 +3,15 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "PiercingShot", menuName = "Skills/Piercing Shot")]
 public class PiercingShot : BaseSkill
 {
-    [SerializeField] private float damage = 10f;
+    [SerializeField] private float minDamage = 10f;
+    [SerializeField] private float maxDamage = 15f;
     [SerializeField] private int vulnerableDuration = 2;
     
     private void OnEnable()
     {
         Name = "Piercing Shot";
-        Description = "Deal 10 damage and apply Vulnerable status (50% more damage taken) for 2 turns.";
-        SPCost = 0f;
+        Description = "Deal 10-15 damage and apply Vulnerable status (50% more damage taken) for 2 turns.";
+        SPCost = 10f;
         RequiresTarget = true;
     }
     
@@ -18,8 +19,11 @@ public class PiercingShot : BaseSkill
     {
         if (target != null)
         {
+            // Calculate random damage within range
+            float baseDamage = Random.Range(minDamage, maxDamage);
+            
             // Calculate damage with user's attack multiplier
-            float calculatedDamage = user.CalculateDamage(damage);
+            float calculatedDamage = user.CalculateDamage(baseDamage);
             
             // Apply damage
             target.TakeDamage(calculatedDamage);
