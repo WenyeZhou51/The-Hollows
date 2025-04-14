@@ -1,0 +1,1 @@
+﻿{"inkVersion":21,"root":[["^You come face to face with the obelisk.","\n","^The air is silent, the room cool. You draw your weapon.","\n",{"->":"battle"},["done",{"#f":5,"#n":"g-0"}],null],"done",{"battle":["end",{"#f":1}],"#f":1}],"listDefs":{}}
