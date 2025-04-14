@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class ObeliskDialogueTransition : MonoBehaviour
 {
@@ -45,8 +46,16 @@ public class ObeliskDialogueTransition : MonoBehaviour
                         return;
                     }
                     
-                    // Transition to the battle scene
+                    // Ensure SceneTransitionManager exists
                     SceneTransitionManager.EnsureExists();
+                    
+                    // CRITICAL FIX: Store the current scene name in SceneTransitionManager 
+                    // so it knows where to return after combat
+                    string currentScene = SceneManager.GetActiveScene().name;
+                    SceneTransitionManager.Instance.SetReturnScene(currentScene);
+                    Debug.Log($"Set return scene to: {currentScene} for after battle");
+                    
+                    // Transition to the battle scene
                     SceneTransitionManager.Instance.TransitionToScene(battleSceneName, targetMarkerId, player);
                 }
             }

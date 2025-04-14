@@ -335,11 +335,57 @@ public class SceneTransitionManager : MonoBehaviour
             PersistentGameManager.Instance.LogDefeatedEnemies();
         }
         
+        // CRITICAL FIX: Cleanup any combat-related objects that might have DontDestroyOnLoad
+        CleanupCombatObjects();
+        
         // Make sure ScreenFader exists
         ScreenFader.EnsureExists();
         
         // Start the transition with fade effect
         StartCoroutine(TransitionToOverworld());
+    }
+    
+    /// <summary>
+    /// Cleanup any combat-related objects that might have DontDestroyOnLoad
+    /// </summary>
+    private void CleanupCombatObjects()
+    {
+        // Find all root GameObjects in the scene
+        GameObject[] rootObjects = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
+        
+        // Combat-related tag names to look for
+        string[] combatTags = new string[] { "CombatUI", "BattleUI", "EnemyUI", "PlayerUI" };
+        
+        // Remove any objects with combat-related tags
+        foreach (GameObject root in rootObjects)
+        {
+            foreach (string tag in combatTags)
+            {
+                if (root.CompareTag(tag))
+                {
+                    Debug.Log($"Destroying combat object with tag '{tag}': {root.name}");
+                    Destroy(root);
+                    break;
+                }
+            }
+        }
+        
+        // Find and destroy core combat gameplay objects
+        // These might have DontDestroyOnLoad set on them
+        string[] combatObjectNames = new string[] {
+            "CombatManager", "BattleManager", "CombatUI", "BattleUI", 
+            "BattleDialogueTrigger", "CombatCanvas", "ActionMenu"
+        };
+        
+        foreach (string name in combatObjectNames)
+        {
+            GameObject obj = GameObject.Find(name);
+            if (obj != null)
+            {
+                Debug.Log($"Destroying combat object by name: {name}");
+                Destroy(obj);
+            }
+        }
     }
     
     /// <summary>
@@ -397,6 +443,47 @@ public class SceneTransitionManager : MonoBehaviour
     {
         // Wait a frame to ensure all scene objects are initialized
         yield return null;
+        
+        // CRITICAL FIX: Find and destroy any lingering combat UI elements
+        // Look for the main root canvas that holds all combat UI
+        GameObject combatUIRoot = GameObject.Find("CombatUI");
+        if (combatUIRoot != null)
+        {
+            Debug.Log("Found and destroying CombatUI root object");
+            Destroy(combatUIRoot);
+        }
+        
+        // Check for common combat UI objects by name
+        string[] combatUINames = new string[] {
+            "BattleCanvas", "CombatCanvas", "SkillMenu", "ItemMenu", "ActionMenu",
+            "CharacterStatsPanel", "EnemyContainer", "PlayerContainer"
+        };
+        
+        foreach (string uiName in combatUINames)
+        {
+            GameObject obj = GameObject.Find(uiName);
+            if (obj != null)
+            {
+                Debug.Log($"Found and destroying combat UI element: {uiName}");
+                Destroy(obj);
+            }
+        }
+        
+        // Find and destroy the combat manager
+        CombatManager combatManager = FindObjectOfType<CombatManager>();
+        if (combatManager != null)
+        {
+            Debug.Log("Destroying lingering CombatManager");
+            Destroy(combatManager.gameObject);
+        }
+        
+        // Find and destroy the battle dialogue trigger
+        BattleDialogueTrigger battleDialogue = FindObjectOfType<BattleDialogueTrigger>();
+        if (battleDialogue != null)
+        {
+            Debug.Log("Destroying lingering BattleDialogueTrigger");
+            Destroy(battleDialogue.gameObject);
+        }
         
         // Find the player in the scene
         GameObject player = GameObject.FindGameObjectWithTag("Player");
@@ -805,5 +892,22 @@ public class SceneTransitionManager : MonoBehaviour
                 ScreenFader.Instance.ResetToVisible();
             }
         }
+    }
+    
+    /// <summary>
+    /// Set the return scene name for when combat ends
+    /// </summary>
+    /// <param name="sceneName">The scene name to return to after combat</param>
+    public void SetReturnScene(string sceneName)
+    {
+        if (string.IsNullOrEmpty(sceneName))
+        {
+            Debug.LogError("Cannot set empty scene name as return scene");
+            return;
+        }
+        
+        // Store the scene name to return to after combat
+        currentSceneName = sceneName;
+        Debug.Log($"Return scene set to: {currentSceneName}");
     }
 } 
