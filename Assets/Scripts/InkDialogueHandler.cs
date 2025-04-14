@@ -657,4 +657,34 @@ public class InkDialogueHandler : MonoBehaviour
         Debug.Log("CRITICAL NOTICE: Cold Key has been added to inventory through the GIVE_COLD_KEY tag");
         Debug.Log("=== END COLD KEY PROCESS ===");
     }
+
+    /// <summary>
+    /// Debug all variables in the Ink story
+    /// </summary>
+    public void DebugInkVariables()
+    {
+        if (_story == null)
+        {
+            Debug.LogError("Cannot debug variables: Story not initialized");
+            return;
+        }
+        
+        Debug.Log("=== INK STORY VARIABLES ===");
+        
+        // We know the deathCount variable exists, so directly check its value
+        if (_story.variablesState.GlobalVariableExistsWithName("deathCount"))
+        {
+            object deathCountValue = _story.variablesState["deathCount"];
+            Debug.Log($"Ink Variable: deathCount = {deathCountValue} (Type: {(deathCountValue != null ? deathCountValue.GetType().Name : "null")})");
+            
+            // Try parsing the value to an integer to help diagnose any issues
+            int parsedValue;
+            bool canParse = int.TryParse(deathCountValue.ToString(), out parsedValue);
+            Debug.Log($"deathCount as integer: {(canParse ? parsedValue.ToString() : "Cannot parse to integer")}");
+        }
+        else
+        {
+            Debug.LogWarning("deathCount variable does not exist in the story!");
+        }
+    }
 } 

@@ -1748,7 +1748,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1841684333}
-  - component: {fileID: 1841684335}
   - component: {fileID: 1841684334}
   m_Layer: 0
   m_Name: 'startroom dialogue '
@@ -1781,27 +1780,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 1841684332}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c00f8e386a2ff1d4bac5e9e59a0afb8e, type: 3}
+  m_Script: {fileID: 11500000, guid: 9833843f1345e0749991492d800ca1b0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  inkDialogueFile: {fileID: 4900000, guid: cb47c13511da24b4090d681e34df2ee9, type: 3}
   fadeInDuration: 1.5
---- !u!114 &1841684335
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1841684332}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 859f7c8c3093f674cbda03051d576d90, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  inkJSON: {fileID: 4900000, guid: ce88891825a777f46b061cac9d7b842d, type: 3}
-  resetOnInteract: 0
-  ravenbondMaxHPPenalty: 10
-  ravenbondMaxSanityPenalty: 10
-  ravenbondDebugKey: 289
 --- !u!1 &2144617125
 GameObject:
   m_ObjectHideFlags: 0
