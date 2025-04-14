@@ -96,3 +96,6 @@ Assets/Plugins/Editor/JetBrains*
 
 # Mono Auto Generated Files
 mono_crash.*
+
+# The Hollow Game Port folder
+/The Hollow Game Port/

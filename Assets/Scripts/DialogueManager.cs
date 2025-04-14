@@ -156,6 +156,25 @@ public class DialogueManager : MonoBehaviour
 
     private void Update()
     {
+        // Skip if no dialogue is active
+        if (!isDialogueActive) return;
+        
+        // CRITICAL FIX: If no Ink handler is set but dialogue is active, close the dialogue
+        // This prevents the "Cannot continue story: No Ink handler set" error
+        if (currentInkHandler == null)
+        {
+            Debug.LogWarning("Dialogue active but no Ink handler set. Forcing dialogue to close.");
+            CloseDialogue();
+            return;
+        }
+        
+        // If ESC is pressed, close the dialogue
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            CloseDialogue();
+            return;
+        }
+
         // Check if we're waiting for the interact key to be released
         if (waitForKeyRelease && Input.GetKeyUp(interactKey))
         {
@@ -164,7 +183,7 @@ public class DialogueManager : MonoBehaviour
         }
 
         // Handle choice navigation with keyboard
-        if (isDialogueActive && choiceButtons.Count > 0)
+        if (choiceButtons.Count > 0)
         {
             // Navigate up
             if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.W))
@@ -196,7 +215,7 @@ public class DialogueManager : MonoBehaviour
             }
         }
         // Continue dialogue with interact key ONLY if no choices are displayed
-        else if (isDialogueActive && choiceButtons.Count == 0 && Input.GetKeyDown(interactKey) && !waitForKeyRelease)
+        else if (choiceButtons.Count == 0 && Input.GetKeyDown(interactKey) && !waitForKeyRelease)
         {
             Debug.Log("[DEBUG NEW] Continuing dialogue via keyboard (no choices active)");
             if (typingCoroutine != null)
@@ -980,6 +999,8 @@ public class DialogueManager : MonoBehaviour
         if (currentInkHandler == null)
         {
             Debug.LogError("Cannot continue story: No Ink handler set");
+            // CRITICAL FIX: Auto-close dialogue when there's no handler to prevent getting stuck
+            CloseDialogue();
             return;
         }
         

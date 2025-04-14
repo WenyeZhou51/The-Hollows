@@ -100,10 +100,21 @@ public class LockedDoorway : MonoBehaviour, IInteractable
     {
         yield return new WaitForSeconds(delay);
         
-        // Close any open dialogue
+        // CRITICAL FIX: Close any open dialogue BEFORE transition
+        // This ensures dialogue system is properly reset before scene change
         if (DialogueManager.Instance != null)
         {
             DialogueManager.Instance.CloseDialogue();
+            
+            // Wait one additional frame to ensure dialogue is fully closed
+            yield return null;
+        }
+        
+        // Make sure DialogueManager isn't in an active state before transitioning
+        if (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive())
+        {
+            Debug.LogWarning("DialogueManager still active after attempting to close - forcing inactive state");
+            yield return new WaitForSeconds(0.2f);
         }
         
         TriggerTransition(player);
