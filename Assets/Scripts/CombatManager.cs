@@ -81,10 +81,54 @@ public class CombatManager : MonoBehaviour
 
     private void Start()
     {
+        Debug.LogError($"[CRITICAL DEBUG] CombatManager Start in scene: {SceneManager.GetActiveScene().name}, Is Battle_Obelisk: {SceneManager.GetActiveScene().name == "Battle_Obelisk"}");
+        
+        // CRITICAL FIX: Ensure SceneTransitionManager exists
+        SceneTransitionManager.EnsureExists();
+        
+        // Log if SceneTransitionManager was found
+        if (SceneTransitionManager.Instance != null)
+        {
+            Debug.LogError("[COMBAT DEBUG] SceneTransitionManager found with ID: " + SceneTransitionManager.Instance.GetInstanceID());
+            
+            // VERY CRITICAL: Check PlayerPrefs to see if there's a return scene
+            if (PlayerPrefs.HasKey("ReturnSceneName"))
+            {
+                string savedScene = PlayerPrefs.GetString("ReturnSceneName");
+                Debug.LogError($"[CRITICAL DEBUG] Return scene found in PlayerPrefs: '{savedScene}'");
+            }
+            else
+            {
+                Debug.LogError("[CRITICAL DEBUG] NO return scene found in PlayerPrefs!");
+            }
+        }
+        else
+        {
+            Debug.LogError("[COMBAT DEBUG] CRITICAL ERROR: SceneTransitionManager.Instance is null even after EnsureExists!");
+        }
+        
         // Initialize from SceneTransitionManager's inventory
         if (SceneTransitionManager.Instance != null)
         {
             playerInventoryItems = SceneTransitionManager.Instance.GetPlayerInventory();
+            
+            // CRITICAL FIX: Make sure SceneTransitionManager is listening to combat end events
+            Debug.LogError("[COMBAT DEBUG] Registering SceneTransitionManager for combat end events");
+            if (OnCombatEnd != null)
+            {
+                Debug.LogError("[CRITICAL DEBUG] WARNING: OnCombatEnd already has listeners before subscribing SceneTransitionManager!");
+                Delegate[] delegates = OnCombatEnd.GetInvocationList();
+                foreach (var del in delegates)
+                {
+                    Debug.LogError($"[CRITICAL DEBUG] Existing delegate: {del.Target.GetType().Name}.{del.Method.Name}");
+                }
+            }
+            OnCombatEnd += SceneTransitionManager.Instance.EndCombat;
+            Debug.LogError($"[CRITICAL DEBUG] Added SceneTransitionManager.EndCombat to event. Now has listeners: {(OnCombatEnd != null)}");
+        }
+        else
+        {
+            Debug.LogError("[COMBAT DEBUG] Cannot get inventory, SceneTransitionManager.Instance is null!");
         }
 
         // Find required components
@@ -640,9 +684,20 @@ public class CombatManager : MonoBehaviour
 
     private void TriggerVictory()
     {
+        Debug.LogError("[COMBAT DEBUG] TriggerVictory called - isCombatEnded: " + isCombatEnded);
+        Debug.LogError("[COMBAT DEBUG] OnCombatEnd event has listeners: " + (OnCombatEnd != null).ToString());
+        Debug.LogError("[COMBAT DEBUG] SceneTransitionManager exists: " + (SceneTransitionManager.Instance != null).ToString());
+        
         if (OnCombatEnd != null && !isCombatEnded)
         {
+            Debug.LogError("[COMBAT DEBUG] Calling OnCombatEnd event with victory=true");
             OnCombatEnd(true);
+        }
+        else
+        {
+            Debug.LogError("[COMBAT DEBUG] No listeners for OnCombatEnd event, calling ProceedWithVictory directly");
+            // CRITICAL FIX: If no event listeners, call ProceedWithVictory directly
+            ProceedWithVictory();
         }
     }
     
@@ -887,15 +942,25 @@ public class CombatManager : MonoBehaviour
     // Method to proceed with victory after dialogue sequence
     public void ProceedWithVictory()
     {
+        Debug.LogError("[COMBAT DEBUG] ProceedWithVictory called - isCombatEnded: " + isCombatEnded);
+        Debug.LogError("[COMBAT DEBUG] OnCombatEnd has listeners: " + (OnCombatEnd != null).ToString());
+        Debug.LogError("[COMBAT DEBUG] SceneTransitionManager exists: " + (SceneTransitionManager.Instance != null).ToString());
+        
         if (OnCombatEnd != null && !isCombatEnded)
         {
+            Debug.LogError("[COMBAT DEBUG] Inside ProceedWithVictory - Calling OnCombatEnd event with victory=true");
             isCombatEnded = true;
             OnCombatEnd(true);
         }
         else if (SceneTransitionManager.Instance != null && !isCombatEnded)
         {
+            Debug.LogError("[COMBAT DEBUG] Inside ProceedWithVictory - Calling SceneTransitionManager.EndCombat directly");
             isCombatEnded = true;
             SceneTransitionManager.Instance.EndCombat(true);
+        }
+        else
+        {
+            Debug.LogError("[COMBAT DEBUG] WARNING: Cannot proceed with victory - SceneTransitionManager is null or combat already ended");
         }
     }
 } 

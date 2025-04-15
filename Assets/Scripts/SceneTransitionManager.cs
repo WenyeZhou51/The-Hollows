@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Random = UnityEngine.Random;
+using System;
 
 public class SceneTransitionManager : MonoBehaviour
 {
@@ -49,9 +50,22 @@ public class SceneTransitionManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
+            Debug.Log($"[SCENE TRANSITION DEBUG] SceneTransitionManager Awake - set as singleton instance (ID: {GetInstanceID()})");
+            Debug.Log($"[SCENE TRANSITION DEBUG] DontDestroyOnLoad set on SceneTransitionManager");
+            
+            // CRITICAL FIX: When a new instance is created, check if we have scene info in PlayerPrefs
+            if (PlayerPrefs.HasKey("ReturnSceneName"))
+            {
+                currentSceneName = PlayerPrefs.GetString("ReturnSceneName");
+                Debug.Log($"[SCENE TRANSITION DEBUG] On Awake: Loaded return scene from PlayerPrefs: {currentSceneName}");
+            }
+            
+            // CRITICAL FIX: Subscribe to scene loaded events to hook into CombatManager when needed
+            SceneManager.sceneLoaded += OnSceneLoaded;
         }
         else
         {
+            Debug.Log($"[SCENE TRANSITION DEBUG] Destroying duplicate SceneTransitionManager (ID: {GetInstanceID()}, keeping existing ID: {Instance.GetInstanceID()})");
             Destroy(gameObject);
         }
     }
@@ -318,6 +332,15 @@ public class SceneTransitionManager : MonoBehaviour
     /// <param name="won">Whether the player won the combat</param>
     public void EndCombat(bool won)
     {
+        Debug.Log($"[SCENE TRANSITION DEBUG] EndCombat called with result: {(won ? "WIN" : "LOSE")} (Instance ID: {GetInstanceID()})");
+        
+        // Check if we have a valid return scene, and if not, try to recover from PlayerPrefs
+        if (string.IsNullOrEmpty(currentSceneName) && PlayerPrefs.HasKey("ReturnSceneName"))
+        {
+            currentSceneName = PlayerPrefs.GetString("ReturnSceneName");
+            Debug.Log($"[SCENE TRANSITION DEBUG] Recovered return scene from PlayerPrefs: {currentSceneName}");
+        }
+        
         // Store combat result
         combatWon = won;
         
@@ -329,7 +352,7 @@ public class SceneTransitionManager : MonoBehaviour
             
             // Mark this enemy as defeated in the persistent game manager
             PersistentGameManager.Instance.MarkEnemyDefeated(enemyIdThatInitiatedCombat);
-            Debug.Log($"Marked enemy {enemyIdThatInitiatedCombat} as defeated");
+            Debug.Log($"[SCENE TRANSITION DEBUG] Marked enemy {enemyIdThatInitiatedCombat} as defeated");
             
             // Log all defeated enemies for debugging
             PersistentGameManager.Instance.LogDefeatedEnemies();
@@ -341,7 +364,15 @@ public class SceneTransitionManager : MonoBehaviour
         // Make sure ScreenFader exists
         ScreenFader.EnsureExists();
         
+        // CRITICAL: Double check we have a valid scene to return to
+        if (string.IsNullOrEmpty(currentSceneName))
+        {
+            Debug.LogError("[SCENE TRANSITION DEBUG] No return scene set! Falling back to default overworld scene");
+            currentSceneName = overworldSceneName;
+        }
+        
         // Start the transition with fade effect
+        Debug.Log($"[SCENE TRANSITION DEBUG] About to start TransitionToOverworld coroutine with destination: {currentSceneName}");
         StartCoroutine(TransitionToOverworld());
     }
     
@@ -393,17 +424,34 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     private IEnumerator TransitionToOverworld()
     {
-        Debug.Log($"Beginning transition back to scene: {currentSceneName}");
+        Debug.Log($"[SCENE TRANSITION DEBUG] Beginning transition back to scene: {currentSceneName} (Instance ID: {GetInstanceID()})");
+        Debug.Log($"[SCENE TRANSITION DEBUG] Is currentSceneName null or empty: {string.IsNullOrEmpty(currentSceneName)}");
+        
+        // CRITICAL FIX: Check if currentSceneName is empty or null, and if so, try to get it from PlayerPrefs
+        if (string.IsNullOrEmpty(currentSceneName))
+        {
+            // Try to recover the scene name from PlayerPrefs
+            if (PlayerPrefs.HasKey("ReturnSceneName"))
+            {
+                currentSceneName = PlayerPrefs.GetString("ReturnSceneName");
+                Debug.Log($"[SCENE TRANSITION DEBUG] Recovered scene name from PlayerPrefs: {currentSceneName}");
+            }
+            else
+            {
+                Debug.LogError("[SCENE TRANSITION DEBUG] Could not recover return scene name from PlayerPrefs, falling back to default scene");
+                currentSceneName = overworldSceneName; // Fallback to the default overworld scene
+            }
+        }
         
         // Validate the scene name before attempting transition
         if (!IsSceneValid(currentSceneName))
         {
-            Debug.LogError($"Scene '{currentSceneName}' does not exist in build settings. Falling back to entrance scene.");
+            Debug.LogError($"[SCENE TRANSITION DEBUG] Scene '{currentSceneName}' does not exist in build settings. Falling back to entrance scene.");
             // Fall back to the entrance scene if the current scene is invalid
             currentSceneName = overworldSceneName;
             
             if (!IsSceneValid(overworldSceneName)) {
-                Debug.LogError($"Fallback scene '{overworldSceneName}' also does not exist. Make sure to add it in File > Build Settings.");
+                Debug.LogError($"[SCENE TRANSITION DEBUG] Fallback scene '{overworldSceneName}' also does not exist. Make sure to add it in File > Build Settings.");
                 // Fade back from black since we're not transitioning
                 StartCoroutine(ScreenFader.Instance.FadeFromBlack());
                 yield break;
@@ -417,7 +465,7 @@ public class SceneTransitionManager : MonoBehaviour
         SceneManager.sceneLoaded += OnOverworldSceneLoaded;
         
         // Load the scene we came from
-        Debug.Log($"Now loading scene: {currentSceneName}");
+        Debug.Log($"[SCENE TRANSITION DEBUG] Now loading scene: {currentSceneName}");
         SceneManager.LoadScene(currentSceneName);
     }
     
@@ -742,19 +790,28 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     private bool IsSceneValid(string sceneName)
     {
+        Debug.Log($"[SCENE TRANSITION DEBUG] Checking if scene '{sceneName}' is valid in build settings");
+        
         // Check if the scene exists in build settings
         int sceneCount = SceneManager.sceneCountInBuildSettings;
+        Debug.Log($"[SCENE TRANSITION DEBUG] Total scenes in build settings: {sceneCount}");
+        
         for (int i = 0; i < sceneCount; i++)
         {
             string scenePath = SceneUtility.GetScenePathByBuildIndex(i);
             string sceneNameFromPath = System.IO.Path.GetFileNameWithoutExtension(scenePath);
             
+            // Log each scene to help with debugging
+            Debug.Log($"[SCENE TRANSITION DEBUG] Build index {i}: '{sceneNameFromPath}' (Path: {scenePath})");
+            
             if (string.Equals(sceneNameFromPath, sceneName, System.StringComparison.OrdinalIgnoreCase))
             {
+                Debug.Log($"[SCENE TRANSITION DEBUG] Found matching scene '{sceneName}' at build index {i}");
                 return true;
             }
         }
         
+        Debug.LogError($"[SCENE TRANSITION DEBUG] Scene '{sceneName}' was NOT found in any build settings entries!");
         return false;
     }
     
@@ -902,12 +959,112 @@ public class SceneTransitionManager : MonoBehaviour
     {
         if (string.IsNullOrEmpty(sceneName))
         {
-            Debug.LogError("Cannot set empty scene name as return scene");
+            Debug.LogError("[SCENE TRANSITION DEBUG] Cannot set empty scene name as return scene");
             return;
         }
         
         // Store the scene name to return to after combat
         currentSceneName = sceneName;
-        Debug.Log($"Return scene set to: {currentSceneName}");
+        
+        // CRITICAL FIX: Also store in PlayerPrefs to survive scene transitions in builds
+        PlayerPrefs.SetString("ReturnSceneName", sceneName);
+        PlayerPrefs.Save();
+        
+        Debug.Log($"[SCENE TRANSITION DEBUG] Return scene set to: {currentSceneName} (Instance ID: {GetInstanceID()})");
+        Debug.Log($"[SCENE TRANSITION DEBUG] Return scene also saved to PlayerPrefs: {PlayerPrefs.GetString("ReturnSceneName")}");
+        
+        // Log the stack trace to see what's calling this method
+        Debug.Log($"[SCENE TRANSITION DEBUG] SetReturnScene called from:\n{System.Environment.StackTrace}");
+    }
+    
+    // CRITICAL FIX: Add a method to handle scene loaded events and hook into CombatManager
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        // Check if we loaded a battle scene
+        if (scene.name.StartsWith("Battle_"))
+        {
+            Debug.LogError($"[SCENE TRANSITION DEBUG] Battle scene loaded: {scene.name}, looking for CombatManager");
+            
+            // Wait a frame for everything to initialize
+            StartCoroutine(ConnectToCombatManager());
+        }
+    }
+    
+    // CRITICAL FIX: Coroutine to find and connect to the CombatManager
+    private IEnumerator ConnectToCombatManager()
+    {
+        // Wait for two frames to ensure everything is initialized
+        yield return null;
+        yield return null;
+        
+        // Current scene check
+        Debug.LogError($"[CRITICAL DEBUG] ConnectToCombatManager running in scene: {SceneManager.GetActiveScene().name}");
+        
+        // Check return scene in PlayerPrefs
+        if (PlayerPrefs.HasKey("ReturnSceneName")) 
+        {
+            string savedScene = PlayerPrefs.GetString("ReturnSceneName");
+            Debug.LogError($"[CRITICAL DEBUG] Return scene in PlayerPrefs: '{savedScene}'");
+        }
+        else
+        {
+            Debug.LogError("[CRITICAL DEBUG] NO return scene found in PlayerPrefs during ConnectToCombatManager!");
+        }
+        
+        // Find the CombatManager
+        CombatManager combatManager = FindObjectOfType<CombatManager>();
+        
+        if (combatManager != null)
+        {
+            Debug.LogError($"[SCENE TRANSITION DEBUG] Found CombatManager, connecting to OnCombatEnd event");
+            
+            // Simply subscribe to the event - no checking delegates
+            combatManager.OnCombatEnd += EndCombat;
+            Debug.LogError("[CRITICAL DEBUG] Successfully subscribed to CombatManager.OnCombatEnd");
+            
+            // Add safety check for Obelisk battle
+            if (SceneManager.GetActiveScene().name == "Battle_Obelisk")
+            {
+                Debug.LogError("[CRITICAL DEBUG] This is Battle_Obelisk - adding extra safety check");
+                StartCoroutine(EnsureTransitionWorks());
+            }
+        }
+        else
+        {
+            Debug.LogError($"[SCENE TRANSITION DEBUG] CRITICAL ERROR: Could not find CombatManager in battle scene!");
+        }
+    }
+    
+    // Safety method for Obelisk battle
+    private IEnumerator EnsureTransitionWorks()
+    {
+        // Wait 5 seconds as safety check for battles that might not trigger EndCombat properly
+        yield return new WaitForSeconds(5f);
+        
+        // Check if we're still in the battle scene
+        if (SceneManager.GetActiveScene().name == "Battle_Obelisk")
+        {
+            // Check if PlayerPrefs has return scene
+            if (PlayerPrefs.HasKey("ReturnSceneName"))
+            {
+                currentSceneName = PlayerPrefs.GetString("ReturnSceneName");
+                Debug.LogError($"[CRITICAL DEBUG] Safety check: starting TransitionToOverworld with scene {currentSceneName}");
+            }
+        }
+    }
+    
+    private void OnDestroy()
+    {
+        // Unsubscribe from scene loaded events
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+        
+        // Log when this object is destroyed
+        Debug.LogWarning($"[SCENE TRANSITION DEBUG] SceneTransitionManager OnDestroy called (ID: {GetInstanceID()})");
+        
+        // Check if this was the active instance
+        if (Instance == this)
+        {
+            Debug.LogError("[SCENE TRANSITION DEBUG] The active SceneTransitionManager instance was destroyed!");
+        }
     }
 } 
