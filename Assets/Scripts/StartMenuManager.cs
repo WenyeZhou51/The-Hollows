@@ -215,6 +215,16 @@ public class StartMenuManager : MonoBehaviour
     {
         Debug.Log("CRITICAL DEBUG: OnSceneLoaded was called - will attempt to fade screen");
         
+        // Skip handling for battle scenes - let SceneTransitionManager handle them
+        if (scene.name.StartsWith("Battle_"))
+        {
+            Debug.Log($"CRITICAL DEBUG: Skipping StartMenuManager fade for battle scene: {scene.name}");
+            // Unregister to prevent memory leaks and multiple calls
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            isAnimating = false;
+            return;
+        }
+        
         // Safety check for ScreenFader
         if (ScreenFader.Instance == null)
         {
