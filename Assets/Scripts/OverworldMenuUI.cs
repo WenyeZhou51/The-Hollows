@@ -868,30 +868,17 @@ public class OverworldMenuUI : MonoBehaviour
         
         Debug.Log($"[OverworldMenuUI] Initializing {characterName} panel: {panel.name}");
         
-        // Get or create name text component
+        // Skip creating the name text component to avoid white text with character names
+        // We still keep the dictionary entry but don't create or set the text
         TextMeshProUGUI nameText = panel.transform.Find("NameText")?.GetComponent<TextMeshProUGUI>();
-        if (nameText == null)
+        if (nameText != null)
         {
-            Debug.Log($"[OverworldMenuUI] Creating NameText for {characterName}");
-            GameObject nameTextObj = new GameObject("NameText");
-            nameTextObj.transform.SetParent(panel.transform, false);
-            
-            RectTransform rectTransform = nameTextObj.AddComponent<RectTransform>();
-            rectTransform.anchorMin = new Vector2(0, 0.8f);
-            rectTransform.anchorMax = new Vector2(1, 1.0f);
-            rectTransform.offsetMin = new Vector2(10, 0);
-            rectTransform.offsetMax = new Vector2(-10, 0);
-            
-            nameText = nameTextObj.AddComponent<TextMeshProUGUI>();
-            nameText.fontSize = 18;
-            nameText.fontStyle = FontStyles.Bold;
-            nameText.alignment = TextAlignmentOptions.Center;
-            nameText.color = Color.white;
+            // If it already exists, disable it
+            nameText.gameObject.SetActive(false);
         }
         
-        // Set name
-        nameText.text = characterName;
-        characterNameTexts[panel] = nameText;
+        // Add a reference to the dictionary with null to maintain code compatibility
+        characterNameTexts[panel] = null;
 
         // Get or create health text component
         TextMeshProUGUI healthText = panel.transform.Find("HealthText")?.GetComponent<TextMeshProUGUI>();

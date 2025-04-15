@@ -38,9 +38,17 @@ public class LootTable : ScriptableObject
         if (initializeDefaultLoot && lootItems.Count == 0)
         {
             // Add default loot items
-            lootItems.Add(new LootItem { itemName = "Fruit Juice", description = "Heals 30 HP", weight = 0.8f, requiresTarget = true });
-            lootItems.Add(new LootItem { itemName = "Shiny Bead", description = "Deals 20 damage to target enemy", weight = 0.1f, requiresTarget = true });
+            lootItems.Add(new LootItem { itemName = "Fruit Juice", description = "Heals 30 HP", weight = 0.25f, requiresTarget = true });
+            lootItems.Add(new LootItem { itemName = "Shiny Bead", description = "Deals 20 damage to target enemy", weight = 0.25f, requiresTarget = true });
             lootItems.Add(new LootItem { itemName = "Super Espress-O", description = "Restores 50 SP and increases ally speed by 50%", weight = 0.1f, requiresTarget = true });
+            
+            // Add new items
+            lootItems.Add(new LootItem { itemName = "Panacea", description = "Heal target party member for 100HP and 100SP, remove all negative status effects", weight = 0.05f, requiresTarget = true });
+            lootItems.Add(new LootItem { itemName = "Tower Shield", description = "Gives TOUGH to ally for 3 turns", weight = 0.1f, requiresTarget = true });
+            lootItems.Add(new LootItem { itemName = "Pocket Sand", description = "WEAKENS all target enemies", weight = 0.1f, requiresTarget = true });
+            lootItems.Add(new LootItem { itemName = "Otherworldly Tome", description = "Gives STRENGTH to all party members for 3 turns", weight = 0.05f, requiresTarget = false });
+            lootItems.Add(new LootItem { itemName = "Unstable Catalyst", description = "Deals 40 damage to all enemies", weight = 0.05f, requiresTarget = false });
+            lootItems.Add(new LootItem { itemName = "Ramen", description = "Heals ally for 15 HP", weight = 0.05f, requiresTarget = true });
         }
     }
     
