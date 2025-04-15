@@ -11,27 +11,29 @@ You flip through the book. It seems to be about alchemy.
 
 "Below lists a transmutation ritual for each part. You can perform them on the altar."
 
+~ temp part = ""
 + [Transmute the Aperture] 
-    ~ temp part = "Aperture"
+    ~ part = "Aperture"
     -> choose_transmutation(part)
 + [Transmute the Spindle] 
-    ~ temp part = "Spindle"
+    ~ part = "Spindle"
     -> choose_transmutation(part)
 + [Transmute the Locus] 
-    ~ temp part = "Locus"
+    ~ part = "Locus"
     -> choose_transmutation(part)
 + [Close the book] -> end
 
 === choose_transmutation(part) ===
 What to transmute the {part} into?
+~ temp result = ""
 + [Panacea] 
-    ~ temp result = "Panacea"
+    ~ result = "Panacea"
     -> transmutation_complete(part, result)
 + [Combustive catalyst] 
-    ~ temp result = "Combustive catalyst"
+    ~ result = "Combustive catalyst"
     -> transmutation_complete(part, result)
 + [Void medallion] 
-    ~ temp result = "Void medallion"
+    ~ result = "Void medallion"
     -> transmutation_complete(part, result)
 + [Cancel] -> altar_book
 
