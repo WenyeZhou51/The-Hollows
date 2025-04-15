@@ -451,6 +451,10 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 5499555810161116369, guid: 19740f7463b27494889bb728ab465cdd, type: 3}
+      propertyPath: targetMarkerId
+      value: down
+      objectReference: {fileID: 0}
+    - target: {fileID: 5499555810161116369, guid: 19740f7463b27494889bb728ab465cdd, type: 3}
       propertyPath: targetSceneName
       value: Obelisk_Hall
       objectReference: {fileID: 0}
