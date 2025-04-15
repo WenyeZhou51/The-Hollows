@@ -5,6 +5,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Random = UnityEngine.Random;
 using System;
+using TMPro;
 
 public class SceneTransitionManager : MonoBehaviour
 {
@@ -381,6 +382,39 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     private void CleanupCombatObjects()
     {
+        Debug.LogError("[CRITICAL DEBUG] CleanupCombatObjects called - cleaning up combat UI elements");
+        
+        // CRITICAL FIX: SPECIFICALLY TARGET THE TEXT PANEL THAT SHOWS ENEMY ACTIONS
+        GameObject textPanel = GameObject.Find("TextPanel");
+        if (textPanel != null)
+        {
+            Debug.LogError("[CRITICAL DEBUG] Found and destroying TextPanel that shows enemy actions");
+            Destroy(textPanel);
+            
+            // Also try to find it by transform hierarchy
+            var canvases = FindObjectsOfType<Canvas>();
+            foreach (var canvas in canvases)
+            {
+                // Try to find it as a direct child of the main canvas
+                Transform foundPanel = canvas.transform.Find("TextPanel");
+                if (foundPanel != null)
+                {
+                    Debug.LogError("[CRITICAL DEBUG] Found TextPanel through canvas.transform.Find - destroying it");
+                    Destroy(foundPanel.gameObject);
+                }
+                
+                // Try looking through all children of the canvas (in case it's nested)
+                foreach (Transform child in canvas.transform)
+                {
+                    if (child.name == "TextPanel")
+                    {
+                        Debug.LogError("[CRITICAL DEBUG] Found TextPanel as child of canvas - destroying it");
+                        Destroy(child.gameObject);
+                    }
+                }
+            }
+        }
+        
         // Find all root GameObjects in the scene
         GameObject[] rootObjects = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
         
@@ -405,7 +439,10 @@ public class SceneTransitionManager : MonoBehaviour
         // These might have DontDestroyOnLoad set on them
         string[] combatObjectNames = new string[] {
             "CombatManager", "BattleManager", "CombatUI", "BattleUI", 
-            "BattleDialogueTrigger", "CombatCanvas", "ActionMenu"
+            "BattleDialogueTrigger", "CombatCanvas", "ActionMenu",
+            "SkillMenu", "ItemMenu", "CharacterStatsPanel", "TurnText",
+            "StatsPanelContainer", "EnemyContainer", "PlayerContainer", 
+            "ActionLabel", "ActionMenuCanvas", "CombatUIRoot"
         };
         
         foreach (string name in combatObjectNames)
@@ -413,8 +450,24 @@ public class SceneTransitionManager : MonoBehaviour
             GameObject obj = GameObject.Find(name);
             if (obj != null)
             {
-                Debug.Log($"Destroying combat object by name: {name}");
+                Debug.LogError($"[CRITICAL DEBUG] Destroying combat object by name: {name}");
                 Destroy(obj);
+            }
+        }
+        
+        // CRITICAL FIX: Find ALL canvases with combat-related names
+        // This is a more aggressive approach that will catch renamed objects
+        Canvas[] allCanvases = FindObjectsOfType<Canvas>(true); // Include inactive objects
+        foreach (Canvas canvas in allCanvases)
+        {
+            string canvasName = canvas.gameObject.name.ToLower();
+            if (canvasName.Contains("combat") || canvasName.Contains("battle") || 
+                canvasName.Contains("enemy") || canvasName.Contains("action") || 
+                canvasName.Contains("menu") || canvasName.Contains("skill") || 
+                canvasName.Contains("item") || canvasName.Contains("stats"))
+            {
+                Debug.LogError($"[CRITICAL DEBUG] Destroying combat canvas with matching name: {canvas.gameObject.name}");
+                Destroy(canvas.gameObject);
             }
         }
     }
@@ -492,28 +545,74 @@ public class SceneTransitionManager : MonoBehaviour
         // Wait a frame to ensure all scene objects are initialized
         yield return null;
         
-        // CRITICAL FIX: Find and destroy any lingering combat UI elements
-        // Look for the main root canvas that holds all combat UI
-        GameObject combatUIRoot = GameObject.Find("CombatUI");
-        if (combatUIRoot != null)
+        Debug.LogError("[CRITICAL DEBUG] SetupOverworldAfterCombat running - aggressive UI cleanup");
+        
+        // CRITICAL FIX: SPECIFICALLY TARGET THE TEXT PANEL THAT SHOWS ENEMY ACTIONS
+        // This is the object that wasn't being properly cleaned up in builds
+        GameObject textPanel = GameObject.Find("TextPanel");
+        if (textPanel != null)
         {
-            Debug.Log("Found and destroying CombatUI root object");
-            Destroy(combatUIRoot);
+            Debug.LogError("[CRITICAL DEBUG] Found and destroying TextPanel that shows enemy actions");
+            Destroy(textPanel);
+        }
+        
+        // Also check if TextPanel is still a child of some parent canvas
+        var allCanvases = FindObjectsOfType<Canvas>();
+        foreach (var canvas in allCanvases)
+        {
+            // Look for direct children named TextPanel
+            Transform textPanelTransform = canvas.transform.Find("TextPanel");
+            if (textPanelTransform != null)
+            {
+                Debug.LogError("[CRITICAL DEBUG] Found TextPanel as direct child of " + canvas.name);
+                Destroy(textPanelTransform.gameObject);
+            }
+            
+            // Look for TMPro components that might be part of the text panel
+            TextMeshProUGUI[] textComponents = canvas.GetComponentsInChildren<TextMeshProUGUI>(true);
+            foreach (var text in textComponents)
+            {
+                if (text.transform.parent != null && text.transform.parent.name == "TextPanel")
+                {
+                    Debug.LogError("[CRITICAL DEBUG] Found TextPanel through its TMPro child");
+                    Destroy(text.transform.parent.gameObject);
+                }
+            }
         }
         
         // Check for common combat UI objects by name
+        // Extended the list to catch more possible UI names
         string[] combatUINames = new string[] {
             "BattleCanvas", "CombatCanvas", "SkillMenu", "ItemMenu", "ActionMenu",
-            "CharacterStatsPanel", "EnemyContainer", "PlayerContainer"
+            "CharacterStatsPanel", "EnemyContainer", "PlayerContainer", "TurnText",
+            "StatsPanelContainer", "ActionLabel", "ActionMenuCanvas", "CombatUIRoot",
+            "CombatManager", "BattleManager", "BattleDialogueTrigger", "MenuSelector",
+            "EnemyUI", "PlayerUI", "SkillButton", "ItemButton", "ActionContainer"
         };
         
+        // Try to destroy by name
         foreach (string uiName in combatUINames)
         {
             GameObject obj = GameObject.Find(uiName);
             if (obj != null)
             {
-                Debug.Log($"Found and destroying combat UI element: {uiName}");
+                Debug.LogError($"[CRITICAL DEBUG] Found and destroying combat UI element: {uiName}");
                 Destroy(obj);
+            }
+        }
+        
+        // CRITICAL FIX: Look for objects with combat tags as a backup
+        GameObject[] allObjects = FindObjectsOfType<GameObject>();
+        string[] combatTags = new string[] { "CombatUI", "BattleUI", "EnemyUI", "PlayerUI" };
+        foreach (GameObject obj in allObjects)
+        {
+            foreach (string tag in combatTags)
+            {
+                if (obj.CompareTag(tag))
+                {
+                    Debug.LogError($"[CRITICAL DEBUG] Found and destroying object with tag '{tag}': {obj.name}");
+                    Destroy(obj);
+                }
             }
         }
         
@@ -521,7 +620,7 @@ public class SceneTransitionManager : MonoBehaviour
         CombatManager combatManager = FindObjectOfType<CombatManager>();
         if (combatManager != null)
         {
-            Debug.Log("Destroying lingering CombatManager");
+            Debug.LogError("[CRITICAL DEBUG] Destroying lingering CombatManager");
             Destroy(combatManager.gameObject);
         }
         
@@ -529,7 +628,7 @@ public class SceneTransitionManager : MonoBehaviour
         BattleDialogueTrigger battleDialogue = FindObjectOfType<BattleDialogueTrigger>();
         if (battleDialogue != null)
         {
-            Debug.Log("Destroying lingering BattleDialogueTrigger");
+            Debug.LogError("[CRITICAL DEBUG] Destroying lingering BattleDialogueTrigger");
             Destroy(battleDialogue.gameObject);
         }
         
@@ -537,7 +636,7 @@ public class SceneTransitionManager : MonoBehaviour
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
         {
-            Debug.Log("Found player in overworld, setting up after combat");
+            Debug.LogError("[CRITICAL DEBUG] Found player in overworld, setting up after combat");
             
             // Wait another frame to ensure all components are initialized
             yield return null;

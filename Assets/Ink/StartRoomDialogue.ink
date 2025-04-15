@@ -12,8 +12,7 @@ VAR deathCount = 0
         
         The Obelisk lies in this basement. The heart of corruption. 
         
-        Clense it and the world is save, fail and the world is forfeit. 
-        
+        Clense it and the world is saved, fail and the world is forfeit. 
         
         The fire crackles in the entrance room.
     - deathCount == 1:
@@ -37,7 +36,9 @@ VAR deathCount = 0
         
         It it's not a fluke. You cannot die.
         
-        It didn't matter you couldn't fall the obelisk, that you died horribly, that your friends died horribly. It didn't matter you are underprepared, that you couldn't understand anything.
+        It didn't matter you couldn't fall the obelisk, that you died horribly, that your friends died horribly. 
+        
+        It didn't matter you are underprepared, that you couldn't understand anything.
         
         You can try and try again, to fall the obelisk, to save the world.
         
@@ -57,7 +58,9 @@ VAR deathCount = 0
     - deathCount == 6:
         You're fine. Safely back here staring at the fire. You can go again.
     - deathCount == 7:
-        You know the dungeon like the back of your hand. The dim-lit walls, the shuffling enemies, and stagnent air, and you, existing harmoniously within it.
+        You know the dungeon like the back of your hand. The dim-lit walls, the shuffling enemies, and stagnent air.
+        
+        and you, existing harmoniously within it.
         
         You take a deep breath, and continue.
     - else:
