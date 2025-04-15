@@ -44,6 +44,12 @@ public class SceneTransitionManager : MonoBehaviour
     // New fields for multiple battle types
     private string[] battleScenes = new string[] { "Battle_Weaver", "Battle_Aperture" };
     
+    // Static flag to track if a fade is already in progress
+    private static bool isFadingInProgress = false;
+    
+    // Flag to track if we're already subscribed to CombatManager.OnCombatEnd
+    private bool isSubscribedToCombatEnd = false;
+    
     private void Awake()
     {
         // Singleton setup
@@ -94,16 +100,25 @@ public class SceneTransitionManager : MonoBehaviour
             // Look for existing instance
             SceneTransitionManager[] managers = FindObjectsOfType<SceneTransitionManager>();
             
+            Debug.Log($"[TRANSITION DEBUG] EnsureExists found {managers.Length} SceneTransitionManager instances");
+            
             if (managers.Length > 0)
             {
                 // Use first instance found
                 Instance = managers[0];
-                Debug.Log("Found existing SceneTransitionManager");
+                Debug.Log($"[TRANSITION DEBUG] Using existing SceneTransitionManager (ID: {Instance.GetInstanceID()}) in scene {SceneManager.GetActiveScene().name}");
+                
+                // Mark it with DontDestroyOnLoad if it's not already
+                if (Instance.gameObject.scene.name == SceneManager.GetActiveScene().name)
+                {
+                    DontDestroyOnLoad(Instance.gameObject);
+                    Debug.Log($"[TRANSITION DEBUG] Applied DontDestroyOnLoad to existing SceneTransitionManager");
+                }
                 
                 // Destroy any extras
                 for (int i = 1; i < managers.Length; i++)
                 {
-                    Debug.LogWarning("Destroying extra SceneTransitionManager instance");
+                    Debug.Log($"[TRANSITION DEBUG] Destroying extra SceneTransitionManager instance (ID: {managers[i].GetInstanceID()})");
                     Destroy(managers[i].gameObject);
                 }
             }
@@ -112,7 +127,27 @@ public class SceneTransitionManager : MonoBehaviour
                 // Only create a new instance if we're not during scene unloading
                 GameObject managerObj = new GameObject("SceneTransitionManager");
                 Instance = managerObj.AddComponent<SceneTransitionManager>();
-                Debug.Log("Created new SceneTransitionManager");
+                DontDestroyOnLoad(managerObj);
+                Debug.Log($"[TRANSITION DEBUG] Created new SceneTransitionManager (ID: {Instance.GetInstanceID()})");
+            }
+        }
+        else
+        {
+            // Double check for any new duplicates that might have been created
+            SceneTransitionManager[] managers = FindObjectsOfType<SceneTransitionManager>();
+            if (managers.Length > 1)
+            {
+                Debug.Log($"[TRANSITION DEBUG] Found {managers.Length} SceneTransitionManager instances despite Instance already set");
+                
+                // Destroy all instances except the one we're already tracking
+                foreach (var manager in managers)
+                {
+                    if (manager != Instance)
+                    {
+                        Debug.Log($"[TRANSITION DEBUG] Destroying duplicate SceneTransitionManager (ID: {manager.GetInstanceID()})");
+                        Destroy(manager.gameObject);
+                    }
+                }
             }
         }
         
@@ -351,9 +386,17 @@ public class SceneTransitionManager : MonoBehaviour
             }
         }
         
-        // Listen for combat end event
-        combatManager.OnCombatEnd += EndCombat;
-        Debug.Log("[TRANSITION DEBUG] Subscribed to combatManager.OnCombatEnd event");
+        // Listen for combat end event - only if not already subscribed
+        if (!isSubscribedToCombatEnd)
+        {
+            combatManager.OnCombatEnd += EndCombat;
+            isSubscribedToCombatEnd = true;
+            Debug.Log("[TRANSITION DEBUG] Subscribed to combatManager.OnCombatEnd event");
+        }
+        else
+        {
+            Debug.Log("[TRANSITION DEBUG] Already subscribed to OnCombatEnd event, skipping subscription in SetupCombatScene");
+        }
     }
     
     /// <summary>
@@ -363,6 +406,16 @@ public class SceneTransitionManager : MonoBehaviour
     public void EndCombat(bool won)
     {
         Debug.Log($"[TRANSITION DEBUG] EndCombat called with result: {(won ? "WIN" : "LOSE")}");
+        
+        // Check if a transition is already in progress, to prevent double transitions
+        if (isFadingInProgress)
+        {
+            Debug.LogWarning("[TRANSITION DEBUG] A fade is already in progress, not starting another transition");
+            return;
+        }
+        
+        // Set fading flag to prevent duplicate transitions
+        isFadingInProgress = true;
         
         // Check if we have a valid return scene, and if not, try to recover from PlayerPrefs
         if (string.IsNullOrEmpty(currentSceneName) && PlayerPrefs.HasKey("ReturnSceneName"))
@@ -391,6 +444,10 @@ public class SceneTransitionManager : MonoBehaviour
             // Log all defeated enemies for debugging
             PersistentGameManager.Instance.LogDefeatedEnemies();
         }
+        
+        // Reset the subscription flag - we're no longer subscribed after combat ends and scene changes
+        isSubscribedToCombatEnd = false;
+        Debug.Log("[TRANSITION DEBUG] Reset isSubscribedToCombatEnd flag");
         
         // CRITICAL FIX: Cleanup any combat-related objects that might have DontDestroyOnLoad
         Debug.Log("[TRANSITION DEBUG] Starting cleanup of combat objects");
@@ -562,6 +619,8 @@ public class SceneTransitionManager : MonoBehaviour
                 Debug.LogError($"[TRANSITION DEBUG] Fallback scene '{overworldSceneName}' also does not exist. Make sure to add it in File > Build Settings.");
                 // Fade back from black since we're not transitioning
                 StartCoroutine(ScreenFader.Instance.FadeFromBlack());
+                // Reset the fading flag since we're not going to complete the transition
+                isFadingInProgress = false;
                 yield break;
             }
         }
@@ -609,6 +668,9 @@ public class SceneTransitionManager : MonoBehaviour
     private IEnumerator SetupOverworldAfterCombat()
     {
         Debug.Log("[TRANSITION DEBUG] SetupOverworldAfterCombat coroutine started");
+        
+        // DO NOT reset the fading flag yet - we're still in the transition process
+        // We'll reset it after the fade from black completes
         
         // Wait a frame to ensure all scene objects are initialized
         yield return null;
@@ -827,9 +889,13 @@ public class SceneTransitionManager : MonoBehaviour
                 }
             }
             
-            // Fade from black after setup is complete
+            // Only do ONE fade from black operation, and ensure we reset the flag afterward
             Debug.Log("[TRANSITION DEBUG] Starting fade from black");
-            StartCoroutine(ScreenFader.Instance.FadeFromBlack());
+            yield return StartCoroutine(ScreenFader.Instance.FadeFromBlack());
+            
+            // Reset the fading flag now that we've completed the transition
+            isFadingInProgress = false;
+            Debug.Log("[TRANSITION DEBUG] Fade completed and flag reset");
         }
         else
         {
@@ -837,7 +903,11 @@ public class SceneTransitionManager : MonoBehaviour
             
             // Fade from black even if player wasn't found to prevent screen staying black
             Debug.Log("[TRANSITION DEBUG] Starting fade from black (even though player wasn't found)");
-            StartCoroutine(ScreenFader.Instance.FadeFromBlack());
+            yield return StartCoroutine(ScreenFader.Instance.FadeFromBlack());
+            
+            // Reset the fading flag now that we've completed the transition
+            isFadingInProgress = false;
+            Debug.Log("[TRANSITION DEBUG] Fade completed and flag reset");
         }
         
         Debug.Log("[TRANSITION DEBUG] SetupOverworldAfterCombat completed");
@@ -1204,11 +1274,19 @@ public class SceneTransitionManager : MonoBehaviour
         
         if (combatManager != null)
         {
-            Debug.LogError($"[SCENE TRANSITION DEBUG] Found CombatManager, connecting to OnCombatEnd event");
+            Debug.LogError($"[SCENE TRANSITION DEBUG] Found CombatManager in scene {SceneManager.GetActiveScene().name}");
             
-            // Simply subscribe to the event - no checking delegates
-            combatManager.OnCombatEnd += EndCombat;
-            Debug.LogError("[CRITICAL DEBUG] Successfully subscribed to CombatManager.OnCombatEnd");
+            // Only subscribe if we're not already subscribed
+            if (!isSubscribedToCombatEnd)
+            {
+                combatManager.OnCombatEnd += EndCombat;
+                isSubscribedToCombatEnd = true;
+                Debug.LogError("[CRITICAL DEBUG] Successfully subscribed to CombatManager.OnCombatEnd");
+            }
+            else
+            {
+                Debug.LogError("[CRITICAL DEBUG] Already subscribed to OnCombatEnd event, skipping second subscription");
+            }
             
             // Add safety check for Obelisk battle
             if (SceneManager.GetActiveScene().name == "Battle_Obelisk")

@@ -688,7 +688,17 @@ public class CombatManager : MonoBehaviour
         Debug.LogError("[COMBAT DEBUG] OnCombatEnd event has listeners: " + (OnCombatEnd != null).ToString());
         Debug.LogError("[COMBAT DEBUG] SceneTransitionManager exists: " + (SceneTransitionManager.Instance != null).ToString());
         
-        if (OnCombatEnd != null && !isCombatEnded)
+        // Check if combat has already ended to prevent multiple calls
+        if (isCombatEnded)
+        {
+            Debug.LogError("[COMBAT DEBUG] TriggerVictory called but combat has already ended - ignoring");
+            return;
+        }
+        
+        // Set flag immediately to prevent multiple victory triggers
+        isCombatEnded = true;
+        
+        if (OnCombatEnd != null)
         {
             Debug.LogError("[COMBAT DEBUG] Calling OnCombatEnd event with victory=true");
             OnCombatEnd(true);
@@ -946,21 +956,29 @@ public class CombatManager : MonoBehaviour
         Debug.LogError("[COMBAT DEBUG] OnCombatEnd has listeners: " + (OnCombatEnd != null).ToString());
         Debug.LogError("[COMBAT DEBUG] SceneTransitionManager exists: " + (SceneTransitionManager.Instance != null).ToString());
         
-        if (OnCombatEnd != null && !isCombatEnded)
+        // Check if combat has already ended to prevent multiple calls
+        if (isCombatEnded)
+        {
+            Debug.LogError("[COMBAT DEBUG] ProceedWithVictory called but combat has already ended - ignoring");
+            return;
+        }
+        
+        // Set flag immediately to prevent multiple victory triggers
+        isCombatEnded = true;
+        
+        if (OnCombatEnd != null)
         {
             Debug.LogError("[COMBAT DEBUG] Inside ProceedWithVictory - Calling OnCombatEnd event with victory=true");
-            isCombatEnded = true;
             OnCombatEnd(true);
         }
-        else if (SceneTransitionManager.Instance != null && !isCombatEnded)
+        else if (SceneTransitionManager.Instance != null)
         {
             Debug.LogError("[COMBAT DEBUG] Inside ProceedWithVictory - Calling SceneTransitionManager.EndCombat directly");
-            isCombatEnded = true;
             SceneTransitionManager.Instance.EndCombat(true);
         }
         else
         {
-            Debug.LogError("[COMBAT DEBUG] WARNING: Cannot proceed with victory - SceneTransitionManager is null or combat already ended");
+            Debug.LogError("[COMBAT DEBUG] WARNING: Cannot proceed with victory - SceneTransitionManager is null");
         }
     }
 } 
