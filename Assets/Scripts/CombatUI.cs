@@ -839,6 +839,121 @@ public class CombatUI : MonoBehaviour
                 }
                 break;
                 
+            case "Gaintkiller":
+                // Check if target is a valid enemy
+                if (target != null && target.isEnemy)
+                {
+                    Debug.Log($"[Skill Execution] Gaintkiller! {activeCharacter.name} is attacking {target.name}");
+                    
+                    // Calculate random damage between 60-80
+                    float baseDamage = UnityEngine.Random.Range(60f, 80f);
+                    float calculatedDamage = activeCharacter.CalculateDamage(baseDamage);
+                    
+                    // Deal damage
+                    target.TakeDamage(calculatedDamage);
+                    
+                    Debug.Log($"[Skill Execution] Gaintkiller hit {target.name} for {calculatedDamage} damage");
+                    
+                    // Show message in the text panel
+                    DisplayTurnAndActionMessage($"Hit for {calculatedDamage:F1} damage!");
+                    
+                    // Use sanity
+                    activeCharacter.UseSanity(skill.sanityCost);
+                }
+                else
+                {
+                    Debug.LogWarning($"[Skill Execution] Gaintkiller! Invalid target: {target?.name ?? "null"}");
+                }
+                break;
+                
+            case "Signal Flare":
+                Debug.Log($"[Skill Execution] Signal Flare! {activeCharacter.name} is removing status effects from enemies");
+                
+                // Get all living enemies
+                var allEnemies = combatManager.GetLivingEnemies();
+                
+                // Get StatusManager instance
+                StatusManager signalFlareStatusMgr = StatusManager.Instance;
+                if (signalFlareStatusMgr != null)
+                {
+                    int clearedCount = 0;
+                    
+                    // Loop through all enemies
+                    foreach (CombatStats enemy in allEnemies)
+                    {
+                        if (enemy != null && !enemy.IsDead())
+                        {
+                            // Clear all status effects from this enemy
+                            signalFlareStatusMgr.ClearAllStatuses(enemy);
+                            clearedCount++;
+                            
+                            Debug.Log($"[Skill Execution] Signal Flare cleared all status effects from {enemy.characterName}");
+                        }
+                    }
+                    
+                    if (clearedCount > 0)
+                    {
+                        DisplayTurnAndActionMessage($"Cleared status effects from {clearedCount} enemies!");
+                    }
+                    else
+                    {
+                        DisplayTurnAndActionMessage("No enemies had status effects to clear!");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning("[Skill Execution] Signal Flare! StatusManager not found. Skill had no effect.");
+                }
+                
+                // Use sanity
+                activeCharacter.UseSanity(skill.sanityCost);
+                break;
+                
+            case "Bola":
+                // Check if target is a valid enemy
+                if (target != null && target.isEnemy)
+                {
+                    Debug.Log($"[Skill Execution] Bola! {activeCharacter.name} is throwing a bola at {target.name}");
+                    
+                    // Calculate random damage between 2-4
+                    float baseDamage = UnityEngine.Random.Range(2f, 4f);
+                    float calculatedDamage = activeCharacter.CalculateDamage(baseDamage);
+                    
+                    // Deal damage
+                    target.TakeDamage(calculatedDamage);
+                    
+                    // Apply SLOWED status to the target if not dead
+                    if (!target.IsDead())
+                    {
+                        StatusManager bolaStatusMgr = StatusManager.Instance;
+                        if (bolaStatusMgr != null)
+                        {
+                            // Apply Slowed status with the status system
+                            bolaStatusMgr.ApplyStatus(target, StatusType.Slowed, 2);
+                            Debug.Log($"[Skill Execution] Bola hit {target.name} for {calculatedDamage} damage and applied SLOWED for 2 turns");
+                            
+                            // Show message in the text panel
+                            DisplayTurnAndActionMessage($"Hit for {calculatedDamage:F1} damage and applied SLOWED!");
+                        }
+                        else
+                        {
+                            // Fallback to direct modification if status manager not available
+                            float baseActionSpeed = target.actionSpeed;
+                            float newSpeed = baseActionSpeed * 0.5f; // 50% reduction
+                            target.actionSpeed = newSpeed;
+                            Debug.LogWarning($"[Skill Execution] Bola! StatusManager not found, applied direct speed reduction to {target.name}");
+                        }
+                    }
+                    
+                    // Use sanity
+                    activeCharacter.UseSanity(skill.sanityCost);
+                }
+                else
+                {
+                    Debug.LogWarning($"[Skill Execution] Bola! Invalid target: {target?.name ?? "null"}. This skill requires an enemy target.");
+                }
+                break;
+                
             case "Cleansing Wave":
                 Debug.Log($"[Skill Execution] Cleansing Wave! {activeCharacter.name} is removing status effects from allies");
                 
@@ -1326,7 +1441,17 @@ public class CombatUI : MonoBehaviour
     public void OnItemButtonClicked(ItemData item)
     {
         Debug.Log($"[DEBUG TARGETING] OnItemButtonClicked - Item: {item.name}, Amount: {item.amount}, RequiresTarget: {item.requiresTarget}");
-        if (item.requiresTarget)
+        
+        // Special handling for items that MUST have targets
+        bool mustHaveTarget = 
+            string.Equals(item.name, "Shiny Bead", StringComparison.OrdinalIgnoreCase) || 
+            string.Equals(item.name, "Super Espress-O", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(item.name, "Panacea", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(item.name, "Tower Shield", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(item.name, "Ramen", StringComparison.OrdinalIgnoreCase);
+        
+        // Force target selection for these items even if requiresTarget is false
+        if (mustHaveTarget || item.requiresTarget)
         {
             Debug.Log($"[DEBUG TARGETING] Item requires target, starting target selection for {item.name}");
             // First set the selected item so StartTargetSelection can identify it correctly
@@ -1457,12 +1582,171 @@ public class CombatUI : MonoBehaviour
                 }
                 else if (target != null && !target.isEnemy)
                 {
-                    Debug.Log($"[DEBUG TARGETING] ERROR: Target is ally: {target.name} - Shiny Bead should only target enemies!");
-                    // This should never happen with proper targeting
+                    Debug.LogError($"[DEBUG TARGETING] ERROR: Target is ally: {target.name} - Shiny Bead should only target enemies!");
                 }
                 else
                 {
-                    Debug.LogWarning($"[DEBUG TARGETING] No target specified for Shiny Bead, cannot execute");
+                    Debug.LogError($"[DEBUG TARGETING] No target specified for Shiny Bead, cannot execute - this should never happen!");
+                }
+                break;
+                
+            case "Panacea":
+                Debug.Log($"[DEBUG TARGETING] Executing Panacea effect");
+                if (target != null && !target.isEnemy)
+                {
+                    // Heal Health and Sanity
+                    target.HealHealth(100f);
+                    target.HealSanity(100f);
+                    
+                    // Remove negative status effects
+                    StatusManager statusManager = StatusManager.Instance;
+                    if (statusManager != null)
+                    {
+                        // Check and remove each negative status
+                        if (statusManager.HasStatus(target, StatusType.Weakness))
+                            statusManager.RemoveStatus(target, StatusType.Weakness);
+                            
+                        if (statusManager.HasStatus(target, StatusType.Vulnerable))
+                            statusManager.RemoveStatus(target, StatusType.Vulnerable);
+                            
+                        if (statusManager.HasStatus(target, StatusType.Slowed))
+                            statusManager.RemoveStatus(target, StatusType.Slowed);
+                    }
+                    
+                    Debug.Log($"Panacea used: Healed {target.name} for 100 HP and 100 SP and removed negative status effects");
+                }
+                else if (target != null && target.isEnemy)
+                {
+                    Debug.Log($"[DEBUG TARGETING] ERROR: Target is enemy: {target.name} - Panacea should only target allies!");
+                }
+                else
+                {
+                    // Use on self if no target
+                    activeCharacter.HealHealth(100f);
+                    activeCharacter.HealSanity(100f);
+                    
+                    // Remove negative status effects
+                    StatusManager statusManager = StatusManager.Instance;
+                    if (statusManager != null)
+                    {
+                        if (statusManager.HasStatus(activeCharacter, StatusType.Weakness))
+                            statusManager.RemoveStatus(activeCharacter, StatusType.Weakness);
+                            
+                        if (statusManager.HasStatus(activeCharacter, StatusType.Vulnerable))
+                            statusManager.RemoveStatus(activeCharacter, StatusType.Vulnerable);
+                            
+                        if (statusManager.HasStatus(activeCharacter, StatusType.Slowed))
+                            statusManager.RemoveStatus(activeCharacter, StatusType.Slowed);
+                    }
+                    
+                    Debug.Log($"Panacea used: Healed {activeCharacter.name} for 100 HP and 100 SP and removed negative status effects");
+                }
+                break;
+                
+            case "Tower Shield":
+                Debug.Log($"[DEBUG TARGETING] Executing Tower Shield effect");
+                if (target != null && !target.isEnemy)
+                {
+                    // Apply TOUGH status for 3 turns
+                    StatusManager statusManager = StatusManager.Instance;
+                    if (statusManager != null)
+                    {
+                        statusManager.ApplyStatus(target, StatusType.Tough, 3);
+                        Debug.Log($"Tower Shield used: Applied TOUGH status to {target.name} for 3 turns");
+                    }
+                }
+                else if (target != null && target.isEnemy)
+                {
+                    Debug.Log($"[DEBUG TARGETING] ERROR: Target is enemy: {target.name} - Tower Shield should only target allies!");
+                }
+                else
+                {
+                    // Use on self if no target
+                    StatusManager statusManager = StatusManager.Instance;
+                    if (statusManager != null)
+                    {
+                        statusManager.ApplyStatus(activeCharacter, StatusType.Tough, 3);
+                        Debug.Log($"Tower Shield used: Applied TOUGH status to {activeCharacter.name} for 3 turns");
+                    }
+                }
+                break;
+                
+            case "Pocket Sand":
+                Debug.Log($"[DEBUG TARGETING] Executing Pocket Sand effect");
+                List<CombatStats> enemies = combatManager.GetLivingEnemies();
+                
+                if (enemies.Count > 0)
+                {
+                    // Apply WEAKNESS to all enemies
+                    StatusManager statusManager = StatusManager.Instance;
+                    if (statusManager != null)
+                    {
+                        foreach (var enemy in enemies)
+                        {
+                            statusManager.ApplyStatus(enemy, StatusType.Weakness, 3);
+                            Debug.Log($"Pocket Sand used: Applied WEAKNESS status to {enemy.name} for 3 turns");
+                        }
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning($"[DEBUG TARGETING] No enemies found for Pocket Sand");
+                }
+                break;
+                
+            case "Otherworldly Tome":
+                Debug.Log($"[DEBUG TARGETING] Executing Otherworldly Tome effect");
+                // Apply STRENGTH to all party members
+                StatusManager strengthStatusManager = StatusManager.Instance;
+                if (strengthStatusManager != null)
+                {
+                    foreach (var player in combatManager.players)
+                    {
+                        if (player != null && !player.IsDead())
+                        {
+                            strengthStatusManager.ApplyStatus(player, StatusType.Strength, 3);
+                            Debug.Log($"Otherworldly Tome used: Applied STRENGTH status to {player.name} for 3 turns");
+                        }
+                    }
+                }
+                break;
+                
+            case "Unstable Catalyst":
+                Debug.Log($"[DEBUG TARGETING] Executing Unstable Catalyst effect");
+                List<CombatStats> catalystEnemies = combatManager.GetLivingEnemies();
+                
+                if (catalystEnemies.Count > 0)
+                {
+                    // Deal damage to all enemies
+                    foreach (var enemy in catalystEnemies)
+                    {
+                        enemy.TakeDamage(40f);
+                        Debug.Log($"Unstable Catalyst used: Dealt 40 damage to {enemy.name}");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning($"[DEBUG TARGETING] No enemies found for Unstable Catalyst");
+                }
+                break;
+                
+            case "Ramen":
+                Debug.Log($"[DEBUG TARGETING] Executing Ramen effect");
+                if (target != null && !target.isEnemy)
+                {
+                    // Heal target
+                    target.HealHealth(15f);
+                    Debug.Log($"Ramen used: Healed {target.name} for 15 HP");
+                }
+                else if (target != null && target.isEnemy)
+                {
+                    Debug.Log($"[DEBUG TARGETING] ERROR: Target is enemy: {target.name} - Ramen should only target allies!");
+                }
+                else
+                {
+                    // Use on self if no target
+                    activeCharacter.HealHealth(15f);
+                    Debug.Log($"Ramen used: Healed {activeCharacter.name} for 15 HP");
                 }
                 break;
                 

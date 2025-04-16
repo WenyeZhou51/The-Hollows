@@ -169,10 +169,19 @@ public class MenuSelector : MonoBehaviour
             return;
         }
 
-        // For Fruit Juice, we don't allow navigating between targets, but we still handle confirmation
-        bool isFruitJuice = selectedItem != null && string.Equals(selectedItem.name, "Fruit Juice", StringComparison.OrdinalIgnoreCase);
+        // Check for team-wide or group targeting items
+        bool isTeamWideItem = selectedItem != null && (
+            string.Equals(selectedItem.name, "Fruit Juice", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(selectedItem.name, "Otherworldly Tome", StringComparison.OrdinalIgnoreCase));
+            
+        bool isAllEnemyItem = selectedItem != null && (
+            string.Equals(selectedItem.name, "Pocket Sand", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(selectedItem.name, "Unstable Catalyst", StringComparison.OrdinalIgnoreCase));
+            
+        bool isSingleEnemyItem = selectedItem != null && 
+            string.Equals(selectedItem.name, "Shiny Bead", StringComparison.OrdinalIgnoreCase);
         
-        if (!isFruitJuice)
+        if (!isTeamWideItem && !isAllEnemyItem && !isSingleEnemyItem)
         {
             Debug.Log($"[DEBUG TARGETING] HandleTargetSelection - Current target: {currentTargetSelection} of {currentTargets.Count}, " +
                     $"Target: {currentTargets[currentTargetSelection].name}, isEnemy: {currentTargets[currentTargetSelection].isEnemy}");
@@ -234,9 +243,13 @@ public class MenuSelector : MonoBehaviour
                 HighlightSelectedTarget();
             }
         }
-        else
+        else if (isTeamWideItem)
         {
-            Debug.Log($"[DEBUG TARGETING] Fruit Juice team targeting active - waiting for confirmation");
+            Debug.Log($"[DEBUG TARGETING] {selectedItem.name} team targeting active - waiting for confirmation");
+        }
+        else if (isAllEnemyItem)
+        {
+            Debug.Log($"[DEBUG TARGETING] {selectedItem.name} all-enemy targeting active - waiting for confirmation");
         }
 
         // Check for confirm/cancel with more detailed logging
@@ -245,16 +258,61 @@ public class MenuSelector : MonoBehaviour
         
         if (confirmPressed)
         {
-            if (isFruitJuice)
+            if (isTeamWideItem)
             {
-                Debug.Log($"[DEBUG TARGETING] Confirm key pressed for team-wide Fruit Juice");
+                Debug.Log($"[DEBUG TARGETING] Confirm key pressed for team-wide {selectedItem.name}");
                 ItemData itemToUse = selectedItem; // Store reference before ending target selection
                 
                 // We need to end target selection BEFORE executing the item to prevent references from getting null
                 EndTargetSelection();
                 
-                // Use Fruit Juice on entire team (null target indicates team-wide effect)
+                // Use the item on entire team (null target indicates team-wide effect)
                 combatUI.ExecuteItem(itemToUse, null);
+            }
+            else if (isAllEnemyItem)
+            {
+                Debug.Log($"[DEBUG TARGETING] Confirm key pressed for all-enemy {selectedItem.name}");
+                ItemData itemToUse = selectedItem; // Store reference before ending target selection
+                
+                // For all-enemy items, we still need a reference enemy to pass to the ExecuteItem method
+                // This ensures the target parameter is not null (preventing the error)
+                CombatStats targetEnemy = null;
+                if (currentTargets != null && currentTargets.Count > 0)
+                {
+                    targetEnemy = currentTargets[0]; // Use first enemy as reference
+                    Debug.Log($"[DEBUG TARGETING] Using {targetEnemy.name} as reference target for all-enemy effect");
+                }
+                
+                // We need to end target selection BEFORE executing the item to prevent references from getting null
+                EndTargetSelection();
+                
+                // Use the item with a reference enemy target
+                combatUI.ExecuteItem(itemToUse, targetEnemy);
+            }
+            else if (isSingleEnemyItem)
+            {
+                Debug.Log($"[DEBUG TARGETING] Confirm key pressed for single-enemy targeting {selectedItem.name}");
+                ItemData itemToUse = selectedItem; // Store reference before ending target selection
+                
+                // For Shiny Bead, we need to target the specific selected enemy
+                CombatStats targetEnemy = null;
+                if (currentTargets != null && currentTargets.Count > 0 && currentTargetSelection >= 0 && currentTargetSelection < currentTargets.Count)
+                {
+                    targetEnemy = currentTargets[currentTargetSelection];
+                    Debug.Log($"[DEBUG TARGETING] Using selected enemy {targetEnemy.name} as target for {selectedItem.name}");
+                }
+                else if (currentTargets != null && currentTargets.Count > 0)
+                {
+                    // Fallback to first enemy if selection index is invalid
+                    targetEnemy = currentTargets[0];
+                    Debug.Log($"[DEBUG TARGETING] Using fallback enemy {targetEnemy.name} as target for {selectedItem.name}");
+                }
+                
+                // We need to end target selection BEFORE executing the item to prevent references from getting null
+                EndTargetSelection();
+                
+                // Use the item on the selected enemy
+                combatUI.ExecuteItem(itemToUse, targetEnemy);
             }
             else
             {
@@ -627,15 +685,19 @@ public class MenuSelector : MonoBehaviour
             // Highlight all team members
             HighlightAllTeamMembers();
         }
-        // Check if we're selecting a target for ally-targeting item (Super Espress-O)
-        else if (selectedItem != null && string.Equals(selectedItem.name, "Super Espress-O", StringComparison.OrdinalIgnoreCase))
+        // Check if we're selecting a target for ally-targeting item (Super Espress-O, Panacea, Tower Shield, Ramen)
+        else if (selectedItem != null && (
+            string.Equals(selectedItem.name, "Super Espress-O", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(selectedItem.name, "Panacea", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(selectedItem.name, "Tower Shield", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(selectedItem.name, "Ramen", StringComparison.OrdinalIgnoreCase)))
         {
             Debug.Log($"[DEBUG TARGETING] Detected ally-targeting ITEM: {selectedItem.name}");
             // For ally-targeting items, target allies instead of enemies
             currentTargets = new List<CombatStats>(combatManager.players);
             
-            // For SuperEspressO, allow self-targeting as its implementation supports it
-            Debug.Log($"[DEBUG TARGETING] Allowing self-targeting for SuperEspressO");
+            // Allow self-targeting
+            Debug.Log($"[DEBUG TARGETING] Allowing self-targeting for {selectedItem.name}");
             
             Debug.Log($"[DEBUG TARGETING] Starting ally selection with {currentTargets.Count} potential targets for item {selectedItem.name}");
             
@@ -658,6 +720,59 @@ public class MenuSelector : MonoBehaviour
             for (int i = 0; i < currentTargets.Count; i++)
             {
                 Debug.Log($"[DEBUG TARGETING] Potential enemy target {i}: {currentTargets[i].name}, isEnemy: {currentTargets[i].isEnemy}");
+            }
+            
+            // Make sure we actually highlight and select an enemy
+            if (currentTargets.Count > 0)
+            {
+                currentTargetSelection = 0;
+                HighlightSelectedTarget();
+                Debug.Log($"[DEBUG TARGETING] Initially selected enemy target: {currentTargets[currentTargetSelection].name}");
+            }
+        }
+        // Check if we're selecting for team-wide items (Otherworldly Tome)
+        else if (selectedItem != null && string.Equals(selectedItem.name, "Otherworldly Tome", StringComparison.OrdinalIgnoreCase))
+        {
+            Debug.Log($"[DEBUG TARGETING] Detected team-targeting item: {selectedItem.name}");
+            // Include all allies and highlight them all (similar to Fruit Juice)
+            currentTargets = new List<CombatStats>(combatManager.players);
+            
+            Debug.Log($"[DEBUG TARGETING] Highlighting entire team for {selectedItem.name}");
+            
+            // Add detailed logging for each potential target
+            for (int i = 0; i < currentTargets.Count; i++)
+            {
+                Debug.Log($"[DEBUG TARGETING] Team target {i}: {currentTargets[i].name}, isEnemy: {currentTargets[i].isEnemy}");
+            }
+            
+            // Highlight all team members
+            HighlightAllTeamMembers();
+        }
+        // Check if we're selecting for all-enemy items (Pocket Sand, Unstable Catalyst)
+        else if (selectedItem != null && (
+            string.Equals(selectedItem.name, "Pocket Sand", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(selectedItem.name, "Unstable Catalyst", StringComparison.OrdinalIgnoreCase)))
+        {
+            Debug.Log($"[DEBUG TARGETING] Detected all-enemy targeting item: {selectedItem.name}");
+            // Get all living enemies
+            currentTargets = combatManager.GetLivingEnemies();
+            
+            Debug.Log($"[DEBUG TARGETING] Highlighting all enemies for {selectedItem.name}");
+            
+            // Add detailed logging for each potential target
+            for (int i = 0; i < currentTargets.Count; i++)
+            {
+                Debug.Log($"[DEBUG TARGETING] Enemy target {i}: {currentTargets[i].name}, isEnemy: {currentTargets[i].isEnemy}");
+            }
+            
+            // Highlight all enemies
+            foreach (var enemy in currentTargets)
+            {
+                if (enemy != null)
+                {
+                    enemy.HighlightCharacter(true);
+                    Debug.Log($"[DEBUG TARGETING] Highlighted enemy: {enemy.name}");
+                }
             }
         }
         else
@@ -936,11 +1051,53 @@ public class MenuSelector : MonoBehaviour
             return;
         }
         
-        // Special handling for team-wide effects like Fruit Juice
-        if (selectedItem != null && string.Equals(selectedItem.name, "Fruit Juice", StringComparison.OrdinalIgnoreCase))
+        // Special handling for team-wide effects
+        bool isTeamWideItem = selectedItem != null && (
+            string.Equals(selectedItem.name, "Fruit Juice", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(selectedItem.name, "Otherworldly Tome", StringComparison.OrdinalIgnoreCase));
+            
+        bool isAllEnemyItem = selectedItem != null && (
+            string.Equals(selectedItem.name, "Pocket Sand", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(selectedItem.name, "Unstable Catalyst", StringComparison.OrdinalIgnoreCase));
+        
+        bool isSingleEnemyItem = selectedItem != null && 
+            string.Equals(selectedItem.name, "Shiny Bead", StringComparison.OrdinalIgnoreCase);
+            
+        if (isTeamWideItem)
         {
             // For team-wide effects, we don't unhighlight anyone
             Debug.Log($"[DEBUG TARGETING] Maintaining team-wide highlighting for {selectedItem.name}");
+            return;
+        }
+        
+        if (isAllEnemyItem)
+        {
+            // For all-enemy effects, we don't unhighlight any enemies
+            Debug.Log($"[DEBUG TARGETING] Maintaining all-enemy highlighting for {selectedItem.name}");
+            return;
+        }
+        
+        // For enemy-targeting items like Shiny Bead, make sure we're highlighting a valid enemy
+        if (isSingleEnemyItem && currentTargets.Count > 0)
+        {
+            Debug.Log($"[DEBUG TARGETING] Updating highlighted enemy for {selectedItem.name}");
+            
+            // Reset highlight for all targets
+            foreach (var target in currentTargets)
+            {
+                if (target != null)
+                {
+                    target.HighlightCharacter(false);
+                }
+            }
+            
+            // Highlight the selected enemy
+            if (currentTargets[currentTargetSelection] != null)
+            {
+                currentTargets[currentTargetSelection].HighlightCharacter(true);
+                Debug.Log($"[DEBUG TARGETING] Highlighted enemy target: {currentTargets[currentTargetSelection].name}");
+            }
+            
             return;
         }
         

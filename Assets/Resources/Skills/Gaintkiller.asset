@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 63dc2d04935590b499e169c3f39be07c, type: 3}
+  m_Name: Gaintkiller
+  m_EditorClassIdentifier: 
+  Name: Gaintkiller
+  Description: Deal 60-80 damage to a target enemy. Costs 70 sanity.
+  SPCost: 70
+  RequiresTarget: 1
+  minDamage: 60
+  maxDamage: 80 
