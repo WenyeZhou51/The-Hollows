@@ -146,8 +146,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bf22e6528cb60a645be2017d43a7666c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maliceOfStoneChance: 0
-  sunderChance: 100
+  maliceOfStoneChance: 60
+  conspireChance: 40
   coinflipVisuals: {fileID: 5385292820047147705}
   verticalOffset: 1.2
   animationSpeed: 1

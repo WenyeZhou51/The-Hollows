@@ -2093,15 +2093,35 @@ public class CombatUI : MonoBehaviour
     
     public void DisplayActionLabel(string actionText)
     {
-        // Method disabled as requested - action labels should no longer be displayed
-        return;
+        if (actionDisplayLabel == null || actionDisplayText == null)
+            return;
+            
+        // Set the text
+        actionDisplayText.text = actionText;
+        
+        // Show the label
+        actionDisplayLabel.SetActive(true);
+        
+        // Pause game briefly to show the action
+        StartCoroutine(ShowActionLabel(actionText));
     }
     
     private IEnumerator ShowActionLabel(string actionText)
     {
-        // Method disabled but kept for compatibility
-        // Just wait a moment to maintain timing
-        yield return new WaitForSecondsRealtime(0.1f);
+        // Pause the game
+        Time.timeScale = 0;
+        
+        // Wait for the specified duration
+        yield return new WaitForSecondsRealtime(actionDisplayDuration);
+        
+        // Resume the game
+        Time.timeScale = 1;
+        
+        // Hide the label
+        if (actionDisplayLabel != null)
+        {
+            actionDisplayLabel.SetActive(false);
+        }
     }
 
     public void ShowTextPanel(string message, float opacity = 0.5f)

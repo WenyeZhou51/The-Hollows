@@ -16,7 +16,7 @@ public class Phase2ObeliskBehavior : EnemyBehavior
     
     [Tooltip("Probability of using Conspire skill (50% chance to instantly kill target)")]
     [Range(0, 100)]
-    public float sunderChance = 40f;
+    public float conspireChance = 40f;
 
     [Header("Animation References")]
     [Tooltip("GameObject that contains the coinflip animation visuals")]
@@ -55,7 +55,7 @@ public class Phase2ObeliskBehavior : EnemyBehavior
     public override IEnumerator ExecuteTurn(CombatStats enemy, List<CombatStats> players, CombatUI combatUI)
     {
         // Normalize chance values to ensure they add up to 100%
-        float totalChance = maliceOfStoneChance + sunderChance;
+        float totalChance = maliceOfStoneChance + conspireChance;
         if (totalChance <= 0)
         {
             Debug.LogWarning("All Phase 2 Obelisk skill chances are set to 0, defaulting to Malice of Stone");
@@ -65,10 +65,12 @@ public class Phase2ObeliskBehavior : EnemyBehavior
         
         // Calculate normalized probabilities
         float normalizedMaliceOfStone = maliceOfStoneChance / totalChance * 100f;
-        float normalizedSunder = sunderChance / totalChance * 100f;
+        float normalizedConspire = conspireChance / totalChance * 100f;
         
         // Roll for skill selection
         float roll = Random.Range(0f, 100f);
+        
+        Debug.Log($"Phase2Obelisk rolling for skill: {roll} (MaliceOfStone: <{normalizedMaliceOfStone}, Conspire: >={normalizedMaliceOfStone})");
         
         if (roll < normalizedMaliceOfStone)
         {
@@ -82,6 +84,8 @@ public class Phase2ObeliskBehavior : EnemyBehavior
     
     private IEnumerator UseMaliceOfStoneSkill(CombatStats enemy, List<CombatStats> players, CombatUI combatUI)
     {
+        Debug.Log("Phase2Obelisk using Malice of Stone skill");
+        
         // Display generic attack message in text panel
         if (combatUI != null && combatUI.turnText != null)
         {
@@ -116,6 +120,8 @@ public class Phase2ObeliskBehavior : EnemyBehavior
     
     private IEnumerator UseConspireSkill(CombatStats enemy, List<CombatStats> players, CombatUI combatUI)
     {
+        Debug.Log("Phase2Obelisk using Conspire skill");
+        
         // Display generic attack message in text panel
         if (combatUI != null && combatUI.turnText != null)
         {
@@ -139,6 +145,23 @@ public class Phase2ObeliskBehavior : EnemyBehavior
         int randomIndex = Random.Range(0, livingPlayers.Count);
         var target = livingPlayers[randomIndex];
         
+        // Store the original timeScale
+        float originalTimeScale = Time.timeScale;
+        
+        // Find the CombatManager to pause action accumulation
+        CombatManager combatManager = FindObjectOfType<CombatManager>();
+        bool wasAccumulatingAction = false;
+        
+        if (combatManager != null)
+        {
+            // Store the current action accumulation state
+            wasAccumulatingAction = combatManager.ShouldAccumulateAction();
+            
+            // Pause action accumulation
+            combatManager.PauseActionAccumulation();
+            Debug.Log("Paused action accumulation during Conspire animation");
+        }
+        
         // Position the coinflip visuals above the targeted player
         if (coinflipVisuals != null && target != null)
         {
@@ -156,6 +179,10 @@ public class Phase2ObeliskBehavior : EnemyBehavior
             if (CoinflipAnimator != null)
             {
                 CoinflipAnimator.speed = animationSpeed;
+                
+                // Make sure the animator updates in unscaled time mode
+                CoinflipAnimator.updateMode = AnimatorUpdateMode.UnscaledTime;
+                Debug.Log("Set animator to UnscaledTime mode to work during timeScale=0");
             }
         }
         
@@ -164,6 +191,10 @@ public class Phase2ObeliskBehavior : EnemyBehavior
         
         // Dramatic pause before the result
         yield return new WaitForSeconds(1.0f);
+        
+        // Pause the game during animation
+        Time.timeScale = 0f;
+        Debug.Log("Game paused for coinflip animation");
         
         // Set the animation boolean parameter based on outcome
         if (CoinflipAnimator != null)
@@ -198,8 +229,19 @@ public class Phase2ObeliskBehavior : EnemyBehavior
                 Debug.LogWarning("Couldn't get animation clip length, using fallback duration: " + clipLength);
             }
             
-            // Wait for the animation to complete plus buffer time
-            yield return new WaitForSeconds(clipLength + animationBufferTime);
+            // Wait for the animation to complete plus buffer time (using unscaled time since game is paused)
+            yield return new WaitForSecondsRealtime(clipLength + animationBufferTime);
+        }
+        
+        // Resume the game
+        Time.timeScale = originalTimeScale;
+        Debug.Log("Game resumed after coinflip animation");
+        
+        // Resume action accumulation if it was accumulating before
+        if (combatManager != null && wasAccumulatingAction)
+        {
+            combatManager.ResumeActionAccumulation();
+            Debug.Log("Resumed action accumulation after Conspire animation");
         }
         
         if (playerSurvives)

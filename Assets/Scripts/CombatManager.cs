@@ -49,6 +49,9 @@ public class CombatManager : MonoBehaviour
     private bool isInPhaseTransition = false;
     private bool isCombatEnded = false;
 
+    // Flag to control action accumulation
+    private bool shouldAccumulateAction = true;
+
     private void Awake()
     {
         Debug.LogError("[BUILD DEBUG] CombatManager.Awake() - Beginning initialization");
@@ -314,18 +317,21 @@ public class CombatManager : MonoBehaviour
         if (!isCombatActive || isWaitingForPlayerInput) return;
 
         // Update action bars with null check
-        foreach (var character in players.Concat(enemies).Where(c => c != null))
+        if (shouldAccumulateAction)
         {
-            if (character.IsDead()) continue;
-
-            // Use each character's individual actionSpeed instead of the global actionBarFillRate
-            character.currentAction += character.actionSpeed * Time.deltaTime;
-
-            if (character.currentAction >= character.maxAction)
+            foreach (var character in players.Concat(enemies).Where(c => c != null))
             {
-                character.currentAction = character.maxAction; // Cap it
-                StartTurn(character);
-                break; // Process one turn at a time
+                if (character.IsDead()) continue;
+
+                // Use each character's individual actionSpeed instead of the global actionBarFillRate
+                character.currentAction += character.actionSpeed * Time.deltaTime;
+
+                if (character.currentAction >= character.maxAction)
+                {
+                    character.currentAction = character.maxAction; // Cap it
+                    StartTurn(character);
+                    break; // Process one turn at a time
+                }
             }
         }
 
@@ -1290,5 +1296,31 @@ public class CombatManager : MonoBehaviour
             // Enemy characters keep their prefab values
             Debug.Log($"[COMBAT MANAGER] Initializing ENEMY character: {stats.name} with default values");
         }
+    }
+
+    /// <summary>
+    /// Pauses action accumulation for all characters
+    /// </summary>
+    public void PauseActionAccumulation()
+    {
+        shouldAccumulateAction = false;
+        Debug.Log("Action accumulation paused");
+    }
+    
+    /// <summary>
+    /// Resumes action accumulation for all characters
+    /// </summary>
+    public void ResumeActionAccumulation()
+    {
+        shouldAccumulateAction = true;
+        Debug.Log("Action accumulation resumed");
+    }
+    
+    /// <summary>
+    /// Returns whether action should accumulate
+    /// </summary>
+    public bool ShouldAccumulateAction()
+    {
+        return shouldAccumulateAction;
     }
 } 
