@@ -4,6 +4,7 @@ using System.Collections;
 using UnityEngine.SceneManagement;
 using System.Collections.Generic;
 using System;
+using UnityEngine.UI;
 
 public class InkDialogueHandler : MonoBehaviour
 {
@@ -468,33 +469,144 @@ public class InkDialogueHandler : MonoBehaviour
             // Wait a moment for dialogue to close
             yield return new WaitForSeconds(0.2f);
             
+            // Subscribe to the completion event before starting the sequence
+            ComicsDisplayController.OnComicSequenceComplete += HandleComicSequenceComplete;
+            
             // Start the comic sequence - the controller already has the panels configured
             controller.StartComicSequence();
-            
-            // Since we can't directly check how many panels there are (private field),
-            // use a reasonable default delay based on typical comic sequences
-            float comicDisplayTime = 10f; // Default reasonable time for viewing comics
-            StartCoroutine(DelayedQuit(comicDisplayTime));
         }
         else
         {
             Debug.LogWarning("No ComicsDisplayController found in scene - cannot show exit comics");
-            // If no controller, just quit immediately
-            Application.Quit();
+            // If no controller, just transition immediately
+            StartCoroutine(TransitionToOverworldOutside());
         }
     }
 
     /// <summary>
-    /// Delays quitting the application to allow viewing comics
+    /// Handles the completion of the comic sequence
     /// </summary>
-    private IEnumerator DelayedQuit(float delay)
+    private void HandleComicSequenceComplete()
     {
-        Debug.Log($"Will quit application after {delay} seconds");
-        yield return new WaitForSeconds(delay);
+        Debug.Log("Comic sequence complete, starting transition to Overworld_Outside");
+        // Unsubscribe from the event to prevent memory leaks
+        ComicsDisplayController.OnComicSequenceComplete -= HandleComicSequenceComplete;
+        // Start the transition
+        StartCoroutine(TransitionToOverworldOutside());
+    }
+
+    /// <summary>
+    /// Transitions to the Overworld_Outside scene with screen fade
+    /// </summary>
+    private IEnumerator TransitionToOverworldOutside()
+    {
+        // Ensure we're unsubscribed from the comic sequence event
+        ComicsDisplayController.OnComicSequenceComplete -= HandleComicSequenceComplete;
         
-        // Quit the application
-        Debug.Log("Quitting application after comic display");
-        Application.Quit();
+        // Target scene
+        string targetScene = "Overworld_Outside";
+        
+        // Check if the scene exists in build settings
+        if (!IsSceneInBuildSettings(targetScene))
+        {
+            Debug.LogError($"Scene '{targetScene}' not found in build settings. Make sure to add it to the build settings!");
+            yield break;
+        }
+        
+        // Ensure ScreenFader exists
+        ScreenFader.EnsureExists();
+        
+        // Fade to black
+        if (ScreenFader.Instance != null)
+        {
+            Debug.Log("Starting fade to black before scene transition");
+            yield return StartCoroutine(ScreenFader.Instance.FadeToBlack());
+        }
+        
+        // IMPORTANT: Register for scene loaded event BEFORE loading scene
+        Debug.Log("Registering OnOverworldOutsideSceneLoaded event");
+        SceneManager.sceneLoaded += OnOverworldOutsideSceneLoaded;
+        
+        // Load the scene
+        Debug.Log($"Loading Overworld_Outside scene");
+        SceneManager.LoadScene(targetScene);
+    }
+
+    /// <summary>
+    /// Called when the Overworld_Outside scene has loaded
+    /// </summary>
+    private void OnOverworldOutsideSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        Debug.Log($"OnOverworldOutsideSceneLoaded called for scene: {scene.name}");
+        
+        // Only execute this for the Overworld_Outside scene
+        if (scene.name == "Overworld_Outside")
+        {
+            Debug.Log("Confirmed this is the Overworld_Outside scene");
+            
+            // Make sure the ScreenFader still exists
+            ScreenFader.EnsureExists();
+            
+            if (ScreenFader.Instance != null)
+            {
+                // Additional safety check - immediately reset visibility if needed
+                try
+                {
+                    // This direct method call is a fallback to ensure we reset the screen
+                    Debug.Log("Calling ResetToVisible as additional safety measure");
+                    ScreenFader.Instance.ResetToVisible();
+                    
+                    // Then start the fade animation
+                    Debug.Log("Starting fade from black");
+                    StartCoroutine(ScreenFader.Instance.FadeFromBlack());
+                    
+                    // CRITICAL FIX: Add additional safety check after a brief delay
+                    StartCoroutine(EnsureFadeCompleted());
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogError($"Exception in ScreenFader access: {e.Message}");
+                }
+            }
+            else
+            {
+                Debug.LogError("ScreenFader not found after loading Overworld_Outside scene!");
+            }
+        }
+        
+        // Unregister the event to prevent multiple calls
+        Debug.Log("Unregistering OnOverworldOutsideSceneLoaded event");
+        SceneManager.sceneLoaded -= OnOverworldOutsideSceneLoaded;
+    }
+
+    /// <summary>
+    /// Ensures the fade completed properly after a brief delay
+    /// </summary>
+    private IEnumerator EnsureFadeCompleted()
+    {
+        // Wait a moment to let initial fade start
+        yield return new WaitForSeconds(0.2f);
+        
+        if (ScreenFader.Instance != null && ScreenFader.Instance.gameObject.activeInHierarchy)
+        {
+            // Force reset the screen to visible if it's still not clear
+            Image fadeImage = ScreenFader.Instance.GetComponentInChildren<Image>();
+            if (fadeImage != null && fadeImage.color.a > 0.05f)
+            {
+                Debug.LogWarning("⚠️ Screen still not clear after fade! Forcing reset to visible");
+                ScreenFader.Instance.ResetToVisible();
+            }
+            
+            // Double-check again after another delay
+            yield return new WaitForSeconds(0.3f);
+            
+            // If still not clear, try one more time with the coroutine
+            if (fadeImage != null && fadeImage.color.a > 0.05f)
+            {
+                Debug.LogWarning("⚠️ Second attempt to clear screen - starting FadeFromBlack coroutine");
+                StartCoroutine(ScreenFader.Instance.FadeFromBlack());
+            }
+        }
     }
 
     public void SetStoryVariable(string variableName, string value)

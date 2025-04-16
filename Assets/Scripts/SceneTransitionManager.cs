@@ -164,6 +164,7 @@ public class SceneTransitionManager : MonoBehaviour
         Debug.Log("[TRANSITION DEBUG] StartCombat initiated");
         
         // Check if we're already in the middle of a transition (either fade or scene change)
+        // This prevents overworld-to-battle transitions from stacking on top of other transitions
         if (isFadingInProgress)
         {
             Debug.Log("[TRANSITION DEBUG] Ignoring combat request because a scene transition is already in progress");
@@ -417,12 +418,9 @@ public class SceneTransitionManager : MonoBehaviour
     {
         Debug.Log($"[TRANSITION DEBUG] EndCombat called with result: {(won ? "WIN" : "LOSE")}");
         
-        // Check if a transition is already in progress, to prevent double transitions
-        if (isFadingInProgress)
-        {
-            Debug.LogWarning("[TRANSITION DEBUG] A fade is already in progress, not starting another transition");
-            return;
-        }
+        // IMPORTANT: Ensure combat-to-overworld transitions can always happen, regardless of other transitions
+        // Overworld-to-overworld and overworld-to-battle transitions are still protected with isFadingInProgress check
+        // We intentionally skip the isFadingInProgress check here to make sure combat always returns to overworld
         
         // CRITICAL FIX: For Obelisk battle, check if phase transition is in progress
         // If we're in the Obelisk battle scene and a phase transition is happening, don't transition to overworld
@@ -1022,6 +1020,8 @@ public class SceneTransitionManager : MonoBehaviour
         }
         
         // Check if we're already in the middle of a transition (either fade or scene change)
+        // This prevents overworld-to-overworld transitions from stacking on top of other transitions
+        // Note that combat-to-overworld transitions can bypass this check (see EndCombat method)
         if (isFadingInProgress)
         {
             Debug.Log($"[SCENE TRANSITION] Ignoring transition request to {sceneName} because another transition is already in progress");

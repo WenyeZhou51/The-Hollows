@@ -3,9 +3,15 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
+// Define delegate for comic sequence completion
+public delegate void ComicSequenceCompletedHandler();
+
 public class ComicsDisplayController : MonoBehaviour
 {
     public static ComicsDisplayController Instance { get; private set; }
+    
+    // Event that fires when comic sequence completes
+    public static event ComicSequenceCompletedHandler OnComicSequenceComplete;
 
     [Header("Comic Panel Settings")]
     [SerializeField] private List<ComicPanel> comicPanels = new List<ComicPanel>();
@@ -231,6 +237,13 @@ public class ComicsDisplayController : MonoBehaviour
         
         // Unfreeze player and gameplay
         FreezeGameplay(false);
+        
+        // Trigger the completion event
+        if (OnComicSequenceComplete != null)
+        {
+            if (debugMode) Debug.Log("[ComicsDisplay] Firing OnComicSequenceComplete event");
+            OnComicSequenceComplete();
+        }
     }
 
     /// <summary>

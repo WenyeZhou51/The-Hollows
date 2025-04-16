@@ -831,7 +831,7 @@ Canvas:
   m_VertexColorAlwaysGammaSpace: 0
   m_AdditionalShaderChannelsFlag: 0
   m_SortingLayerID: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 100
   m_TargetDisplay: 0
 --- !u!224 &797583919
 RectTransform:
@@ -1785,6 +1785,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   inkDialogueFile: {fileID: 4900000, guid: cb47c13511da24b4090d681e34df2ee9, type: 3}
   fadeInDuration: 1.5
+  initialDelayTime: 0.5
 --- !u!1 &2144617125
 GameObject:
   m_ObjectHideFlags: 0
