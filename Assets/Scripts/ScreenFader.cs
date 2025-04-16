@@ -233,6 +233,27 @@ public class ScreenFader : MonoBehaviour
         }
         
         isFading = false;
+        
+        // ADDED: Also reset the transition state in SceneTransitionManager when fade completes
+        // This ensures we never get stuck in a transition state even if the normal reset fails
+        if (SceneTransitionManager.Instance != null)
+        {
+            // Use a slight delay to make sure all other events have completed first
+            StartCoroutine(ResetTransitionStateAfterDelay());
+        }
+    }
+
+    // New helper method to reset transition state with a small delay
+    private IEnumerator ResetTransitionStateAfterDelay()
+    {
+        // Short delay to allow other transition processes to complete first
+        yield return new WaitForSecondsRealtime(0.1f);
+        
+        // Reset the transition state in SceneTransitionManager
+        if (SceneTransitionManager.Instance != null)
+        {
+            SceneTransitionManager.Instance.CleanupTransitionState();
+        }
     }
     
     /// <summary>
@@ -267,22 +288,33 @@ public class ScreenFader : MonoBehaviour
         // Make sure our fade components are still valid after scene change
         InitializeFadeComponents();
         
+        // IMPORTANT: Don't reset transition state if we're in the start room - this would
+        // interfere with the deliberately black screen for the initial dialogue
+        bool isStartRoom = scene.name.Contains("Startroom") || scene.name.Contains("start_room");
+        
+        // Only reset transition state if we're not in the start room
+        if (!isStartRoom && SceneTransitionManager.Instance != null)
+        {
+            // Give a small delay to let the actual transition complete first
+            StartCoroutine(ResetTransitionStateAfterDelay(0.5f));
+        }
+        
         // IMPORTANT: We should only skip auto-fading if we're not explicitly calling a fade
         // from the SceneTransitionManager. The problem is we can't easily detect if a
         // fade has been explicitly requested. Therefore, we'll only skip if no fade is in progress.
         bool isOverworldScene = scene.name.StartsWith("Overworld_");
         
         // Skip automatic backup fading ONLY if another fade isn't already in progress
-        // This ensures explicitly requested fades from SceneTransitionManager work properly
-        if (isOverworldScene && SceneTransitionManager.Instance != null && !isFading)
+        // or if this is the start room where we want a black screen initially
+        if ((isOverworldScene && SceneTransitionManager.Instance != null && !isFading) || isStartRoom)
         {
-            Debug.Log($"ScreenFader skipping automatic fade for overworld scene: {scene.name} - not currently fading");
+            Debug.Log($"ScreenFader skipping automatic fade for scene: {scene.name}");
             return;
         }
         
-        // CRITICAL FIX: Reset the screen to clear when a new scene loads
+        // CRITICAL FIX: Reset the screen to clear when a new scene loads (except start room)
         // This prevents permanent black screens during transitions
-        if (fadeImage != null && fadeImage.color.a > 0.5f && !isFading)
+        if (!isStartRoom && fadeImage != null && fadeImage.color.a > 0.5f && !isFading)
         {
             Debug.Log($"ScreenFader detected black screen on scene load for {scene.name}, resetting to visible");
             StartCoroutine(FadeFromBlack(defaultFadeDuration));
@@ -331,5 +363,30 @@ public class ScreenFader : MonoBehaviour
     public IEnumerator FadeIn(float duration = -1)
     {
         return FadeFromBlack(duration);
+    }
+
+    // Updated helper method to reset transition state with specified delay
+    private IEnumerator ResetTransitionStateAfterDelay(float delay = 0.1f)
+    {
+        // Delay to allow other transition processes to complete first
+        yield return new WaitForSecondsRealtime(delay);
+        
+        // Don't reset if we're in the start room, as it needs to stay black initially
+        bool isStartRoom = SceneManager.GetActiveScene().name.Contains("Startroom") || 
+                          SceneManager.GetActiveScene().name.Contains("start_room");
+        
+        // Skip reset in start room
+        if (isStartRoom)
+        {
+            Debug.Log("[SCREEN FADER] Skipping transition state reset in start room to preserve initial black screen");
+            yield break;
+        }
+        
+        // Reset the transition state in SceneTransitionManager
+        if (SceneTransitionManager.Instance != null)
+        {
+            SceneTransitionManager.Instance.CleanupTransitionState();
+            Debug.Log($"[SCREEN FADER] Reset transition state after {delay}s delay");
+        }
     }
 } 

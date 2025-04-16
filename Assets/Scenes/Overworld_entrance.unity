@@ -2374,6 +2374,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 9090741762007864618, guid: 3e157ef49ac231345ab4fdd94a5b7735, type: 3}
+      propertyPath: inkFile
+      value: 
+      objectReference: {fileID: 4900000, guid: a6cff2c73b7f0e94da218515aaf170fe, type: 3}
+    - target: {fileID: 9090741762007864618, guid: 3e157ef49ac231345ab4fdd94a5b7735, type: 3}
       propertyPath: lockedDoorway
       value: 
       objectReference: {fileID: 618300619}

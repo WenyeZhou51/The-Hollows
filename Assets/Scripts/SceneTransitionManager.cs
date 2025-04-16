@@ -44,8 +44,15 @@ public class SceneTransitionManager : MonoBehaviour
     // New fields for multiple battle types
     private string[] battleScenes = new string[] { "Battle_Weaver", "Battle_Aperture" };
     
-    // Static flag to track if a fade is already in progress
+    // Change back to static variable since that's likely the issue - the instance value isn't persisting across scene changes
+    // Static flag to track transition state across scene changes
     private static bool isFadingInProgress = false;
+    
+    // Static string to track which transition is currently in progress
+    private static string currentTransitionDescription = "";
+    
+    // Keep the static timestamp to track transition start time
+    private static float lastTransitionStartTime = 0f;
     
     // Flag to track if we're already subscribed to CombatManager.OnCombatEnd
     private bool isSubscribedToCombatEnd = false;
@@ -1028,27 +1035,46 @@ public class SceneTransitionManager : MonoBehaviour
             return;
         }
         
+        // Get the current scene name once
+        string currentSceneName = SceneManager.GetActiveScene().name;
+        
         // Check if we're already in the middle of a transition (either fade or scene change)
         // This prevents overworld-to-overworld transitions from stacking on top of other transitions
         // Note that combat-to-overworld transitions can bypass this check (see EndCombat method)
         if (isFadingInProgress)
         {
-            Debug.Log($"[SCENE TRANSITION] Ignoring transition request to {sceneName} because another transition is already in progress");
-            return;
+            Debug.Log($"[SCENE TRANSITION] Ignoring transition request from {currentSceneName} to {sceneName} because another transition is already in progress: {currentTransitionDescription}");
+            
+            // DIRECT FIX: Check how long the transition has been in progress
+            // If it's been more than 3 seconds, force reset the flag regardless
+            if (Time.time - lastTransitionStartTime > 3f)
+            {
+                Debug.LogWarning($"[SCENE TRANSITION] Detected stuck transition: {currentTransitionDescription} started {Time.time - lastTransitionStartTime}s ago. Resetting flag and allowing transition to {sceneName}");
+                isFadingInProgress = false;
+                currentTransitionDescription = "";
+            }
+            else
+            {
+                return; // Exit if transition still valid
+            }
         }
         
         // Set fading flag to prevent multiple transitions
         isFadingInProgress = true;
+        lastTransitionStartTime = Time.time; // Track when this transition started
         
         // Store transition details
         targetSceneName = sceneName;
         targetMarkerId = markerId;
         
+        // Store current transition description for debugging
+        currentTransitionDescription = $"Transition from {currentSceneName} to {sceneName} (marker: {markerId})";
+        
         // Store player inventory for restoration after transition
         playerInventory = player.GetComponent<PlayerInventory>();
         
         // Log the transition in detail for debugging
-        Debug.Log($"[SCENE TRANSITION] Starting transition from '{SceneManager.GetActiveScene().name}' to '{sceneName}' with marker ID '{markerId}'");
+        Debug.Log($"[SCENE TRANSITION] Starting {currentTransitionDescription}");
         
         // Make sure ScreenFader exists
         ScreenFader.EnsureExists();
@@ -1064,6 +1090,9 @@ public class SceneTransitionManager : MonoBehaviour
     {
         Debug.Log($"[SCENE TRANSITION] Beginning transition to scene: {targetSceneName} with marker ID: {targetMarkerId}");
         
+        // IMPORTANT: Force reset static flag on all scene loads to prevent stuck state
+        SceneManager.sceneLoaded += ForceResetFlagOnSceneLoad;
+        
         // Validate the scene name before attempting transition
         if (!IsSceneValid(targetSceneName))
         {
@@ -1071,7 +1100,7 @@ public class SceneTransitionManager : MonoBehaviour
             // Fade back from black since we're not transitioning
             StartCoroutine(ScreenFader.Instance.FadeFromBlack());
             // Reset the fading flag
-            isFadingInProgress = false;
+            CleanupTransitionState();
             yield break;
         }
         
@@ -1083,7 +1112,53 @@ public class SceneTransitionManager : MonoBehaviour
         
         // Load the target scene
         Debug.Log($"[SCENE TRANSITION] Now loading scene: {targetSceneName}");
+        
+        // IMPORTANT: Capture the current flags before scene load for debugging
+        bool flagBeforeLoad = isFadingInProgress;
+        string transitionBeforeLoad = currentTransitionDescription;
+        
+        // Load the scene
         SceneManager.LoadScene(targetSceneName);
+        
+        Debug.Log($"[SCENE TRANSITION] LoadScene called. Flags before load: isFadingInProgress={flagBeforeLoad}, transition={transitionBeforeLoad}");
+        
+        // Set a backup timeout to reset the flag if the scene transition fails
+        StartCoroutine(TransitionBackupReset());
+    }
+    
+    /// <summary>
+    /// Force reset the transition flag on any scene load as a final failsafe
+    /// </summary>
+    private void ForceResetFlagOnSceneLoad(Scene scene, LoadSceneMode mode)
+    {
+        // Skip reset in the startroom as it needs to maintain a black screen initially
+        bool isStartRoom = scene.name.Contains("Startroom") || scene.name.Contains("start_room");
+        
+        if (isStartRoom)
+        {
+            Debug.Log($"[SCENE TRANSITION] Skipping transition flag reset in startroom to preserve black screen");
+            // Unregister this event to avoid multiple calls
+            SceneManager.sceneLoaded -= ForceResetFlagOnSceneLoad;
+            return;
+        }
+        
+        // Reset transition flags after a short delay to ensure all systems initialize
+        StartCoroutine(DelayedFlagReset(scene.name));
+        
+        // Unregister this event to avoid multiple calls
+        SceneManager.sceneLoaded -= ForceResetFlagOnSceneLoad;
+    }
+    
+    /// <summary>
+    /// Helper coroutine to reset flag with a delay
+    /// </summary>
+    private IEnumerator DelayedFlagReset(string sceneName)
+    {
+        yield return new WaitForSecondsRealtime(1f);
+        
+        Debug.Log($"[SCENE TRANSITION] Force-resetting transition flag from ForceResetFlagOnSceneLoad in scene {sceneName}");
+        isFadingInProgress = false;
+        currentTransitionDescription = "";
     }
     
     /// <summary>
@@ -1121,11 +1196,36 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     private void OnSceneTransitionComplete(Scene scene, LoadSceneMode mode)
     {
+        Debug.Log($"[SCENE TRANSITION] OnSceneTransitionComplete called for scene: {scene.name}. Current transition: {currentTransitionDescription}");
+        
         // Start the setup coroutine
         StartCoroutine(SetupPlayerAfterTransition());
         
+        // IMPORTANT: Already reset the flag here so it's reset earlier in the process
+        isFadingInProgress = false;
+        Debug.Log($"[SCENE TRANSITION] Reset transition flag in OnSceneTransitionComplete for {scene.name}");
+        
+        // Safety check: Set a shorter timeout to reset the transition flag if something goes wrong
+        StartCoroutine(EnsureTransitionFlagReset());
+        
         // Unregister the event to prevent multiple calls
         SceneManager.sceneLoaded -= OnSceneTransitionComplete;
+    }
+    
+    /// <summary>
+    /// Safety coroutine to ensure the transition flag gets reset even if there's an error
+    /// </summary>
+    private IEnumerator EnsureTransitionFlagReset()
+    {
+        // Reduced timeout from 5 to 3 seconds
+        yield return new WaitForSecondsRealtime(3f);
+        
+        // If flag is still set, it means something went wrong
+        if (isFadingInProgress)
+        {
+            Debug.LogWarning("[SCENE TRANSITION] Safety timeout triggered - Forcing reset of transition flag");
+            CleanupTransitionState();
+        }
     }
     
     /// <summary>
@@ -1136,6 +1236,8 @@ public class SceneTransitionManager : MonoBehaviour
         // Wait for two frames to make sure all objects are fully initialized in the scene
         yield return null;
         yield return null;
+        
+        Debug.Log($"[SCENE TRANSITION] SetupPlayerAfterTransition running, current isFadingInProgress={isFadingInProgress}");
         
         // Find the player in the scene
         GameObject player = GameObject.FindGameObjectWithTag("Player");
@@ -1230,30 +1332,16 @@ public class SceneTransitionManager : MonoBehaviour
         }
         else
         {
-            Debug.LogError("Player not found in target scene!");
+            Debug.LogError("CRITICAL ERROR: Player not found in scene after transition!");
         }
         
-        // Fade from black
+        // Fade from black to reveal the scene
         yield return StartCoroutine(ScreenFader.Instance.FadeFromBlack());
         
-        // Reset the fading flag now that we've completed the transition
-        isFadingInProgress = false;
-        Debug.Log("[SCENE TRANSITION] Scene transition complete, reset fading flag");
-
-        // CRITICAL FIX: Add safety check to ensure screen is properly reset
-        if (ScreenFader.Instance != null && ScreenFader.Instance.gameObject.activeInHierarchy)
-        {
-            // Force a second check after a brief delay to ensure fade completed properly
-            yield return new WaitForSeconds(0.1f);
-            
-            // Force reset the screen to visible if it's still not clear
-            Image fadeImage = ScreenFader.Instance.GetComponentInChildren<Image>();
-            if (fadeImage != null && fadeImage.color.a > 0.05f)
-            {
-                Debug.LogWarning("⚠️ Screen still not clear after scene transition fade! Forcing reset to visible");
-                ScreenFader.Instance.ResetToVisible();
-            }
-        }
+        // IMPORTANT: Reset the fading flag now that transition is complete
+        CleanupTransitionState();
+        
+        Debug.Log($"[SCENE TRANSITION] Transition complete - flag reset by SetupPlayerAfterTransition");
     }
     
     /// <summary>
@@ -1435,6 +1523,88 @@ public class SceneTransitionManager : MonoBehaviour
                 Debug.Log($"[TRANSITION DEBUG] Destroying combat canvas: {canvas.gameObject.name}");
                 Destroy(canvas.gameObject);
             }
+        }
+    }
+    
+    /// <summary>
+    /// Public method to explicitly reset the transition state from outside
+    /// Use this as a last resort if transitions get stuck
+    /// </summary>
+    public void ResetTransitionState()
+    {
+        CleanupTransitionState();
+    }
+    
+    /// <summary>
+    /// Clean up and reset transition state - can be called from multiple places
+    /// </summary>
+    public void CleanupTransitionState()
+    {
+        isFadingInProgress = false;
+        lastTransitionStartTime = 0f;
+        string oldTransition = currentTransitionDescription;
+        currentTransitionDescription = "";
+        Debug.Log($"[SCENE TRANSITION] Transition state force-reset by CleanupTransitionState. Old transition: {oldTransition}");
+        
+        // Also reset screen fader if it exists
+        if (ScreenFader.Instance != null)
+        {
+            ScreenFader.Instance.ResetToVisible();
+        }
+    }
+    
+    /// <summary>
+    /// Additional backup timeout to ensure transition flag gets reset even if the scene load fails
+    /// </summary>
+    private IEnumerator TransitionBackupReset()
+    {
+        // Wait a bit longer than the other timeouts (10 seconds)
+        yield return new WaitForSecondsRealtime(10f);
+        
+        // If flag is still set, force reset
+        if (isFadingInProgress)
+        {
+            Debug.LogWarning("[SCENE TRANSITION] Backup timeout triggered - Forcing transition state reset");
+            CleanupTransitionState();
+        }
+    }
+
+    /// <summary>
+    /// Awakening of the script - make sure transition flag is reset on scene load
+    /// </summary>
+    private void Start()
+    {
+        // On startup, ensure the transition flag is reset
+        Debug.Log($"[SCENE TRANSITION] SceneTransitionManager started in scene {SceneManager.GetActiveScene().name}. Resetting transition flag.");
+        isFadingInProgress = false;
+        currentTransitionDescription = "";
+    }
+
+    // Add a method that can be called from anywhere to force reset the static transition state
+    /// <summary>
+    /// Static method to force reset the transition flags from anywhere
+    /// </summary>
+    public static void ForceResetTransitionState()
+    {
+        // Skip reset if we're in the startroom scene
+        bool isStartRoom = SceneManager.GetActiveScene().name.Contains("Startroom") || 
+                          SceneManager.GetActiveScene().name.Contains("start_room");
+        
+        if (isStartRoom)
+        {
+            Debug.Log("[SCENE TRANSITION] Skipping static transition flag reset in startroom to preserve black screen");
+            return;
+        }
+        
+        isFadingInProgress = false;
+        currentTransitionDescription = "";
+        lastTransitionStartTime = 0f;
+        Debug.Log("[SCENE TRANSITION] Static transition flags forcibly reset by ForceResetTransitionState");
+        
+        // Also reset screen fader if it exists
+        if (ScreenFader.Instance != null)
+        {
+            ScreenFader.Instance.ResetToVisible();
         }
     }
 } 

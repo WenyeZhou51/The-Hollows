@@ -9,13 +9,14 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0000000000000000000000000000000, type: 0}
+  m_Script: {fileID: 11500000, guid: 2dded499543082b4e8e7e9ceb93588f5, type: 3}
   m_Name: PiercingShot
   m_EditorClassIdentifier: 
   Name: Piercing Shot
-  Description: Deal 10-15 damage and apply Vulnerable status (50% more damage taken) for 2 turns.
+  Description: Deal 10-15 damage and apply Vulnerable status (50% more damage taken)
+    for 2 turns.
   SPCost: 10
   RequiresTarget: 1
   minDamage: 10
   maxDamage: 15
-  vulnerableDuration: 2 
+  vulnerableDuration: 2
