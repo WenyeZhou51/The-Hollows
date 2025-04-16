@@ -6,7 +6,7 @@ public class DisappearingTrick : BaseSkill
 {
     private void OnEnable()
     {
-        Name = "Disappearing Trick";
+        Name = "Cleansing Wave";
         Description = "Remove all status effects from allies (not including self). Costs 5 Mind.";
         SPCost = 5f;
         RequiresTarget = false; // Targets all allies automatically

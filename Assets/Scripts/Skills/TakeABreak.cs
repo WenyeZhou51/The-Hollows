@@ -9,7 +9,7 @@ public class TakeABreak : BaseSkill
     
     private void OnEnable()
     {
-        Name = "Take a Break!";
+        Name = "Respite";
         Description = "Target ally recovers 20 HP and 20 Mind but becomes SLOW for 2 turns.";
         SPCost = 5f;
         RequiresTarget = true; // Requires an ally as target

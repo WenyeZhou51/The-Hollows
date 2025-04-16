@@ -3,16 +3,16 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "PrimordialPile", menuName = "Skills/Primordial Pile")]
 public class PrimordialPile : BaseSkill
 {
-    [SerializeField] private float minDamagePerHit = 2f;
-    [SerializeField] private float maxDamagePerHit = 4f;
+    [SerializeField] private float minDamagePerHit = 7f;
+    [SerializeField] private float maxDamagePerHit = 10f;
     [SerializeField] private int numberOfHits = 3;
     [SerializeField] private int weaknessDuration = 2; // Duration for the Weakness status
     
     private void OnEnable()
     {
         Name = "Primordial Pile";
-        Description = "Deal 2-4 damage to a target enemy 3 times and apply WEAKNESS (-50% attack) for 2 turns. Costs 10 sanity.";
-        SPCost = 10f;
+        Description = "Deal 7-10 damage to a target enemy 3 times and apply WEAKNESS (-50% attack) for 2 turns. Costs 20 sanity.";
+        SPCost = 20f;
         RequiresTarget = true;
     }
     

@@ -76,8 +76,8 @@ public class SkillManager : MonoBehaviour
             case "The Magician":
                 characterSkills.Add(GetSkillData("Before Your Eyes"));
                 characterSkills.Add(GetSkillData("Fiend Fire"));
-                characterSkills.Add(GetSkillData("Disappearing Trick"));
-                characterSkills.Add(GetSkillData("Take a Break!"));
+                characterSkills.Add(GetSkillData("Cleansing Wave"));
+                characterSkills.Add(GetSkillData("Respite"));
                 break;
                 
             case "The Fighter":

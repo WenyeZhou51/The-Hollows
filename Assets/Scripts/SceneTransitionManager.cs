@@ -414,6 +414,18 @@ public class SceneTransitionManager : MonoBehaviour
             return;
         }
         
+        // CRITICAL FIX: For Obelisk battle, check if phase transition is in progress
+        // If we're in the Obelisk battle scene and a phase transition is happening, don't transition to overworld
+        if (SceneManager.GetActiveScene().name == "Battle_Obelisk")
+        {
+            BattleDialogueTrigger dialogueTrigger = FindObjectOfType<BattleDialogueTrigger>();
+            if (dialogueTrigger != null && dialogueTrigger.IsTransitioningPhases)
+            {
+                Debug.Log("[TRANSITION DEBUG] ⚠️ Obelisk phase transition detected - skipping overworld transition");
+                return; // Skip transition to overworld since phase transition is happening
+            }
+        }
+        
         // Set fading flag to prevent duplicate transitions
         isFadingInProgress = true;
         

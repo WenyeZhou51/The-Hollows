@@ -32,6 +32,9 @@ public class BattleDialogueTrigger : MonoBehaviour
     private bool hasPlayedVictory = false;
     private bool isTransitioningPhases = false;
     
+    // Add public property to check if phase transition is happening
+    public bool IsTransitioningPhases => isTransitioningPhases;
+    
     private CombatManager combatManager;
 
     private void Awake()
@@ -262,36 +265,53 @@ public class BattleDialogueTrigger : MonoBehaviour
             
             // Find the "Enemies" GameObject to use as parent
             Transform enemiesParent = null;
-            GameObject enemiesObj = GameObject.Find("Enemies");
-            if (enemiesObj != null)
+            
+            // CRITICAL FIX: Look for Canvas/Enemies path instead of root Enemies gameobject
+            GameObject canvasObj = GameObject.Find("Canvas");
+            if (canvasObj != null)
             {
-                enemiesParent = enemiesObj.transform;
-                Debug.Log($"[DEBUG OBELISK TRANSITION] Found Enemies parent GameObject: {enemiesObj.name}");
-            }
-            else
-            {
-                Debug.LogWarning("[DEBUG OBELISK TRANSITION] Could not find 'Enemies' GameObject - trying to find parent from Phase 1 Obelisk");
-                
-                // Fallback: Try to find the proper parent by going up the hierarchy from Phase 1 Obelisk
-                if (phase1Obelisk != null)
+                Transform enemiesTransform = canvasObj.transform.Find("Enemies");
+                if (enemiesTransform != null)
                 {
-                    Transform current = phase1Obelisk.transform.parent;
-                    while (current != null)
-                    {
-                        if (current.name == "Enemies")
-                        {
-                            enemiesParent = current;
-                            Debug.Log($"[DEBUG OBELISK TRANSITION] Found Enemies parent by traversing hierarchy: {current.name}");
-                            break;
-                        }
-                        current = current.parent;
-                    }
+                    enemiesParent = enemiesTransform;
+                    Debug.Log($"[DEBUG OBELISK TRANSITION] Found Canvas/Enemies parent: {enemiesParent.name}");
+                }
+            }
+            
+            // Fallback to old method if Canvas/Enemies not found
+            if (enemiesParent == null)
+            {
+                GameObject enemiesObj = GameObject.Find("Enemies");
+                if (enemiesObj != null)
+                {
+                    enemiesParent = enemiesObj.transform;
+                    Debug.Log($"[DEBUG OBELISK TRANSITION] Fallback to root Enemies GameObject: {enemiesObj.name}");
+                }
+                else
+                {
+                    Debug.LogWarning("[DEBUG OBELISK TRANSITION] Could not find 'Enemies' GameObject - trying to find parent from Phase 1 Obelisk");
                     
-                    // If still not found, just use immediate parent as fallback
-                    if (enemiesParent == null && phase1Obelisk.transform.parent != null)
+                    // Fallback: Try to find the proper parent by going up the hierarchy from Phase 1 Obelisk
+                    if (phase1Obelisk != null)
                     {
-                        enemiesParent = phase1Obelisk.transform.parent;
-                        Debug.Log($"[DEBUG OBELISK TRANSITION] Using Phase 1 Obelisk's parent as fallback: {enemiesParent.name}");
+                        Transform current = phase1Obelisk.transform.parent;
+                        while (current != null)
+                        {
+                            if (current.name == "Enemies")
+                            {
+                                enemiesParent = current;
+                                Debug.Log($"[DEBUG OBELISK TRANSITION] Found Enemies parent by traversing hierarchy: {current.name}");
+                                break;
+                            }
+                            current = current.parent;
+                        }
+                        
+                        // If still not found, just use immediate parent as fallback
+                        if (enemiesParent == null && phase1Obelisk.transform.parent != null)
+                        {
+                            enemiesParent = phase1Obelisk.transform.parent;
+                            Debug.Log($"[DEBUG OBELISK TRANSITION] Using Phase 1 Obelisk's parent as fallback: {enemiesParent.name}");
+                        }
                     }
                 }
             }

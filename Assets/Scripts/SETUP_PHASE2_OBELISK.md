@@ -1,6 +1,6 @@
 # Phase 2 Obelisk Setup Guide
 
-This guide explains how to set up the Phase 2 Obelisk with the coinflip animations for the Sunder ability.
+This guide explains how to set up the Phase 2 Obelisk with the coinflip animations for the Conspire ability.
 
 ## 1. Setting Up the Animator
 
@@ -61,7 +61,7 @@ This guide explains how to set up the Phase 2 Obelisk with the coinflip animatio
 ## 6. Testing
 
 1. Make sure the CoinflipVisuals GameObject is initially disabled
-2. The script will enable/disable it automatically during the Sunder skill
+2. The script will enable/disable it automatically during the Conspire skill
 3. Test the battle to ensure the animations play correctly
 
 ## Notes on Animation Triggers

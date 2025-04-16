@@ -11,7 +11,7 @@ public class FiendFire : BaseSkill
     {
         Name = "Fiend Fire";
         Description = "Deal 10 damage to a target 1-5 times randomly";
-        SPCost = 0f;
+        SPCost = 10f;
         RequiresTarget = true;
     }
     
@@ -20,9 +20,15 @@ public class FiendFire : BaseSkill
         if (target != null)
         {
             int hits = Random.Range(minHits, maxHits + 1);
-            float totalDamage = damagePerHit * hits;
+            float totalDamage = 0f;
             
-            target.TakeDamage(totalDamage);
+            // Deal damage for each hit individually
+            for (int i = 0; i < hits; i++)
+            {
+                target.TakeDamage(damagePerHit);
+                totalDamage += damagePerHit;
+            }
+            
             Debug.Log($"{Name} used: Hit {target.name} {hits} times for a total of {totalDamage} damage");
             
             // Deduct sanity cost

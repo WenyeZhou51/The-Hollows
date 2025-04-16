@@ -14,7 +14,7 @@ public class Phase2ObeliskBehavior : EnemyBehavior
     [Range(0, 100)]
     public float maliceOfStoneChance = 60f;
     
-    [Tooltip("Probability of using Sunder skill (50% chance to instantly kill target)")]
+    [Tooltip("Probability of using Conspire skill (50% chance to instantly kill target)")]
     [Range(0, 100)]
     public float sunderChance = 40f;
 
@@ -76,7 +76,7 @@ public class Phase2ObeliskBehavior : EnemyBehavior
         }
         else
         {
-            yield return UseSunderSkill(enemy, players, combatUI);
+            yield return UseConspireSkill(enemy, players, combatUI);
         }
     }
     
@@ -114,7 +114,7 @@ public class Phase2ObeliskBehavior : EnemyBehavior
         }
     }
     
-    private IEnumerator UseSunderSkill(CombatStats enemy, List<CombatStats> players, CombatUI combatUI)
+    private IEnumerator UseConspireSkill(CombatStats enemy, List<CombatStats> players, CombatUI combatUI)
     {
         // Display generic attack message in text panel
         if (combatUI != null && combatUI.turnText != null)
@@ -125,7 +125,7 @@ public class Phase2ObeliskBehavior : EnemyBehavior
         // Display specific skill name in action display label
         if (combatUI != null)
         {
-            combatUI.DisplayActionLabel("Sunder");
+            combatUI.DisplayActionLabel("Conspire");
         }
         
         // Wait for action display to complete
@@ -207,7 +207,7 @@ public class Phase2ObeliskBehavior : EnemyBehavior
             // Create a miss popup directly instead of using TakeDamage with isMiss flag
             Vector3 popupPosition = target.transform.position + Vector3.up * 0.5f;
             DamagePopup.Create(popupPosition, 0, !target.isEnemy, target.transform, false, true);
-            Debug.Log($"Sunder failed against {target.characterName} - target survives!");
+            Debug.Log($"Conspire failed against {target.characterName} - target survives!");
             
             if (combatUI != null && combatUI.turnText != null)
             {
@@ -218,11 +218,11 @@ public class Phase2ObeliskBehavior : EnemyBehavior
         {
             // Deal 9999 damage to target (effectively instant kill)
             target.TakeDamage(9999);
-            Debug.Log($"Sunder succeeded against {target.characterName} - target obliterated!");
+            Debug.Log($"Conspire succeeded against {target.characterName} - target obliterated!");
             
             if (combatUI != null && combatUI.turnText != null)
             {
-                combatUI.DisplayTurnAndActionMessage($"{target.characterName} is torn in half");
+                combatUI.DisplayTurnAndActionMessage("The stars conspire against you");
             }
         }
         

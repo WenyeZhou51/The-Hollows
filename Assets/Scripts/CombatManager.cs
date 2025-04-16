@@ -695,6 +695,15 @@ public class CombatManager : MonoBehaviour
             return;
         }
         
+        // CRITICAL FIX: Special handling for Obelisk battle to allow phase transition
+        string currentSceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        bool isObeliskBattle = (currentSceneName == "Battle_Obelisk");
+        
+        if (isObeliskBattle)
+        {
+            Debug.LogError("[COMBAT DEBUG] Obelisk battle detected - allowing phase transition");
+        }
+        
         // Set flag immediately to prevent multiple victory triggers
         isCombatEnded = true;
         

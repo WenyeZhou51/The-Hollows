@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 5636393689027812746}
   - component: {fileID: 5636393689027812741}
   - component: {fileID: 4948586307471512343}
+  - component: {fileID: 5463537379794690485}
   m_Layer: 0
   m_Name: Obelisk
   m_TagString: Untagged
@@ -149,6 +150,24 @@ MonoBehaviour:
   unblinkingGazeChance: 30
   cripplingDoubtChance: 30
   maliceOfStoneChance: 10
+--- !u!114 &5463537379794690485
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5636393689027812743}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bf22e6528cb60a645be2017d43a7666c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maliceOfStoneChance: 60
+  sunderChance: 40
+  coinflipVisuals: {fileID: 0}
+  verticalOffset: 1.5
+  animationSpeed: 1
+  animationBufferTime: 0.5
 --- !u!1001 &225591125460024129
 PrefabInstance:
   m_ObjectHideFlags: 0

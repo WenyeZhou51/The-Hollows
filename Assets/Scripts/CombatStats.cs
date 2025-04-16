@@ -232,13 +232,13 @@ public class CombatStats : MonoBehaviour
             skills.Add(new SkillData(
                 "Fiend Fire",
                 "Deal 10 damage to a target 1-5 times randomly",
-                0f,  // Costs 0 sanity
+                10f,  // Costs 10 sanity
                 true // Requires a target
             ));
             
             // Add the Disappearing Trick skill
             skills.Add(new SkillData(
-                "Disappearing Trick",
+                "Cleansing Wave",
                 "Remove all status effects from allies (not including self). Costs 5 Mind.",
                 5f,   // Costs 5 sanity
                 false // Does not require a target
@@ -246,7 +246,7 @@ public class CombatStats : MonoBehaviour
             
             // Add the Take a Break! skill
             skills.Add(new SkillData(
-                "Take a Break!",
+                "Respite",
                 "Target ally recovers 20 HP and 20 Mind but becomes SLOW for 2 turns.",
                 5f,   // Costs 5 sanity
                 true  // Requires a target (an ally)
@@ -323,8 +323,8 @@ public class CombatStats : MonoBehaviour
             // Add the Primordial Pile skill
             skills.Add(new SkillData(
                 "Primordial Pile",
-                "Deal 2-4 damage to a target enemy 3 times and apply WEAKNESS (-50% attack) for 2 turns. Costs 10 sanity.",
-                10f,  // Costs 10 sanity
+                "Deal 7-10 damage to a target enemy 3 times and apply WEAKNESS (-50% attack) for 2 turns. Costs 20 sanity.",
+                20f,  // Costs 20 sanity
                 true  // Requires a target (the enemy to attack)
             ));
             

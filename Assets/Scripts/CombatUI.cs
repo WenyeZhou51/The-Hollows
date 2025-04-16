@@ -602,11 +602,14 @@ public class CombatUI : MonoBehaviour
                     // Calculate random number of hits (1-5)
                     int hits = UnityEngine.Random.Range(1, 6); // 1 to 5 hits
                     
-                    // Calculate total damage
-                    float totalDamage = fiendFireDamage * hits;
-                    
-                    // Apply damage to the enemy
-                    target.TakeDamage(totalDamage);
+                    float totalDamage = 0f;
+                    // Deal 10 damage for each hit individually
+                    for (int i = 0; i < hits; i++)
+                    {
+                        float damage = 10f; // Fixed 10 damage per hit
+                        target.TakeDamage(damage);
+                        totalDamage += damage;
+                    }
                     
                     // Show the number of hits in the text panel
                     DisplayTurnAndActionMessage($"Hit {hits} times for a total of {totalDamage} damage!");
@@ -730,10 +733,10 @@ public class CombatUI : MonoBehaviour
                     Debug.Log($"[Skill Execution] Primordial Pile! {activeCharacter.name} is attacking {target.name}");
                     
                     float totalDamage = 0f;
-                    // Deal 2-4 damage 3 times
+                    // Deal 7-10 damage 3 times
                     for (int i = 0; i < 3; i++)
                     {
-                        float damage = UnityEngine.Random.Range(2f, 4f);
+                        float damage = UnityEngine.Random.Range(7f, 10f);
                         target.TakeDamage(damage);
                         totalDamage += damage;
                     }
@@ -836,123 +839,8 @@ public class CombatUI : MonoBehaviour
                 }
                 break;
                 
-            case "Signal Flare":
-                Debug.Log($"[Skill Execution] Signal Flare! {activeCharacter.name} is removing status effects from all enemies");
-                
-                // Get all living enemies
-                var livingEnemies = combatManager.GetLivingEnemies();
-                
-                // Get StatusManager instance
-                StatusManager signalFlareStatusMgr = StatusManager.Instance;
-                if (signalFlareStatusMgr != null)
-                {
-                    int clearedCount = 0;
-                    
-                    // Loop through all enemies
-                    foreach (CombatStats enemy in livingEnemies)
-                    {
-                        if (enemy != null && !enemy.IsDead())
-                        {
-                            // Clear all status effects from this enemy
-                            signalFlareStatusMgr.ClearAllStatuses(enemy);
-                            clearedCount++;
-                            
-                            Debug.Log($"[Skill Execution] Signal Flare cleared all status effects from {enemy.characterName}");
-                        }
-                    }
-                    
-                    if (clearedCount > 0)
-                    {
-                        DisplayTurnAndActionMessage($"Cleared status effects from {clearedCount} enemies!");
-                    }
-                    else
-                    {
-                        DisplayTurnAndActionMessage("No enemies had status effects to clear!");
-                    }
-                }
-                else
-                {
-                    Debug.LogWarning("[Skill Execution] Signal Flare! StatusManager not found. Skill had no effect.");
-                }
-                
-                // Use sanity
-                activeCharacter.UseSanity(skill.sanityCost);
-                break;
-                
-            case "Gaintkiller":
-                // Check if target is a valid enemy
-                if (target != null && target.isEnemy)
-                {
-                    Debug.Log($"[Skill Execution] Gaintkiller! {activeCharacter.name} is attacking {target.name}");
-                    
-                    // Calculate random damage between 60-80
-                    float giantkillerDamage = UnityEngine.Random.Range(60f, 80f);
-                    float calculatedGiantkillerDamage = activeCharacter.CalculateDamage(giantkillerDamage);
-                    
-                    // Deal damage
-                    target.TakeDamage(calculatedGiantkillerDamage);
-                    
-                    Debug.Log($"[Skill Execution] Gaintkiller hit {target.name} for {calculatedGiantkillerDamage} damage!");
-                    
-                    // Show message in the text panel
-                    DisplayTurnAndActionMessage($"Hit for {calculatedGiantkillerDamage:F1} massive damage!");
-                    
-                    // Use sanity
-                    activeCharacter.UseSanity(skill.sanityCost);
-                }
-                else
-                {
-                    Debug.LogWarning($"[Skill Execution] Gaintkiller! Invalid target: {target?.name ?? "null"}");
-                }
-                break;
-                
-            case "Bola":
-                // Check if target is a valid enemy
-                if (target != null && target.isEnemy)
-                {
-                    Debug.Log($"[Skill Execution] Bola! {activeCharacter.name} is attacking {target.name}");
-                    
-                    // Calculate random damage between 2-4
-                    float bolaDamage = UnityEngine.Random.Range(2f, 4f);
-                    float calculatedBolaDamage = activeCharacter.CalculateDamage(bolaDamage);
-                    
-                    // Deal damage
-                    target.TakeDamage(calculatedBolaDamage);
-                    
-                    // Apply SLOWED status to the target if not dead
-                    if (!target.IsDead())
-                    {
-                        StatusManager bolaStatusMgr = StatusManager.Instance;
-                        if (bolaStatusMgr != null)
-                        {
-                            // Apply Slowed status with the status system
-                            bolaStatusMgr.ApplyStatus(target, StatusType.Slowed, 2);
-                            Debug.Log($"[Skill Execution] Bola hit {target.name} for {calculatedBolaDamage} damage and applied SLOWED for 2 turns");
-                            
-                            // Show message in the text panel
-                            DisplayTurnAndActionMessage($"Hit for {calculatedBolaDamage:F1} damage and applied SLOWED!");
-                        }
-                        else
-                        {
-                            // Fallback to direct modification if status manager not available
-                            float baseSpeed = target.actionSpeed;
-                            float newSpeed = baseSpeed * 0.5f; // 50% reduction
-                            target.actionSpeed = newSpeed;
-                            Debug.LogWarning($"[Skill Execution] Bola! StatusManager not found, applied direct speed reduction to {target.name}");
-                        }
-                    }
-                    
-                    // Use sanity
-                    activeCharacter.UseSanity(skill.sanityCost);
-                }
-                else
-                {
-                    Debug.LogWarning($"[Skill Execution] Bola! Invalid target: {target?.name ?? "null"}");
-                }
-                break;
-                
-            case "Disappearing Trick":
-                Debug.Log($"[Skill Execution] Disappearing Trick! {activeCharacter.name} is removing status effects from allies");
+            case "Cleansing Wave":
+                Debug.Log($"[Skill Execution] Cleansing Wave! {activeCharacter.name} is removing status effects from allies");
                 
                 // Get all players
                 var allPlayers = combatManager.players;
@@ -975,7 +863,7 @@ public class CombatUI : MonoBehaviour
                             statusMgr.ClearAllStatuses(player);
                             clearedCount++;
                             
-                            Debug.Log($"[Skill Execution] Disappearing Trick cleared all status effects from {player.characterName}");
+                            Debug.Log($"[Skill Execution] Cleansing Wave cleared all status effects from {player.characterName}");
                         }
                     }
                     
@@ -990,18 +878,18 @@ public class CombatUI : MonoBehaviour
                 }
                 else
                 {
-                    Debug.LogWarning("[Skill Execution] Disappearing Trick! StatusManager not found. Skill had no effect.");
+                    Debug.LogWarning("[Skill Execution] Cleansing Wave! StatusManager not found. Skill had no effect.");
                 }
                 
                 // Use sanity
                 activeCharacter.UseSanity(skill.sanityCost);
                 break;
                 
-            case "Take a Break!":
+            case "Respite":
                 // Check if target is a valid ally (not an enemy)
                 if (target != null && !target.isEnemy)
                 {
-                    Debug.Log($"[Skill Execution] Take a Break! {activeCharacter.name} is helping {target.name} rest");
+                    Debug.Log($"[Skill Execution] Respite! {activeCharacter.name} is helping {target.name} rest");
                     
                     // Heal the target for 20 HP and 20 Mind
                     target.HealHealth(20f);
@@ -1013,7 +901,7 @@ public class CombatUI : MonoBehaviour
                     {
                         // Apply Slowed status with the status system
                         slowStatusMgr.ApplyStatus(target, StatusType.Slowed, 2);
-                        Debug.Log($"[Skill Execution] Take a Break! {target.characterName} healed for 20 HP and 20 Mind, and is now SLOW for 2 turns");
+                        Debug.Log($"[Skill Execution] Respite! {target.characterName} healed for 20 HP and 20 Mind, and is now SLOW for 2 turns");
                     }
                     else
                     {
@@ -1021,7 +909,7 @@ public class CombatUI : MonoBehaviour
                         float baseActionSpeed = target.actionSpeed;
                         float newSpeed = baseActionSpeed * 0.5f; // 50% reduction
                         target.actionSpeed = newSpeed;
-                        Debug.LogWarning($"[Skill Execution] Take a Break! StatusManager not found, applied direct speed reduction to {target.characterName}");
+                        Debug.LogWarning($"[Skill Execution] Respite! StatusManager not found, applied direct speed reduction to {target.characterName}");
                     }
                     
                     // Use sanity
@@ -1029,7 +917,7 @@ public class CombatUI : MonoBehaviour
                 }
                 else
                 {
-                    Debug.LogWarning($"[Skill Execution] Take a Break! Invalid target: {target?.name ?? "null"}. This skill requires an ally target.");
+                    Debug.LogWarning($"[Skill Execution] Respite! Invalid target: {target?.name ?? "null"}. This skill requires an ally target.");
                 }
                 break;
 
