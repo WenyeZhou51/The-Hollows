@@ -1265,6 +1265,35 @@ public class SceneTransitionManager : MonoBehaviour
     {
         Debug.LogError($"[BUILD FIX] SetupPlayerAfterTransition started with targetMarkerId={targetMarkerId}");
         
+        // SCREEN FADE FIX: Ensure screen is completely black during positioning
+        ScreenFader.EnsureExists();
+        if (ScreenFader.Instance != null)
+        {
+            // Force screen to black to hide the repositioning
+            Debug.LogError("[SCREEN FADE FIX] Setting screen to black before positioning player");
+            ScreenFader.Instance.SetBlackScreen();
+            
+            // Verify the screen is actually black
+            Image fadeImage = ScreenFader.Instance.GetComponentInChildren<Image>();
+            if (fadeImage != null)
+            {
+                Debug.LogError($"[SCREEN FADE FIX] Screen fade alpha after SetBlackScreen: {fadeImage.color.a}");
+                if (fadeImage.color.a < 0.9f)
+                {
+                    // Directly force it if needed
+                    Color blackColor = fadeImage.color;
+                    blackColor.a = 1.0f;
+                    fadeImage.color = blackColor;
+                    fadeImage.gameObject.SetActive(true);
+                    Debug.LogError($"[SCREEN FADE FIX] Manually forced screen alpha to: {fadeImage.color.a}");
+                }
+            }
+        }
+        else
+        {
+            Debug.LogError("[SCREEN FADE FIX] Failed to get ScreenFader.Instance!");
+        }
+        
         // Wait for two frames to make sure all objects are fully initialized in the scene
         yield return null;
         yield return null;
@@ -1448,16 +1477,32 @@ public class SceneTransitionManager : MonoBehaviour
                 }
             }
             
-            // Character stats are automatically loaded by the Character component
-            // when it starts in the new scene, through the PersistentGameManager
+            // Wait for a moment to ensure everything is properly set up
+            yield return new WaitForSeconds(0.2f);
+            
+            // SCREEN FADE FIX: NOW fade from black to reveal the positioned player
+            if (ScreenFader.Instance != null)
+            {
+                Debug.LogError("[SCREEN FADE FIX] Starting fade from black to reveal positioned player");
+                yield return StartCoroutine(ScreenFader.Instance.FadeFromBlack(1.0f));
+                Debug.LogError("[SCREEN FADE FIX] Fade from black complete");
+            }
+            else
+            {
+                Debug.LogError("[SCREEN FADE FIX] ScreenFader.Instance missing at fade time!");
+            }
         }
         else
         {
             Debug.LogError("CRITICAL ERROR: Player not found in scene after transition!");
+            
+            // Fade from black even if player wasn't found to prevent screen staying black
+            if (ScreenFader.Instance != null)
+            {
+                Debug.LogError("[SCREEN FADE FIX] Fading from black despite missing player");
+                yield return StartCoroutine(ScreenFader.Instance.FadeFromBlack(1.0f));
+            }
         }
-        
-        // Fade from black to reveal the scene
-        yield return StartCoroutine(ScreenFader.Instance.FadeFromBlack());
         
         // IMPORTANT: Reset the fading flag now that transition is complete
         CleanupTransitionState();
@@ -1741,16 +1786,25 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     public void CleanupTransitionState()
     {
+        // CRITICAL FIX: Check if player positioning is in progress
+        bool shouldResetScreenFader = !PlayerMarker.IsPlayerPositioningInProgress;
+        
+        if (PlayerMarker.IsPlayerPositioningInProgress)
+        {
+            Debug.LogError("[BUILD FIX] Player positioning in progress - skipping ScreenFader reset in CleanupTransitionState");
+        }
+        
         isFadingInProgress = false;
         lastTransitionStartTime = 0f;
         string oldTransition = currentTransitionDescription;
         currentTransitionDescription = "";
         Debug.LogError($"[BUILD FIX] Transition state force-reset by CleanupTransitionState. Old transition: {oldTransition}");
         
-        // Also reset screen fader if it exists
-        if (ScreenFader.Instance != null)
+        // Also reset screen fader if it exists AND no positioning is in progress
+        if (shouldResetScreenFader && ScreenFader.Instance != null)
         {
             ScreenFader.Instance.ResetToVisible();
+            Debug.LogError("[BUILD FIX] Reset ScreenFader to visible state in CleanupTransitionState");
         }
     }
     
@@ -1839,6 +1893,20 @@ public class SceneTransitionManager : MonoBehaviour
             return;
         }
         
+        // CRITICAL FIX: Check if player positioning is in progress
+        if (PlayerMarker.IsPlayerPositioningInProgress)
+        {
+            Debug.LogError("[SCENE TRANSITION] Detected player positioning in progress - skipping ScreenFader reset!");
+            
+            // Still reset the transition flags, but don't touch the screen fader
+            isFadingInProgress = false;
+            currentTransitionDescription = "";
+            lastTransitionStartTime = 0f;
+            Debug.LogError("[SCENE TRANSITION] Only reset transition flags, preserved screen fade state");
+            return;
+        }
+        
+        // Normal path - reset everything 
         isFadingInProgress = false;
         currentTransitionDescription = "";
         lastTransitionStartTime = 0f;

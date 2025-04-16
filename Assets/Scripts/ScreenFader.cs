@@ -326,6 +326,28 @@ public class ScreenFader : MonoBehaviour
     /// </summary>
     public void ResetToVisible()
     {
+        // Add detailed logging showing where this is being called from
+        System.Diagnostics.StackTrace stackTrace = new System.Diagnostics.StackTrace();
+        string caller = "unknown";
+        if (stackTrace.FrameCount > 1)
+        {
+            caller = stackTrace.GetFrame(1).GetMethod().Name;
+        }
+        
+        // Check if player positioning is in progress (if available)
+        bool isPositioningInProgress = false;
+        System.Type playerMarkerType = System.Type.GetType("PlayerMarker");
+        if (playerMarkerType != null)
+        {
+            System.Reflection.PropertyInfo prop = playerMarkerType.GetProperty("IsPlayerPositioningInProgress");
+            if (prop != null)
+            {
+                isPositioningInProgress = (bool)prop.GetValue(null);
+            }
+        }
+        
+        Debug.LogError($"[SCREEN FADER] ResetToVisible called by {caller}, PlayerPositioning={isPositioningInProgress}");
+        
         // Initialize components to ensure they exist
         InitializeFadeComponents();
         

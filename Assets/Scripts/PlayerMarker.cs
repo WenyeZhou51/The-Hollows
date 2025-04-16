@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 /// <summary>
 /// This component marks a position in the scene where the player can spawn
@@ -7,6 +8,9 @@ using UnityEngine.SceneManagement;
 /// </summary>
 public class PlayerMarker : MonoBehaviour
 {
+    // Static flag to track if player positioning is in progress - other components can check this
+    public static bool IsPlayerPositioningInProgress { get; private set; }
+    
     [Tooltip("Unique ID for this marker within the scene. Used to determine where the player spawns after scene transitions.")]
     [SerializeField] private string markerId;
     
@@ -67,7 +71,55 @@ public class PlayerMarker : MonoBehaviour
     // CRITICAL BUILD FIX: Direct player positioning from the marker itself
     private System.Collections.IEnumerator PositionPlayerAtMarker()
     {
-        Debug.LogError($"[BUILD FIX] PlayerMarker '{markerId}' starting player positioning");
+        // Set the static flag to indicate positioning is in progress
+        IsPlayerPositioningInProgress = true;
+        Debug.LogError($"[BUILD FIX] PlayerMarker '{markerId}' starting player positioning - IsPlayerPositioningInProgress=true");
+        
+        // SCREEN FADE FIX: Ensure screen is black before positioning player
+        ScreenFader.EnsureExists();
+        
+        // Make sure the screen is completely black first (this prevents seeing the player at the wrong position)
+        if (ScreenFader.Instance != null)
+        {
+            // Check if screen is already black
+            bool isScreenBlack = false;
+            Image fadeImage = ScreenFader.Instance.GetComponentInChildren<Image>();
+            if (fadeImage != null && fadeImage.color.a > 0.9f)
+            {
+                isScreenBlack = true;
+                Debug.LogError($"[SCREEN FADE FIX] Screen is already black, alpha: {fadeImage.color.a}");
+            }
+            
+            // Force screen to black if not already
+            if (!isScreenBlack)
+            {
+                Debug.LogError("[SCREEN FADE FIX] Setting screen to black before positioning player");
+                ScreenFader.Instance.SetBlackScreen();
+                
+                // Double-check it worked
+                fadeImage = ScreenFader.Instance.GetComponentInChildren<Image>();
+                if (fadeImage != null)
+                {
+                    Debug.LogError($"[SCREEN FADE FIX] Screen fade alpha after SetBlackScreen: {fadeImage.color.a}");
+                    if (fadeImage.color.a < 0.9f)
+                    {
+                        // Manually force it if needed
+                        Color blackColor = fadeImage.color;
+                        blackColor.a = 1.0f;
+                        fadeImage.color = blackColor;
+                        fadeImage.gameObject.SetActive(true);
+                        Debug.LogError($"[SCREEN FADE FIX] Manually forced screen alpha to: {fadeImage.color.a}");
+                    }
+                }
+                
+                // Small delay to ensure screen is fully black before proceeding
+                yield return new WaitForSeconds(0.1f);
+            }
+        }
+        else
+        {
+            Debug.LogError("[SCREEN FADE FIX] Failed to get ScreenFader.Instance! Screen fade won't work!");
+        }
         
         // Wait a few frames to ensure player is fully loaded and initialized
         yield return null;
@@ -109,11 +161,45 @@ public class PlayerMarker : MonoBehaviour
             
             // Log final position
             Debug.LogError($"[BUILD FIX] PlayerMarker positioned player from {originalPos} to {player.transform.position}");
+            
+            // SCREEN FADE FIX: Wait a moment to ensure player is fully positioned before fading in
+            yield return new WaitForSeconds(0.2f);
+            
+            // Now fade from black to reveal the positioned player
+            if (ScreenFader.Instance != null)
+            {
+                Debug.LogError("[SCREEN FADE FIX] Starting fade from black to reveal positioned player");
+                // A slightly longer fade (1.5 seconds) gives a smoother transition
+                StartCoroutine(ScreenFader.Instance.FadeFromBlack(1.0f));
+                
+                // Debug logs to confirm fade is working
+                yield return new WaitForSeconds(0.5f);
+                Image fadeImage = ScreenFader.Instance.GetComponentInChildren<Image>();
+                if (fadeImage != null)
+                {
+                    Debug.LogError($"[SCREEN FADE FIX] Screen fade alpha during fadeout: {fadeImage.color.a}");
+                }
+            }
+            else
+            {
+                Debug.LogError("[SCREEN FADE FIX] ScreenFader.Instance missing during reveal phase!");
+            }
         }
         else
         {
             Debug.LogError($"[BUILD FIX] PlayerMarker '{markerId}' couldn't find the player to position!");
+            
+            // Still fade from black even if player positioning failed
+            if (ScreenFader.Instance != null)
+            {
+                Debug.LogError("[SCREEN FADE FIX] Starting fade from black despite positioning failure");
+                StartCoroutine(ScreenFader.Instance.FadeFromBlack(1.0f));
+            }
         }
+        
+        // Reset the static flag after positioning is complete
+        IsPlayerPositioningInProgress = false;
+        Debug.LogError($"[BUILD FIX] PlayerMarker '{markerId}' finished player positioning - IsPlayerPositioningInProgress=false");
     }
     
     // CRITICAL BUILD FIX: Duplicate component disabling functionality here
