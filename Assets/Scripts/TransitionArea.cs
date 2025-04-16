@@ -133,6 +133,14 @@ public class TransitionArea : MonoBehaviour, IInteractable
             consecutiveAttempts = 0;
         }
         
+        // CRITICAL BUILD FIX: Save transition data to PlayerPrefs as a backup
+        // This ensures player positioning works even if SceneTransitionManager doesn't persist
+        PlayerPrefs.SetString("LastTargetSceneName", targetSceneName);
+        PlayerPrefs.SetString("LastTargetMarkerId", targetMarkerId);
+        PlayerPrefs.SetInt("NeedsPlayerSetup", 1);
+        PlayerPrefs.Save();
+        Debug.LogError($"[BUILD FIX] TransitionArea saved data to PlayerPrefs - Scene: {targetSceneName}, Marker: {targetMarkerId}");
+        
         // Make sure SceneTransitionManager exists
         SceneTransitionManager.EnsureExists();
         

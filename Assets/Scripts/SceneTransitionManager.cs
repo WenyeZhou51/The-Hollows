@@ -57,6 +57,9 @@ public class SceneTransitionManager : MonoBehaviour
     // Flag to track if we're already subscribed to CombatManager.OnCombatEnd
     private bool isSubscribedToCombatEnd = false;
     
+    // New field to store disabled components
+    private Dictionary<object, bool> _disabledComponents = new Dictionary<object, bool>();
+    
     private void Awake()
     {
         // Singleton setup
@@ -1093,6 +1096,14 @@ public class SceneTransitionManager : MonoBehaviour
         // IMPORTANT: Force reset static flag on all scene loads to prevent stuck state
         SceneManager.sceneLoaded += ForceResetFlagOnSceneLoad;
         
+        // Store scene and marker targets in PlayerPrefs to survive scene unloading
+        PlayerPrefs.SetString("LastTargetSceneName", targetSceneName);
+        PlayerPrefs.SetString("LastTargetMarkerId", targetMarkerId);
+        PlayerPrefs.SetInt("NeedsPlayerSetup", 1);
+        PlayerPrefs.Save();
+        
+        Debug.Log($"[SCENE TRANSITION] STORED in PlayerPrefs - Scene: {targetSceneName}, Marker: {targetMarkerId}");
+        
         // Validate the scene name before attempting transition
         if (!IsSceneValid(targetSceneName))
         {
@@ -1107,11 +1118,9 @@ public class SceneTransitionManager : MonoBehaviour
         // Fade to black
         yield return StartCoroutine(ScreenFader.Instance.FadeToBlack());
         
-        // IMPORTANT: Register for scene loaded event BEFORE loading scene
-        SceneManager.sceneLoaded += OnSceneTransitionComplete;
-        
-        // Load the target scene
-        Debug.Log($"[SCENE TRANSITION] Now loading scene: {targetSceneName}");
+        // REBUILD FIX: No longer rely on scene loaded event to survive scene loading
+        // Instead we'll make the main Awake/Start handle this
+        Debug.Log($"[SCENE TRANSITION] Now loading scene: {targetSceneName} - will perform setup through Start()");
         
         // IMPORTANT: Capture the current flags before scene load for debugging
         bool flagBeforeLoad = isFadingInProgress;
@@ -1193,23 +1202,44 @@ public class SceneTransitionManager : MonoBehaviour
     
     /// <summary>
     /// Called when a scene transition has completed
+    /// This is now a direct call method rather than an event handler
     /// </summary>
     private void OnSceneTransitionComplete(Scene scene, LoadSceneMode mode)
     {
-        Debug.Log($"[SCENE TRANSITION] OnSceneTransitionComplete called for scene: {scene.name}. Current transition: {currentTransitionDescription}");
+        Debug.LogError($"[BUILD FIX] OnSceneTransitionComplete called directly for scene: {scene.name}. Current transition: {currentTransitionDescription}");
         
-        // Start the setup coroutine
-        StartCoroutine(SetupPlayerAfterTransition());
+        // In build mode, we need to wait a bit longer before setting player position
+        if (!Application.isEditor)
+        {
+            // Use a delayed setup for build mode to ensure everything is loaded
+            StartCoroutine(DelayedSetupAfterTransition(0.2f));
+        }
+        else
+        {
+            // In editor, we can start the setup immediately
+            StartCoroutine(SetupPlayerAfterTransition());
+        }
         
         // IMPORTANT: Already reset the flag here so it's reset earlier in the process
         isFadingInProgress = false;
-        Debug.Log($"[SCENE TRANSITION] Reset transition flag in OnSceneTransitionComplete for {scene.name}");
+        Debug.LogError($"[BUILD FIX] Reset transition flag in OnSceneTransitionComplete for {scene.name}");
         
         // Safety check: Set a shorter timeout to reset the transition flag if something goes wrong
         StartCoroutine(EnsureTransitionFlagReset());
+    }
+    
+    /// <summary>
+    /// Delayed setup specifically for build mode to ensure everything is loaded
+    /// </summary>
+    private IEnumerator DelayedSetupAfterTransition(float delay)
+    {
+        Debug.LogError($"[SCENE TRANSITION BUILD FIX] Delaying player setup for {delay} seconds to ensure scene is fully loaded");
         
-        // Unregister the event to prevent multiple calls
-        SceneManager.sceneLoaded -= OnSceneTransitionComplete;
+        // Wait for the specified delay
+        yield return new WaitForSeconds(delay);
+        
+        // Now run the normal setup
+        StartCoroutine(SetupPlayerAfterTransition());
     }
     
     /// <summary>
@@ -1233,27 +1263,50 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     private IEnumerator SetupPlayerAfterTransition()
     {
+        Debug.LogError($"[BUILD FIX] SetupPlayerAfterTransition started with targetMarkerId={targetMarkerId}");
+        
         // Wait for two frames to make sure all objects are fully initialized in the scene
         yield return null;
         yield return null;
         
-        Debug.Log($"[SCENE TRANSITION] SetupPlayerAfterTransition running, current isFadingInProgress={isFadingInProgress}");
+        // Add an additional wait specifically for builds to ensure everything is fully loaded
+        if (!Application.isEditor)
+        {
+            yield return new WaitForEndOfFrame();
+            yield return new WaitForEndOfFrame();
+            // Add a small delay in build mode to ensure all components are fully initialized
+            yield return new WaitForSeconds(0.1f);
+        }
+        
+        Debug.LogError($"[BUILD FIX] SetupPlayerAfterTransition running, isFadingInProgress={isFadingInProgress}, targetMarkerId={targetMarkerId}");
         
         // Find the player in the scene
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         
         if (player != null)
         {
+            Debug.LogError($"[BUILD FIX] Found player at position {player.transform.position}");
+            
             // Try to find the target PlayerMarker
             bool markerFound = false;
             PlayerMarker[] markers = FindObjectsOfType<PlayerMarker>();
             
             // Log all markers to debug output to help diagnose issues
-            Debug.Log($"Looking for marker with ID '{targetMarkerId}' in scene '{SceneManager.GetActiveScene().name}'");
-            Debug.Log($"Found {markers.Length} PlayerMarker objects in the scene:");
+            Debug.LogError($"[BUILD FIX] Looking for marker with ID '{targetMarkerId}' in scene '{SceneManager.GetActiveScene().name}'");
+            Debug.LogError($"[BUILD FIX] Found {markers.Length} PlayerMarker objects in the scene:");
             foreach (PlayerMarker marker in markers)
             {
-                Debug.Log($"Available marker: ID='{marker.MarkerId}', Position={marker.transform.position}, GameObject={marker.gameObject.name}");
+                Debug.LogError($"[BUILD FIX] Available marker: ID='{marker.MarkerId}', Position={marker.transform.position}, GameObject={marker.gameObject.name}");
+            }
+            
+            // IMPORTANT BUILD FIX: Cache the player's original position for comparison later
+            Vector3 originalPlayerPos = player.transform.position;
+            
+            // In build mode, preemptively disable components that might fight position changes
+            if (!Application.isEditor)
+            {
+                DisablePlayerMovementComponents(player);
+                Debug.LogError($"[BUILD FIX] Disabled movement components on player");
             }
             
             // Search for the matching marker
@@ -1262,22 +1315,90 @@ public class SceneTransitionManager : MonoBehaviour
                 // Case insensitive comparison to avoid common errors
                 if (string.Equals(marker.MarkerId, targetMarkerId, System.StringComparison.OrdinalIgnoreCase))
                 {
-                    // Position the player at the marker
-                    player.transform.position = marker.transform.position;
-                    Debug.Log($"Successfully positioned player at marker with ID '{targetMarkerId}' at position {marker.transform.position}");
+                    // Position the player at the marker - use GetMarkerPosition for more reliable positioning in builds
+                    Vector3 markerPosition = marker.GetMarkerPosition();
+                    Debug.LogError($"[BUILD FIX] Found marker at position {markerPosition}, now positioning player");
+                    
+                    // For build mode, use transform.SetPositionAndRotation which is more reliable
+                    if (!Application.isEditor)
+                    {
+                        // Force position with multiple methods for redundancy
+                        player.transform.SetPositionAndRotation(markerPosition, player.transform.rotation);
+                        
+                        // Force update any physics components
+                        Rigidbody2D rb = player.GetComponent<Rigidbody2D>();
+                        if (rb != null)
+                        {
+                            rb.position = markerPosition;
+                            rb.velocity = Vector2.zero;
+                        }
+                        
+                        Debug.LogError($"[BUILD FIX] Set player position using SetPositionAndRotation, now at {player.transform.position}");
+                    }
+                    else
+                    {
+                        // Original positioning for editor mode which works fine
+                        player.transform.position = markerPosition;
+                        Debug.LogError($"[BUILD FIX] Set player position in editor mode, now at {player.transform.position}");
+                    }
+                    
+                    Debug.LogError($"[BUILD FIX] Successfully positioned player at marker with ID '{targetMarkerId}' at position {markerPosition}");
                     markerFound = true;
                     break;
                 }
             }
             
+            // CRITICAL BUILD FIX: Specifically for builds, add additional checks to ensure the player is actually moved
+            if (markerFound && !Application.isEditor)
+            {
+                // Compare if player position actually changed
+                float positionDifference = Vector3.Distance(originalPlayerPos, player.transform.position);
+                Debug.LogError($"[BUILD FIX] Position difference after first attempt: {positionDifference}");
+                
+                if (positionDifference < 0.01f)
+                {
+                    Debug.LogError($"[BUILD FIX] Player position didn't change! Original: {originalPlayerPos}, Current: {player.transform.position}");
+                    
+                    // Try to find the marker again
+                    foreach (PlayerMarker marker in markers)
+                    {
+                        if (string.Equals(marker.MarkerId, targetMarkerId, System.StringComparison.OrdinalIgnoreCase))
+                        {
+                            Debug.LogError($"[BUILD FIX] Second positioning attempt for marker {marker.MarkerId}");
+                            
+                            // Get position directly from marker's method for more reliability
+                            Vector3 markerPosition = marker.GetMarkerPosition();
+                            
+                            // More aggressive position setting
+                            player.transform.SetPositionAndRotation(markerPosition, player.transform.rotation);
+                            Debug.LogError($"[BUILD FIX] Second attempt position: {player.transform.position}");
+                            
+                            // Wait a frame for physics to update
+                            yield return null;
+                            
+                            // Set position again to be sure
+                            player.transform.position = markerPosition;
+                            
+                            // Force update all child transforms
+                            foreach (Transform child in player.GetComponentsInChildren<Transform>())
+                            {
+                                child.position = child.position; // Force update
+                            }
+                            
+                            Debug.LogError($"[BUILD FIX] Forcefully positioned player at {player.transform.position}");
+                            break;
+                        }
+                    }
+                }
+                
+                // Re-enable the player movement components now that position is set
+                EnablePlayerMovementComponents(player);
+                Debug.LogError($"[BUILD FIX] Re-enabled movement components, final position: {player.transform.position}");
+            }
+            
             if (!markerFound)
             {
-                Debug.LogError($"CRITICAL ERROR: PlayerMarker with ID '{targetMarkerId}' not found in scene '{SceneManager.GetActiveScene().name}'!");
-                Debug.LogError("Make sure the marker exists in the scene and the ID matches exactly what's specified in the TransitionArea.");
-                
-                // Without a marker, we cannot position the player properly.
-                // This is intentional - we never want to fall back to a default position.
-                // The game designers must ensure that all necessary markers exist in each scene.
+                Debug.LogError($"[BUILD FIX] CRITICAL ERROR: PlayerMarker with ID '{targetMarkerId}' not found in scene '{SceneManager.GetActiveScene().name}'!");
             }
             
             // Restore player inventory if needed
@@ -1301,10 +1422,10 @@ public class SceneTransitionManager : MonoBehaviour
                         // Create a new item with the stored data
                         ItemData item = new ItemData(pair.Key, "", pair.Value, false);
                         newInventory.AddItem(item);
-                        Debug.Log($"Restored {pair.Key} (x{pair.Value}) to player inventory in new scene");
+                        Debug.LogError($"[BUILD FIX] Restored {pair.Key} (x{pair.Value}) to player inventory in new scene");
                     }
                     
-                    Debug.Log("Player inventory restored from PersistentGameManager");
+                    Debug.LogError("Player inventory restored from PersistentGameManager");
                 }
                 // If no persistent inventory but we have the original inventory from before transition
                 else if (playerInventory != null && playerInventory != newInventory)
@@ -1320,10 +1441,10 @@ public class SceneTransitionManager : MonoBehaviour
                         // Also update the persistent manager
                         PersistentGameManager.Instance.AddItemToInventory(item.name, item.amount);
                         
-                        Debug.Log($"Restored {item.name} (x{item.amount}) to player inventory in new scene");
+                        Debug.LogError($"[BUILD FIX] Restored {item.name} (x{item.amount}) to player inventory in new scene");
                     }
                     
-                    Debug.Log("Player inventory restored from original inventory and saved to PersistentGameManager");
+                    Debug.LogError("Player inventory restored from original inventory and saved to PersistentGameManager");
                 }
             }
             
@@ -1341,7 +1462,87 @@ public class SceneTransitionManager : MonoBehaviour
         // IMPORTANT: Reset the fading flag now that transition is complete
         CleanupTransitionState();
         
-        Debug.Log($"[SCENE TRANSITION] Transition complete - flag reset by SetupPlayerAfterTransition");
+        Debug.LogError($"[BUILD FIX] Transition complete - flag reset by SetupPlayerAfterTransition");
+    }
+    
+    /// <summary>
+    /// Temporarily disable player movement components to avoid position conflicts
+    /// </summary>
+    private void DisablePlayerMovementComponents(GameObject player)
+    {
+        // Store original components state for re-enabling later
+        _disabledComponents.Clear();
+        
+        // Disable Rigidbody2D if present
+        Rigidbody2D rb = player.GetComponent<Rigidbody2D>();
+        if (rb != null)
+        {
+            _disabledComponents.Add(rb, rb.simulated);
+            rb.simulated = false;
+            rb.velocity = Vector2.zero; // Clear any velocity
+            rb.angularVelocity = 0f; // Clear any rotation
+        }
+        
+        // Disable CharacterController if present (common in 3D games)
+        CharacterController controller = player.GetComponent<CharacterController>();
+        if (controller != null)
+        {
+            _disabledComponents.Add(controller, controller.enabled);
+            controller.enabled = false;
+        }
+        
+        // Disable ALL MonoBehaviour scripts to ensure nothing fights our position change
+        MonoBehaviour[] components = player.GetComponents<MonoBehaviour>();
+        foreach (MonoBehaviour component in components)
+        {
+            // Skip UI components and this component
+            if (!component.GetType().Name.Contains("UI") && component != this)
+            {
+                _disabledComponents.Add(component, component.enabled);
+                component.enabled = false;
+                Debug.LogError($"[BUILD FIX] Disabled component: {component.GetType().Name}");
+            }
+        }
+        
+        // Also disable all colliders to ensure they don't interfere
+        Collider2D[] colliders = player.GetComponents<Collider2D>();
+        foreach (Collider2D collider in colliders)
+        {
+            _disabledComponents.Add(collider, collider.enabled);
+            collider.enabled = false;
+        }
+        
+        Debug.LogError($"[BUILD FIX] Disabled {_disabledComponents.Count} components on player");
+    }
+    
+    /// <summary>
+    /// Re-enable player movement components after positioning
+    /// </summary>
+    private void EnablePlayerMovementComponents(GameObject player)
+    {
+        Debug.LogError($"[BUILD FIX] Re-enabling {_disabledComponents.Count} components on player");
+        
+        // Restore all components to their original state
+        foreach (var pair in _disabledComponents)
+        {
+            if (pair.Key is Behaviour behaviour)
+            {
+                behaviour.enabled = (bool)pair.Value;
+                Debug.LogError($"[BUILD FIX] Re-enabled component: {pair.Key.GetType().Name}");
+            }
+            else if (pair.Key is Rigidbody2D rb)
+            {
+                rb.simulated = (bool)pair.Value;
+                Debug.LogError($"[BUILD FIX] Re-enabled Rigidbody2D simulation");
+            }
+            else if (pair.Key is Collider2D collider)
+            {
+                collider.enabled = (bool)pair.Value;
+                Debug.LogError($"[BUILD FIX] Re-enabled Collider2D: {collider.GetType().Name}");
+            }
+        }
+        
+        _disabledComponents.Clear();
     }
     
     /// <summary>
@@ -1544,7 +1745,7 @@ public class SceneTransitionManager : MonoBehaviour
         lastTransitionStartTime = 0f;
         string oldTransition = currentTransitionDescription;
         currentTransitionDescription = "";
-        Debug.Log($"[SCENE TRANSITION] Transition state force-reset by CleanupTransitionState. Old transition: {oldTransition}");
+        Debug.LogError($"[BUILD FIX] Transition state force-reset by CleanupTransitionState. Old transition: {oldTransition}");
         
         // Also reset screen fader if it exists
         if (ScreenFader.Instance != null)
@@ -1575,7 +1776,49 @@ public class SceneTransitionManager : MonoBehaviour
     private void Start()
     {
         // On startup, ensure the transition flag is reset
-        Debug.Log($"[SCENE TRANSITION] SceneTransitionManager started in scene {SceneManager.GetActiveScene().name}. Resetting transition flag.");
+        Debug.LogError($"[BUILD FIX] SceneTransitionManager started in scene {SceneManager.GetActiveScene().name}. Resetting transition flag.");
+        
+        // NEW BUILD FIX: Check if we need to position player from a scene transition
+        if (PlayerPrefs.GetInt("NeedsPlayerSetup", 0) == 1)
+        {
+            // Clear the flag immediately to prevent duplicate setups
+            PlayerPrefs.SetInt("NeedsPlayerSetup", 0);
+            PlayerPrefs.Save();
+            
+            Debug.LogError($"[BUILD FIX] Detected pending player setup from PlayerPrefs in scene {SceneManager.GetActiveScene().name}");
+            
+            // Get transition data
+            string savedSceneName = PlayerPrefs.GetString("LastTargetSceneName", "");
+            string savedMarkerId = PlayerPrefs.GetString("LastTargetMarkerId", "");
+            
+            // Verify we're in the right scene
+            if (savedSceneName == SceneManager.GetActiveScene().name && !string.IsNullOrEmpty(savedMarkerId))
+            {
+                Debug.LogError($"[BUILD FIX] Will setup player at marker {savedMarkerId} in scene {savedSceneName}");
+                
+                // Store the marker ID for use in setup
+                targetMarkerId = savedMarkerId;
+                
+                // Start the delayed setup since we're in build mode
+                if (!Application.isEditor)
+                {
+                    Debug.LogError($"[BUILD FIX] Starting delayed setup from Start() in build");
+                    StartCoroutine(DelayedSetupAfterTransition(0.5f)); // Longer delay for added safety
+                }
+                else
+                {
+                    // In editor, immediate setup is fine
+                    Debug.LogError($"[BUILD FIX] Starting immediate setup from Start() in editor");
+                    StartCoroutine(SetupPlayerAfterTransition());
+                }
+            }
+            else
+            {
+                Debug.LogError($"[BUILD FIX] Scene mismatch or invalid marker - Expected scene: {savedSceneName}, Current scene: {SceneManager.GetActiveScene().name}, Marker: {savedMarkerId}");
+            }
+        }
+        
+        // Standard flag reset
         isFadingInProgress = false;
         currentTransitionDescription = "";
     }
@@ -1599,7 +1842,7 @@ public class SceneTransitionManager : MonoBehaviour
         isFadingInProgress = false;
         currentTransitionDescription = "";
         lastTransitionStartTime = 0f;
-        Debug.Log("[SCENE TRANSITION] Static transition flags forcibly reset by ForceResetTransitionState");
+        Debug.LogError("[SCENE TRANSITION] Static transition flags forcibly reset by ForceResetTransitionState");
         
         // Also reset screen fader if it exists
         if (ScreenFader.Instance != null)
