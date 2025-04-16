@@ -106,14 +106,18 @@ MonoBehaviour:
   spriteRenderer: {fileID: 3008463958684140411}
   healthFill: {fileID: 0}
   actionFill: {fileID: 0}
-  maxHealth: 100
+  maxHealth: 1
   currentHealth: 0
   maxSanity: 100
   currentSanity: 0
   maxAction: 100
   currentAction: 0
   actionSpeed: 50
+  baseActionSpeed: 0
+  attackMultiplier: 1
+  defenseMultiplier: 1
   isEnemy: 0
+  enemyBehavior: {fileID: 0}
   highlightColor: {r: 1, g: 1, b: 1, a: 1}
   blinkInterval: 0.3
   enemyDefaultColor: {r: 0.73333335, g: 0.73333335, b: 0.73333335, a: 1}
@@ -129,5 +133,5 @@ MonoBehaviour:
   guardDamageReductionMultiplier: 0.5
   guardIconOffset: {x: 0, y: 1.2, z: 0}
   defenseReductionDefaultDuration: 2
-  defenseReductionDefaultMultiplier: 1.5
+  defenseReductionMultiplier: 1.5
   defenseReductionIconOffset: {x: 0, y: -1.2, z: 0}

@@ -30,6 +30,7 @@ public class PersistentGameManager : MonoBehaviour
     private Dictionary<string, int> characterMind = new Dictionary<string, int>();
     private Dictionary<string, int> characterMaxHealth = new Dictionary<string, int>();
     private Dictionary<string, int> characterMaxMind = new Dictionary<string, int>();
+    private Dictionary<string, float> characterActionSpeed = new Dictionary<string, float>();
     
     // Interactable object states
     private Dictionary<string, bool> interactableStates = new Dictionary<string, bool>();
@@ -44,6 +45,15 @@ public class PersistentGameManager : MonoBehaviour
         "The Fighter", 
         "The Bard", 
         "The Ranger"
+    };
+    
+    // Default action speeds for main characters
+    private readonly Dictionary<string, float> defaultActionSpeeds = new Dictionary<string, float>
+    {
+        { "The Magician", 25f },
+        { "The Fighter", 20f },
+        { "The Bard", 30f },
+        { "The Ranger", 27f }
     };
     
     // Custom variables
@@ -93,10 +103,58 @@ public class PersistentGameManager : MonoBehaviour
             
             // Register for scene loaded events
             SceneManager.sceneLoaded += OnSceneLoaded;
+            
+            // Initialize main character stats if they don't already exist
+            InitializeMainCharacterStats();
         }
         else
         {
             Destroy(gameObject);
+        }
+    }
+    
+    /// <summary>
+    /// Initialize main character stats with default values if they don't exist
+    /// </summary>
+    private void InitializeMainCharacterStats()
+    {
+        // For each main character, ensure they have stats initialized
+        foreach (string characterId in mainCharacters)
+        {
+            // Set max health to 100 if not already set
+            if (!characterMaxHealth.ContainsKey(characterId))
+            {
+                characterMaxHealth[characterId] = DEFAULT_MAX_HEALTH;
+                Debug.Log($"Initialized max health for {characterId} to {DEFAULT_MAX_HEALTH}");
+            }
+            
+            // Set max mind to 100 if not already set
+            if (!characterMaxMind.ContainsKey(characterId))
+            {
+                characterMaxMind[characterId] = DEFAULT_MAX_MIND;
+                Debug.Log($"Initialized max mind for {characterId} to {DEFAULT_MAX_MIND}");
+            }
+            
+            // Set current health to max health if not already set
+            if (!characterHealth.ContainsKey(characterId))
+            {
+                characterHealth[characterId] = characterMaxHealth[characterId];
+                Debug.Log($"Initialized current health for {characterId} to {characterHealth[characterId]}");
+            }
+            
+            // Set current mind to max mind if not already set
+            if (!characterMind.ContainsKey(characterId))
+            {
+                characterMind[characterId] = characterMaxMind[characterId];
+                Debug.Log($"Initialized current mind for {characterId} to {characterMind[characterId]}");
+            }
+            
+            // Set action speed to default if not already set
+            if (!characterActionSpeed.ContainsKey(characterId) && defaultActionSpeeds.ContainsKey(characterId))
+            {
+                characterActionSpeed[characterId] = defaultActionSpeeds[characterId];
+                Debug.Log($"Initialized action speed for {characterId} to {characterActionSpeed[characterId]}");
+            }
         }
     }
     
@@ -615,6 +673,70 @@ public class PersistentGameManager : MonoBehaviour
             return maxMind;
         }
         return DEFAULT_MAX_MIND;
+    }
+    
+    /// <summary>
+    /// Try to get a character's action speed value
+    /// </summary>
+    /// <param name="characterId">Unique ID for the character</param>
+    /// <param name="defaultSpeed">Default speed to return if not found</param>
+    /// <returns>The stored action speed or the default value if not found</returns>
+    public float GetCharacterActionSpeed(string characterId, float defaultSpeed)
+    {
+        if (characterActionSpeed.TryGetValue(characterId, out float speed))
+        {
+            return speed;
+        }
+        
+        // If we have a default for this character in our defaults dictionary, use that
+        if (defaultActionSpeeds.TryGetValue(characterId, out float defaultCharacterSpeed))
+        {
+            return defaultCharacterSpeed;
+        }
+        
+        return defaultSpeed;
+    }
+    
+    /// <summary>
+    /// Save character action speed
+    /// </summary>
+    /// <param name="characterId">Unique ID for the character</param>
+    /// <param name="speed">The action speed value to save</param>
+    public void SaveCharacterActionSpeed(string characterId, float speed)
+    {
+        if (string.IsNullOrEmpty(characterId))
+        {
+            Debug.LogError("Cannot save character action speed with null ID");
+            return;
+        }
+        
+        characterActionSpeed[characterId] = speed;
+        Debug.Log($"Saved action speed for {characterId}: {speed}");
+    }
+    
+    /// <summary>
+    /// Update the SaveCharacterStats method to include action speed
+    /// </summary>
+    public void SaveCharacterStats(string characterId, int currentHealth, int maxHealth, int currentMind, int maxMind, float actionSpeed = -1)
+    {
+        if (string.IsNullOrEmpty(characterId))
+        {
+            Debug.LogError("Cannot save character stats with null ID");
+            return;
+        }
+        
+        characterHealth[characterId] = currentHealth;
+        characterMaxHealth[characterId] = maxHealth;
+        characterMind[characterId] = currentMind;
+        characterMaxMind[characterId] = maxMind;
+        
+        // Only update action speed if a valid value was provided
+        if (actionSpeed > 0)
+        {
+            characterActionSpeed[characterId] = actionSpeed;
+        }
+        
+        Debug.Log($"Saved stats for {characterId}: Health={currentHealth}/{maxHealth}, Mind={currentMind}/{maxMind}, ActionSpeed={actionSpeed}");
     }
     
     #endregion

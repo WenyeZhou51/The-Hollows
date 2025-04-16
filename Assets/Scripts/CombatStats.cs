@@ -91,6 +91,11 @@ public class CombatStats : MonoBehaviour
         set 
         { 
             isActiveCharacter = value;
+            
+            // Don't change visualization if character is dead
+            if (IsDead())
+                return;
+                
             // When set as active character, immediately update appearance
             if (value)
             {
@@ -132,9 +137,24 @@ public class CombatStats : MonoBehaviour
         }
     }
 
+    // Flag to track if stats have been initialized by CombatManager
+    private bool statsInitializedByManager = false;
+    
+    // Method for CombatManager to mark stats as initialized
+    public void MarkStatsInitialized()
+    {
+        statsInitializedByManager = true;
+        Debug.Log($"[CombatStats] {characterName}: Stats marked as initialized by manager");
+    }
+
     private void Start()
     {
         Debug.Log($"[COMBAT DEBUG] START() called for {name} - current health: {currentHealth}, maxHealth: {maxHealth}, isEnemy: {isEnemy}");
+        
+        // Track initial health values for debugging
+        float initialHealth = currentHealth;
+        float initialSanity = currentSanity;
+        float initialActionSpeed = actionSpeed;
         
         if (isEnemy)
         {
@@ -177,6 +197,16 @@ public class CombatStats : MonoBehaviour
         }
         else
         {
+            // For non-enemy (player) characters, get stats from PersistentGameManager
+            if (PersistentGameManager.Instance != null)
+            {
+                // Get action speed from PersistentGameManager
+                actionSpeed = PersistentGameManager.Instance.GetCharacterActionSpeed(characterName, actionSpeed);
+                baseActionSpeed = actionSpeed; // Store for status effects
+                
+                Debug.Log($"[COMBAT DEBUG] Player {name} action speed set from PersistentGameManager: {actionSpeed}");
+            }
+            
             // For non-enemy characters, store their original colors
             if (spriteRenderer != null)
             {
@@ -186,33 +216,81 @@ public class CombatStats : MonoBehaviour
             {
                 defaultColor = characterImage.color;
             }
+            
+            // CRITICAL CHECK: If we're a player character, make sure our health values
+            // are coming from PersistentGameManager (for debugging only)
+            Debug.Log($"[COMBAT DEBUG] Character {characterName} - statsInitializedByManager: {statsInitializedByManager}");
+            
+            if (!statsInitializedByManager)
+            {
+                Debug.LogWarning($"[COMBAT DEBUG] WARNING: Character {characterName} was not initialized by CombatManager! Will use default values.");
+            }
         }
         
-        // Check if current values are already initialized (non-zero)
-        // This could mean they were set by CombatManager.InitializeCharacterStats
-        bool healthInitialized = currentHealth > 0;
-        bool sanityInitialized = currentSanity > 0;
-        
-        // Only initialize values that haven't been set
-        if (!healthInitialized) {
-            currentHealth = maxHealth;
-            Debug.Log($"CombatStats.Start: Setting default health for {characterName}: {currentHealth}/{maxHealth}");
-        } else {
-            Debug.Log($"CombatStats.Start: Health already initialized for {characterName}: {currentHealth}/{maxHealth}");
+        // Check if stats were already initialized by the CombatManager
+        if (statsInitializedByManager)
+        {
+            Debug.Log($"CombatStats.Start: Stats for {characterName} were already initialized by CombatManager, not resetting");
+            
+            // Even with statsInitializedByManager=true, verify the values are non-zero
+            if (currentHealth <= 0 && !isEnemy)
+            {
+                Debug.LogError($"[COMBAT DEBUG] ERROR: Character {characterName} was marked as initialized but health is {currentHealth}! Fixing to maxHealth.");
+                currentHealth = maxHealth;
+            }
+            
+            if (currentSanity <= 0 && !isEnemy)
+            {
+                Debug.LogError($"[COMBAT DEBUG] ERROR: Character {characterName} was marked as initialized but sanity is {currentSanity}! Fixing to maxSanity.");
+                currentSanity = maxSanity;
+            }
         }
-        
-        if (!sanityInitialized) {
-            currentSanity = maxSanity;
-            Debug.Log($"CombatStats.Start: Setting default sanity for {characterName}: {currentSanity}/{maxSanity}");
-        } else {
-            Debug.Log($"CombatStats.Start: Sanity already initialized for {characterName}: {currentSanity}/{maxSanity}");
+        else
+        {
+            // Standard initialization logic for stats that weren't set
+            // Check if current values are already initialized (non-zero)
+            bool healthInitialized = currentHealth > 0;
+            bool sanityInitialized = currentSanity > 0;
+            
+            // Only initialize values that haven't been set
+            if (!healthInitialized) {
+                currentHealth = maxHealth;
+                Debug.Log($"CombatStats.Start: Setting default health for {characterName}: {currentHealth}/{maxHealth}");
+            } else {
+                Debug.Log($"CombatStats.Start: Health already initialized for {characterName}: {currentHealth}/{maxHealth}");
+            }
+            
+            if (!sanityInitialized) {
+                currentSanity = maxSanity;
+                Debug.Log($"CombatStats.Start: Setting default sanity for {characterName}: {currentSanity}/{maxSanity}");
+            } else {
+                Debug.Log($"CombatStats.Start: Sanity already initialized for {characterName}: {currentSanity}/{maxSanity}");
+            }
         }
         
         currentAction = 0f; // Always start with empty action bar
-
-        // Debug log to check character name
-        Debug.Log($"[COMBAT DEBUG] Character fully initialized: {characterName}, isEnemy: {isEnemy}, currentHealth: {currentHealth}, maxHealth: {maxHealth}, IsDead: {IsDead()}");
-
+        
+        // Store base action speed for status effects
+        baseActionSpeed = actionSpeed;
+        
+        // Set the original color
+        if (isEnemy)
+        {
+            defaultColor = enemyDefaultColor;
+        }
+        else
+        {
+            defaultColor = allyDefaultColor;
+        }
+        
+        if (spriteRenderer != null)
+        {
+            originalColor = spriteRenderer.color;
+        }
+        
+        // Initialize highlighting to off
+        isHighlighted = false;
+        
         // Add skills to the first player character only (to avoid duplicates)
         if (!isEnemy && characterName == "The Magician")
         {
@@ -381,36 +459,24 @@ public class CombatStats : MonoBehaviour
             // Debug log to verify skills were added
             Debug.Log($"The Ranger now has {skills.Count} skills: {string.Join(", ", skills.Select(s => s.name))}");
         }
+        
+        // Log if our health values changed during Start() (this would indicate a problem)
+        if (initialHealth != currentHealth || initialSanity != currentSanity)
+        {
+            Debug.LogError($"[COMBAT DEBUG] WARNING: Health/Sanity values CHANGED during Start() for {characterName}! " +
+                          $"Initial: {initialHealth}/{initialSanity}, Final: {currentHealth}/{currentSanity}");
+        }
 
-        // Initialize current values
-        currentHealth = maxHealth;
-        currentSanity = maxSanity;
-        currentAction = 0f;
-        
-        // Store base action speed for status effects
-        baseActionSpeed = actionSpeed;
-        
-        // Set the original color
-        if (isEnemy)
-        {
-            defaultColor = enemyDefaultColor;
-        }
-        else
-        {
-            defaultColor = allyDefaultColor;
-        }
-        
-        if (spriteRenderer != null)
-        {
-            originalColor = spriteRenderer.color;
-        }
-        
-        // Initialize highlighting to off
-        isHighlighted = false;
+        // Add this at the end of the method, right before the closing brace
+        Debug.Log($"[COMBAT DEBUG] FINAL VALUES after Start for {characterName}: Health {currentHealth}/{maxHealth}, Mind {currentSanity}/{maxSanity}, statsInitializedByManager: {statsInitializedByManager}");
     }
 
     private void Update()
     {
+        // Skip updates if character is dead
+        if (IsDead())
+            return;
+            
         if (healthFill != null)
         {
             float healthPercent = currentHealth / maxHealth;
@@ -538,13 +604,13 @@ public class CombatStats : MonoBehaviour
     // Coroutine to fade out dead enemies and remove them from the scene
     private IEnumerator FadeOutAndDestroy()
     {
-        Debug.Log($"[Enemy Death] {name} is fading out");
+        Debug.Log($"[Character Death] {name} is fading out");
         
         // Fade duration in seconds
         float fadeDuration = 1.5f;
         float fadeTimer = 0f;
         
-        // Get all renderers on this enemy
+        // Get all renderers on this character
         SpriteRenderer[] renderers = GetComponentsInChildren<SpriteRenderer>();
         
         // Store original colors to properly fade them
@@ -554,15 +620,31 @@ public class CombatStats : MonoBehaviour
             originalColors[renderer] = renderer.color;
         }
         
-        // Disable any status effect icons during fade
+        // Remove all status effect icons immediately
         if (DefenseReductionIcon != null)
-            DefenseReductionIcon.SetActive(false);
+        {
+            Destroy(DefenseReductionIcon);
+            DefenseReductionIcon = null;
+        }
         
         if (GuardIcon != null)
-            GuardIcon.SetActive(false);
+        {
+            Destroy(GuardIcon);
+            GuardIcon = null;
+        }
         
         if (GuardedIcon != null)
-            GuardedIcon.SetActive(false);
+        {
+            Destroy(GuardedIcon);
+            GuardedIcon = null;
+        }
+        
+        // If using StatusManager, remove all status visuals as well
+        StatusManager statusManager = StatusManager.Instance;
+        if (statusManager != null)
+        {
+            statusManager.RemoveAllStatusVisuals(this);
+        }
         
         // Get UI image if available
         Image characterUIImage = null;
@@ -622,11 +704,68 @@ public class CombatStats : MonoBehaviour
             yield return null;
         }
         
-        // Hide the enemy instead of destroying it immediately
-        // This allows the CombatManager to still reference it but it's visually gone
-        gameObject.SetActive(false);
+        // Ensure all renderers stay completely transparent
+        foreach (SpriteRenderer renderer in renderers)
+        {
+            Color transparentColor = renderer.color;
+            transparentColor.a = 0f;
+            renderer.color = transparentColor;
+        }
         
-        Debug.Log($"[Enemy Death] {name} has faded out and been hidden");
+        // Ensure UI image stays completely transparent
+        if (characterUIImage != null)
+        {
+            Color transparentColor = characterUIImage.color;
+            transparentColor.a = 0f;
+            characterUIImage.color = transparentColor;
+        }
+        
+        // Ensure health and action bars stay completely transparent
+        if (healthFill != null)
+        {
+            Color transparentColor = healthFill.color;
+            transparentColor.a = 0f;
+            healthFill.color = transparentColor;
+        }
+        
+        if (actionFill != null)
+        {
+            Color transparentColor = actionFill.color;
+            transparentColor.a = 0f;
+            actionFill.color = transparentColor;
+        }
+        
+        // Disable the action speed for this character to prevent them from taking turns
+        actionSpeed = 0f;
+        
+        // If this character was guarding anyone, stop guarding
+        StopGuarding();
+        
+        // If this character was being guarded by another character, remove that relationship
+        if (IsGuarded && Guardian != null)
+        {
+            Guardian.StopGuarding();
+        }
+        
+        // Clear status effects
+        if (statusManager != null)
+        {
+            statusManager.RemoveAllStatuses(this);
+        }
+        
+        // For enemies, hide the GameObject
+        // For players, keep them transparent but visible and mark them as permanently dead
+        if (isEnemy)
+        {
+            gameObject.SetActive(false);
+            Debug.Log($"[Enemy Death] {name} has faded out and been hidden");
+        }
+        else
+        {
+            // Make sure the character can't participate in combat anymore
+            this.enabled = false;
+            Debug.Log($"[Player Death] {name} has faded out and will remain at 0 opacity for the rest of the battle");
+        }
     }
 
     // Set up guarding relationship
@@ -873,11 +1012,21 @@ public class CombatStats : MonoBehaviour
             // Create mind damage popup with yellow color (isMindDamage = true)
             Vector3 popupPosition = transform.position + Vector3.up * 0.7f; // Slightly higher than health popup
             DamagePopup.Create(popupPosition, wholeAmount, false, transform, true);
+            
+            // Check if player character lost all sanity and should fade out
+            if (currentSanity <= 0)
+            {
+                StartCoroutine(FadeOutAndDestroy());
+            }
         }
     }
 
     public void HighlightCharacter(bool highlight)
     {
+        // Don't highlight dead characters
+        if (IsDead())
+            return;
+            
         Debug.Log($"[Character Highlight] {name} highlight set to {highlight}, isEnemy: {isEnemy}, isActiveCharacter: {IsActiveCharacter}");
         
         // Store the highlight state regardless of active status
@@ -1155,8 +1304,8 @@ public class CombatStats : MonoBehaviour
         Vector3 popupPosition = transform.position + Vector3.up * 0.5f;
         DamagePopup.Create(popupPosition, wholeDamage, !isEnemy, transform, false);
         
-        // Check if enemy is dead and needs to fade out
-        if (isEnemy && currentHealth <= 0)
+        // Check if character is dead and needs to fade out - now works for both enemies and players
+        if (IsDead())
         {
             StartCoroutine(FadeOutAndDestroy());
         }

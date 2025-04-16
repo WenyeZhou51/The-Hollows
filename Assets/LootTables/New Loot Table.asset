@@ -15,13 +15,13 @@ MonoBehaviour:
   lootItems:
   - itemName: Fruit Juice
     description: Heals 30 HP
-    weight: 0.25
+    weight: 0.2
     itemType: 0
     requiresTarget: 1
     icon: {fileID: 0}
   - itemName: Shiny Bead
     description: Deals 20 damage to target enemy
-    weight: 0.25
+    weight: 0.2
     itemType: 0
     requiresTarget: 1
     icon: {fileID: 0}
@@ -32,7 +32,8 @@ MonoBehaviour:
     requiresTarget: 1
     icon: {fileID: 0}
   - itemName: Panacea
-    description: Heal target party member for 100HP and 100SP, remove all negative status effects
+    description: Heal target party member for 100HP and 100SP, remove all negative
+      status effects
     weight: 0.05
     itemType: 0
     requiresTarget: 1
@@ -45,7 +46,7 @@ MonoBehaviour:
     icon: {fileID: 0}
   - itemName: Pocket Sand
     description: WEAKENS all target enemies
-    weight: 0.1
+    weight: 0.05
     itemType: 0
     requiresTarget: 1
     icon: {fileID: 0}
@@ -63,7 +64,7 @@ MonoBehaviour:
     icon: {fileID: 0}
   - itemName: Ramen
     description: Heals ally for 15 HP
-    weight: 0.05
+    weight: 0.2
     itemType: 0
     requiresTarget: 1
     icon: {fileID: 0}

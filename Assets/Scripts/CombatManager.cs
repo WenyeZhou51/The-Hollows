@@ -182,6 +182,8 @@ public class CombatManager : MonoBehaviour
     // Initialize character health and mind values from PersistentGameManager
     private void InitializeCharacterStats()
     {
+        Debug.Log("[COMBAT DEBUG] InitializeCharacterStats called - checking if PersistentGameManager exists");
+        
         // Make sure PersistentGameManager exists
         if (PersistentGameManager.Instance == null)
         {
@@ -194,6 +196,8 @@ public class CombatManager : MonoBehaviour
         {
             if (playerStat == null) continue;
 
+            Debug.Log($"[COMBAT DEBUG] Initializing stats for {playerStat.name} with characterName: {playerStat.characterName}");
+            
             // Log default values from CombatStats before modification
             Debug.Log($"Default values for {playerStat.characterName ?? "unnamed character"} before initialization: Health {playerStat.currentHealth}/{playerStat.maxHealth}, Mind {playerStat.currentSanity}/{playerStat.maxSanity}");
 
@@ -219,10 +223,15 @@ public class CombatManager : MonoBehaviour
             playerStat.currentHealth = currentHealth;
             playerStat.maxSanity = maxMind;
             playerStat.currentSanity = currentMind;
+            
+            // Mark the stats as initialized to prevent them from being reset in Start()
+            playerStat.MarkStatsInitialized();
 
             // Log the final values after setting them
             Debug.Log($"Final initialized stats for {characterId}: Health {playerStat.currentHealth}/{playerStat.maxHealth}, Mind {playerStat.currentSanity}/{playerStat.maxSanity}");
         }
+        
+        Debug.Log("[COMBAT DEBUG] Character initialization from PersistentGameManager complete");
     }
 
     private void Update()
@@ -728,14 +737,51 @@ public class CombatManager : MonoBehaviour
             PersistentGameManager.Instance.IncrementDeaths();
         }
 
-        // Instead of calling OnCombatEnd, load the start menu directly
-        Debug.Log("Player was defeated! Returning to start menu.");
+        // Save character stats (for any characters that might still be alive)
+        Debug.LogError("[COMBAT DEBUG] Explicitly saving character stats before defeat transition");
+        SaveCharacterStats();
         
         // Make sure ScreenFader exists
         ScreenFader.EnsureExists();
         
+        // Make sure SceneTransitionManager exists to handle cleanup
+        SceneTransitionManager.EnsureExists();
+        
+        // Perform explicit cleanup of all combat-related objects
+        CleanupCombatObjects();
+        
         // Start the transition to the start menu with fade effect
         StartCoroutine(TransitionToStartMenu());
+    }
+    
+    /// <summary>
+    /// Cleanup all combat-related objects before scene transition
+    /// </summary>
+    private void CleanupCombatObjects()
+    {
+        Debug.Log("CombatManager: Cleaning up combat objects before transition");
+        
+        // Immediately hide all UI elements
+        if (combatUI != null)
+        {
+            if (combatUI.textPanel != null)
+                combatUI.textPanel.SetActive(false);
+                
+            if (combatUI.actionDisplayLabel != null)
+                combatUI.actionDisplayLabel.SetActive(false);
+                
+            if (skillMenu != null)
+                skillMenu.SetActive(false);
+                
+            if (itemMenu != null)
+                itemMenu.SetActive(false);
+                
+            if (combatUI.actionMenu != null)
+                combatUI.actionMenu.SetActive(false);
+        }
+        
+        // Handle any remaining coroutines
+        StopAllCoroutines();
     }
     
     /// <summary>
@@ -745,6 +791,10 @@ public class CombatManager : MonoBehaviour
     {
         // Fade to black
         yield return StartCoroutine(ScreenFader.Instance.FadeToBlack());
+        
+        // Explicitly set combat ended flag for good measure
+        isCombatActive = false;
+        isCombatEnded = true;
         
         // Register for scene loaded event BEFORE loading scene
         SceneManager.sceneLoaded += OnStartMenuSceneLoaded;
@@ -771,6 +821,47 @@ public class CombatManager : MonoBehaviour
             Debug.LogError("ScreenFader not found after loading Start_Menu scene!");
         }
         
+        // Find and destroy any persistent combat-related objects that may have survived the transition
+        var combatManagers = FindObjectsOfType<CombatManager>();
+        foreach (var manager in combatManagers)
+        {
+            if (manager != this)
+            {
+                Destroy(manager.gameObject);
+            }
+        }
+        
+        // Find and destroy any combat UI components in the scene
+        var combatUIs = FindObjectsOfType<CombatUI>();
+        foreach (var ui in combatUIs)
+        {
+            Destroy(ui.gameObject);
+        }
+        
+        // Find any canvases that might contain combat elements
+        Canvas[] allCanvases = FindObjectsOfType<Canvas>(true);
+        foreach (Canvas canvas in allCanvases)
+        {
+            string canvasName = canvas.gameObject.name.ToLower();
+            if (canvasName.Contains("combat") || canvasName.Contains("battle") || 
+                canvasName.Contains("enemy") || canvasName.Contains("action") || 
+                canvasName.Contains("menu") || canvasName.Contains("skill") || 
+                canvasName.Contains("item") || canvasName.Contains("stats") ||
+                canvasName.Contains("panel"))
+            {
+                Destroy(canvas.gameObject);
+            }
+        }
+        
+        // Ensure SceneTransitionManager performs its cleanup
+        if (SceneTransitionManager.Instance != null)
+        {
+            SceneTransitionManager.Instance.ResetCombatStatus();
+        }
+        
+        // Destroy this object after cleaning up
+        Destroy(gameObject);
+        
         // Unregister the event to prevent memory leaks
         SceneManager.sceneLoaded -= OnStartMenuSceneLoaded;
     }
@@ -785,9 +876,23 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
+        Debug.Log("[COMBAT DEBUG] Saving character stats for all non-dead player characters");
+        
         foreach (var playerStat in players)
         {
-            if (playerStat == null || playerStat.IsDead()) continue;
+            // Skip null or dead characters
+            if (playerStat == null || playerStat.IsDead()) 
+            {
+                if (playerStat == null)
+                {
+                    Debug.LogWarning("[COMBAT DEBUG] Skipping null player character when saving stats");
+                }
+                else 
+                {
+                    Debug.LogWarning($"[COMBAT DEBUG] Skipping dead character {playerStat.characterName} when saving stats");
+                }
+                continue;
+            }
 
             string characterId = playerStat.characterName;
             if (string.IsNullOrEmpty(characterId))
@@ -805,7 +910,7 @@ public class CombatManager : MonoBehaviour
                 (int)playerStat.maxSanity
             );
 
-            Debug.Log($"Saved combat stats for {characterId}: Health {playerStat.currentHealth}/{playerStat.maxHealth}, Mind {playerStat.currentSanity}/{playerStat.maxSanity}");
+            Debug.Log($"[COMBAT DEBUG] Saved combat stats for {characterId}: Health {playerStat.currentHealth}/{playerStat.maxHealth}, Mind {playerStat.currentSanity}/{playerStat.maxSanity}");
         }
     }
 
@@ -975,6 +1080,10 @@ public class CombatManager : MonoBehaviour
         // Set flag immediately to prevent multiple victory triggers
         isCombatEnded = true;
         
+        // Always save character stats before proceeding with victory
+        Debug.LogError("[COMBAT DEBUG] Explicitly saving character stats before victory transition");
+        SaveCharacterStats();
+        
         if (OnCombatEnd != null)
         {
             Debug.LogError("[COMBAT DEBUG] Inside ProceedWithVictory - Calling OnCombatEnd event with victory=true");
@@ -988,6 +1097,56 @@ public class CombatManager : MonoBehaviour
         else
         {
             Debug.LogError("[COMBAT DEBUG] WARNING: Cannot proceed with victory - SceneTransitionManager is null");
+        }
+    }
+
+    private void InitializeCharacterStats(CombatStats stats, bool isPlayerCharacter)
+    {
+        if (stats == null) return;
+        
+        // Set stats based on character type
+        if (isPlayerCharacter)
+        {
+            // Get the character's name for lookup in PersistentGameManager
+            string characterName = stats.characterName;
+            Debug.Log($"[COMBAT MANAGER] Initializing PLAYER character: {characterName}");
+            
+            // Only initialize from PersistentGameManager if we have a valid instance and character name
+            if (PersistentGameManager.Instance != null && !string.IsNullOrEmpty(characterName))
+            {
+                // Get max health and mind from persistent storage
+                int maxHealth = PersistentGameManager.Instance.GetCharacterMaxHealth(characterName);
+                int maxMind = PersistentGameManager.Instance.GetCharacterMaxMind(characterName);
+                float actionSpeed = PersistentGameManager.Instance.GetCharacterActionSpeed(characterName, stats.actionSpeed);
+                
+                // Set max values
+                stats.maxHealth = maxHealth;
+                stats.maxSanity = maxMind;
+                stats.actionSpeed = actionSpeed;
+                stats.baseActionSpeed = actionSpeed; // Store original value for status effects
+                
+                // Get current health and mind from persistent storage
+                int currentHealth = PersistentGameManager.Instance.GetCharacterHealth(characterName, (int)maxHealth);
+                int currentMind = PersistentGameManager.Instance.GetCharacterMind(characterName, (int)maxMind);
+                
+                // Set current values
+                stats.currentHealth = currentHealth;
+                stats.currentSanity = currentMind;
+                
+                Debug.Log($"[COMBAT MANAGER] Initialized {characterName} with health: {currentHealth}/{maxHealth}, mind: {currentMind}/{maxMind}, action speed: {actionSpeed}");
+            }
+            else
+            {
+                Debug.LogWarning($"[COMBAT MANAGER] No PersistentGameManager found or invalid character name: {characterName}. Using default values.");
+            }
+            
+            // Mark as initialized to prevent default values in Start()
+            stats.MarkStatsInitialized();
+        }
+        else
+        {
+            // Enemy characters keep their prefab values
+            Debug.Log($"[COMBAT MANAGER] Initializing ENEMY character: {stats.name} with default values");
         }
     }
 } 

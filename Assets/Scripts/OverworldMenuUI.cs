@@ -1184,17 +1184,17 @@ public class OverworldMenuUI : MonoBehaviour
         if (!panelsInitialized)
         {
             Debug.LogWarning("[OverworldMenuUI] Character panels not initialized with UI components. Initializing now...");
-            if (magicianPanel != null) InitializeCharacterPanel(magicianPanel, "Magician");
-            if (fighterPanel != null) InitializeCharacterPanel(fighterPanel, "Fighter");
-            if (bardPanel != null) InitializeCharacterPanel(bardPanel, "Bard");
-            if (rangerPanel != null) InitializeCharacterPanel(rangerPanel, "Ranger");
+            if (magicianPanel != null) InitializeCharacterPanel(magicianPanel, "The Magician");
+            if (fighterPanel != null) InitializeCharacterPanel(fighterPanel, "The Fighter");
+            if (bardPanel != null) InitializeCharacterPanel(bardPanel, "The Bard");
+            if (rangerPanel != null) InitializeCharacterPanel(rangerPanel, "The Ranger");
         }
         
         // Update each character panel with stats from PersistentGameManager
-        UpdateCharacterPanel(magicianPanel, "Magician");
-        UpdateCharacterPanel(fighterPanel, "Fighter");
-        UpdateCharacterPanel(bardPanel, "Bard");
-        UpdateCharacterPanel(rangerPanel, "Ranger");
+        UpdateCharacterPanel(magicianPanel, "The Magician");
+        UpdateCharacterPanel(fighterPanel, "The Fighter");
+        UpdateCharacterPanel(bardPanel, "The Bard");
+        UpdateCharacterPanel(rangerPanel, "The Ranger");
     }
     
     private void UpdateCharacterPanel(GameObject panel, string characterName)

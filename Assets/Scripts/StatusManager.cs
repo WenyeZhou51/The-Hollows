@@ -267,28 +267,80 @@ public class StatusManager : MonoBehaviour
                         break;
                 }
                 
-                Destroy(characterStatuses[character][statusType]);
+                // Don't destroy the icon here, because we're going to iterate through all statuses
+                // and the collection would be modified during iteration
             }
         }
         
-        // Clear the dictionaries
-        characterStatuses.Remove(character);
-        statusDurations.Remove(character);
+        // Now remove all the icons after iteration is done
+        foreach (var statusIcon in characterStatuses[character].Values)
+        {
+            if (statusIcon != null)
+            {
+                Destroy(statusIcon);
+            }
+        }
         
-        // Remove any guardian relationships
-        List<CombatStats> guardeesToRemove = new List<CombatStats>();
+        // Clear all status data for the character
+        characterStatuses[character].Clear();
+        statusDurations[character].Clear();
+        
+        // Remove any guardian relationship
+        if (guardianRelationships.ContainsKey(character))
+        {
+            guardianRelationships.Remove(character);
+        }
+        
+        // Remove this character as a guardian for any other character
+        List<CombatStats> charactersToUpdate = new List<CombatStats>();
         foreach (var kvp in guardianRelationships)
         {
-            if (kvp.Key == character || kvp.Value == character)
+            if (kvp.Value == character)
             {
-                guardeesToRemove.Add(kvp.Key);
+                charactersToUpdate.Add(kvp.Key);
             }
         }
         
-        foreach (CombatStats guardee in guardeesToRemove)
+        foreach (var protectedCharacter in charactersToUpdate)
         {
-            guardianRelationships.Remove(guardee);
+            RemoveGuardian(protectedCharacter);
         }
+    }
+    
+    // New method to remove all statuses from a character when they die
+    public void RemoveAllStatuses(CombatStats character)
+    {
+        if (character == null) return;
+        
+        Debug.Log($"[Status Manager] Removing all statuses from {character.characterName} (dead)");
+        
+        // Reset all multipliers to default
+        character.attackMultiplier = 1.0f;
+        character.defenseMultiplier = 1.0f;
+        character.actionSpeed = character.baseActionSpeed;
+        
+        // Clear all status effects
+        ClearAllStatuses(character);
+    }
+    
+    // New method to remove all status visuals without affecting the gameplay stats
+    public void RemoveAllStatusVisuals(CombatStats character)
+    {
+        if (character == null || !characterStatuses.ContainsKey(character)) return;
+        
+        Debug.Log($"[Status Manager] Removing all status visuals from {character.characterName}");
+        
+        // Destroy all status icons
+        foreach (var statusIcon in characterStatuses[character].Values)
+        {
+            if (statusIcon != null)
+            {
+                Destroy(statusIcon);
+            }
+        }
+        
+        // Clear the status icons dictionary for this character
+        characterStatuses[character].Clear();
     }
     
     // Update status durations at the end of a character's turn

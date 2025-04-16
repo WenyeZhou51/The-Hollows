@@ -51,6 +51,63 @@ public class StartMenuManager : MonoBehaviour
             
             Debug.Log("Start Menu ensuring screen visibility");
         }
+        
+        // Check for and clean up any remaining combat UI elements
+        CleanupLingeringCombatElements();
+    }
+    
+    /// <summary>
+    /// Clean up any combat UI elements that might have persisted through scene transition
+    /// </summary>
+    private void CleanupLingeringCombatElements()
+    {
+        Debug.Log("StartMenuManager: Checking for lingering combat elements");
+        
+        // Common combat canvas and panel names
+        string[] combatElementNames = new string[] {
+            "CombatUI", "BattleUI", "CombatCanvas", "BattleCanvas", 
+            "TextPanel", "ActionMenu", "SkillMenu", "ItemMenu", 
+            "CharacterStatsPanel", "ActionDisplayLabel"
+        };
+        
+        // Try to find and destroy these elements
+        int elementsDestroyed = 0;
+        foreach (string elementName in combatElementNames)
+        {
+            GameObject element = GameObject.Find(elementName);
+            if (element != null)
+            {
+                Debug.Log($"Found and destroying lingering combat element: {elementName}");
+                Destroy(element);
+                elementsDestroyed++;
+            }
+        }
+        
+        // Look for any canvases with combat-related names
+        Canvas[] allCanvases = FindObjectsOfType<Canvas>(true);
+        foreach (Canvas canvas in allCanvases)
+        {
+            string canvasName = canvas.gameObject.name.ToLower();
+            if (canvasName.Contains("combat") || canvasName.Contains("battle") || 
+                canvasName.Contains("enemy") || canvasName.Contains("action") || 
+                canvasName.Contains("menu") || canvasName.Contains("skill") || 
+                canvasName.Contains("item") || canvasName.Contains("stats") ||
+                canvasName.Contains("panel"))
+            {
+                Debug.Log($"Found and destroying combat-related canvas: {canvas.gameObject.name}");
+                Destroy(canvas.gameObject);
+                elementsDestroyed++;
+            }
+        }
+        
+        if (elementsDestroyed > 0)
+        {
+            Debug.Log($"Cleaned up {elementsDestroyed} lingering combat elements");
+        }
+        else
+        {
+            Debug.Log("No lingering combat elements found");
+        }
     }
     
     private void SetupPanelNavigation()

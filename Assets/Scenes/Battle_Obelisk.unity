@@ -1564,12 +1564,20 @@ PrefabInstance:
     m_TransformParent: {fileID: 1195803888}
     m_Modifications:
     - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
+      propertyPath: maxHealth
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
       propertyPath: actionSpeed
       value: 30
       objectReference: {fileID: 0}
     - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
       propertyPath: characterName
       value: The Fighter
+      objectReference: {fileID: 0}
+    - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
+      propertyPath: currentHealth
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
       propertyPath: highlightColor.b
@@ -2284,12 +2292,20 @@ PrefabInstance:
     m_TransformParent: {fileID: 1195803888}
     m_Modifications:
     - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
+      propertyPath: maxHealth
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
       propertyPath: actionSpeed
       value: 40
       objectReference: {fileID: 0}
     - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
       propertyPath: characterName
       value: The Bard
+      objectReference: {fileID: 0}
+    - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
+      propertyPath: currentHealth
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
       propertyPath: highlightColor.b
@@ -2422,12 +2438,20 @@ PrefabInstance:
     m_TransformParent: {fileID: 1195803888}
     m_Modifications:
     - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
+      propertyPath: maxHealth
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
       propertyPath: actionSpeed
-      value: 100
+      value: 30
       objectReference: {fileID: 0}
     - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
       propertyPath: characterName
       value: The Ranger
+      objectReference: {fileID: 0}
+    - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
+      propertyPath: currentHealth
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
       propertyPath: highlightColor.b
@@ -2662,6 +2686,18 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5636393689027812741, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
+      propertyPath: maxHealth
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5636393689027812741, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
+      propertyPath: currentHealth
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5636393689027812741, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
+      propertyPath: enemyBehavior
+      value: 
+      objectReference: {fileID: 2142220762}
     - target: {fileID: 5636393689027812743, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
       propertyPath: m_Name
       value: Enemy1
@@ -3004,8 +3040,16 @@ PrefabInstance:
     m_TransformParent: {fileID: 1195803888}
     m_Modifications:
     - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
+      propertyPath: maxHealth
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
       propertyPath: actionSpeed
-      value: 40
+      value: 45
+      objectReference: {fileID: 0}
+    - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
+      propertyPath: currentHealth
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}
       propertyPath: highlightColor.b
@@ -3605,7 +3649,7 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 5636393689027812743, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
   m_PrefabInstance: {fileID: 1365996797}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &2142220760
+--- !u!114 &2142220762
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -3614,15 +3658,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 2142220757}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bf22e6528cb60a645be2017d43a7666c, type: 3}
+  m_Script: {fileID: 11500000, guid: 7a5a48c4d2195ca458546e90d126d74c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maliceOfStoneChance: 0
-  sunderChance: 100
-  coinflipVisuals: {fileID: 0}
-  verticalOffset: 1.5
-  animationSpeed: 1
-  animationBufferTime: 0.5
+  triangulationChance: 30
+  unblinkingGazeChance: 30
+  cripplingDoubtChance: 30
+  maliceOfStoneChance: 10
 --- !u!114 &2145273949 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 3008463958684140404, guid: f4c0b31684d398042a62006de23d2f56, type: 3}

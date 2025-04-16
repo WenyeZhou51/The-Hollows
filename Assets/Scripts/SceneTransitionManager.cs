@@ -1345,4 +1345,61 @@ public class SceneTransitionManager : MonoBehaviour
             Debug.LogError("[SCENE TRANSITION DEBUG] The active SceneTransitionManager instance was destroyed!");
         }
     }
+    
+    /// <summary>
+    /// Reset all combat-related status
+    /// </summary>
+    public void ResetCombatStatus()
+    {
+        Debug.Log("[TRANSITION DEBUG] ResetCombatStatus called - resetting combat state");
+        
+        // Reset combat flags and variables
+        combatWon = false;
+        enemyThatInitiatedCombat = null;
+        enemyIdThatInitiatedCombat = null;
+        isFadingInProgress = false;
+        isSubscribedToCombatEnd = false;
+        
+        // Do an additional cleanup of combat objects to be thorough
+        CleanupCombatObjects();
+        
+        // Look for any remaining text panels that could be persistent
+        GameObject textPanel = GameObject.Find("TextPanel");
+        if (textPanel != null)
+        {
+            Debug.Log("[TRANSITION DEBUG] Found and destroying lingering TextPanel");
+            Destroy(textPanel);
+        }
+        
+        // Look for any other common combat UI elements that might persist
+        string[] combatUINames = new string[] {
+            "CombatUI", "BattleUI", "SkillMenu", "ItemMenu", "ActionMenu",
+            "CharacterStatsPanel", "TurnText", "ActionLabel", "CharacterUI"
+        };
+        
+        foreach (string uiName in combatUINames)
+        {
+            GameObject obj = GameObject.Find(uiName);
+            if (obj != null)
+            {
+                Debug.Log($"[TRANSITION DEBUG] Found and destroying lingering combat UI: {uiName}");
+                Destroy(obj);
+            }
+        }
+        
+        // Find all canvases with combat-related names
+        Canvas[] allCanvases = FindObjectsOfType<Canvas>(true);
+        foreach (Canvas canvas in allCanvases)
+        {
+            string canvasName = canvas.gameObject.name.ToLower();
+            if (canvasName.Contains("combat") || canvasName.Contains("battle") || 
+                canvasName.Contains("enemy") || canvasName.Contains("action") || 
+                canvasName.Contains("menu") || canvasName.Contains("skill") || 
+                canvasName.Contains("item") || canvasName.Contains("stats"))
+            {
+                Debug.Log($"[TRANSITION DEBUG] Destroying combat canvas: {canvas.gameObject.name}");
+                Destroy(canvas.gameObject);
+            }
+        }
+    }
 } 
