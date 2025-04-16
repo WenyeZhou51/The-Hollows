@@ -645,10 +645,9 @@ public class SceneTransitionManager : MonoBehaviour
             }
         }
         
-        // Fade to black
-        Debug.Log("[TRANSITION DEBUG] Starting fade to black");
-        yield return StartCoroutine(ScreenFader.Instance.FadeToBlack());
-        Debug.Log("[TRANSITION DEBUG] Fade to black completed");
+        // IMPORTANT: When coming from combat, the screen is already black, so we don't need another fade to black
+        // Skip the fade to black and proceed directly to loading the scene
+        Debug.Log("[TRANSITION DEBUG] Screen is already black from combat, skipping fade to black");
         
         // IMPORTANT: Register for scene loaded event BEFORE loading scene
         Debug.Log("[TRANSITION DEBUG] Registering OnOverworldSceneLoaded event");
@@ -910,7 +909,7 @@ public class SceneTransitionManager : MonoBehaviour
             }
             
             // Only do ONE fade from black operation, and ensure we reset the flag afterward
-            Debug.Log("[TRANSITION DEBUG] Starting fade from black");
+            Debug.Log("[TRANSITION DEBUG] Starting fade from black (only fade in the transition process)");
             yield return StartCoroutine(ScreenFader.Instance.FadeFromBlack());
             
             // Reset the fading flag now that we've completed the transition
@@ -922,7 +921,7 @@ public class SceneTransitionManager : MonoBehaviour
             Debug.LogError("[TRANSITION DEBUG] Player not found in overworld scene!");
             
             // Fade from black even if player wasn't found to prevent screen staying black
-            Debug.Log("[TRANSITION DEBUG] Starting fade from black (even though player wasn't found)");
+            Debug.Log("[TRANSITION DEBUG] Starting fade from black (only fade, even though player wasn't found)");
             yield return StartCoroutine(ScreenFader.Instance.FadeFromBlack());
             
             // Reset the fading flag now that we've completed the transition
