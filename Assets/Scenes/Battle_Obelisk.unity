@@ -2602,6 +2602,10 @@ PrefabInstance:
       propertyPath: maliceOfStoneChance
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5463537379794690485, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
+      propertyPath: animationBufferTime
+      value: 1.5
+      objectReference: {fileID: 0}
     - target: {fileID: 5606392298455665498, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -2688,11 +2692,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5636393689027812741, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
       propertyPath: maxHealth
-      value: 1
+      value: 100
       objectReference: {fileID: 0}
     - target: {fileID: 5636393689027812741, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
       propertyPath: currentHealth
-      value: 1
+      value: 100
       objectReference: {fileID: 0}
     - target: {fileID: 5636393689027812741, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
       propertyPath: enemyBehavior

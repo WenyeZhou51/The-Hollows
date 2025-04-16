@@ -95,8 +95,11 @@ public class WeaverBehaviorPre : EnemyBehavior
             // Base damage
             float baseDamage = 5f;
             
+            // Apply the enemy's attack multiplier
+            float calculatedDamage = enemy.CalculateDamage(baseDamage);
+            
             // Round down to whole number
-            int finalDamage = Mathf.FloorToInt(baseDamage);
+            int finalDamage = Mathf.FloorToInt(calculatedDamage);
             
             target.TakeDamage(finalDamage);
         }

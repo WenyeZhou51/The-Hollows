@@ -26,6 +26,7 @@ public class PrimordialPile : BaseSkill
             for (int i = 0; i < numberOfHits; i++)
             {
                 float damage = Random.Range(minDamagePerHit, maxDamagePerHit);
+                damage *= user.attackMultiplier;
                 target.TakeDamage(damage);
                 totalDamage += damage;
             }

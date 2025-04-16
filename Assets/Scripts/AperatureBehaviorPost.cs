@@ -262,25 +262,10 @@ public class AperatureBehaviorPost : EnemyBehavior
             // Apply enemy's attack multiplier
             float calculatedDamage = enemy.CalculateDamage(damage);
             
-            // Important: For vulnerable targets, we need to apply damage BEFORE
-            // the vulnerability modifier, so we'll apply damage directly
-            int finalDamage;
-            if (isTargetVulnerable) {
-                // Apply damage directly without vulnerability modifier
-                // We need to manually adjust for the defenseMultiplier that would be applied in TakeDamage
-                // Vulnerability applies a 1.5x defenseMultiplier, so we divide by 1.5 to get the pre-modifier damage
-                finalDamage = Mathf.FloorToInt(calculatedDamage / 1.5f);
-                
-                // This will ensure the final damage after TakeDamage applies the 1.5x modifier
-                // will be in the 7-10 range as required
-                Debug.Log($"[Cascading Gaze] Base vulnerability hit: {calculatedDamage}, adjusted to: {finalDamage} before vulnerability modifier");
-                
-                focusedTarget.TakeDamage(finalDamage);
-            } else {
-                // For non-vulnerable targets, apply damage normally
-                finalDamage = Mathf.FloorToInt(calculatedDamage);
-                focusedTarget.TakeDamage(finalDamage);
-            }
+            // Round to whole number and apply damage normally
+            // Let the TakeDamage method handle the defense multiplier
+            int finalDamage = Mathf.FloorToInt(calculatedDamage);
+            focusedTarget.TakeDamage(finalDamage);
             
             // Add to total for logging
             totalDamage += finalDamage;

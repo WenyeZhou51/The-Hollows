@@ -136,6 +136,8 @@ public class Character : MonoBehaviour
         return currentHealth <= 0 || currentSanity <= 0;
     }
 
+    // WARNING: This method doesn't apply the defense multiplier for combat statuses like Tough/Vulnerable
+    // Use CombatStats.TakeDamage() for combat calculations that should respect status effects
     public void TakeDamage(int physicalDamage, int sanityDamage)
     {
         bool wasDead = IsDead();

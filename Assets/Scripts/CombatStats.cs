@@ -1340,6 +1340,7 @@ public class CombatStats : MonoBehaviour
     // Method to calculate attack damage with status effects
     public float CalculateDamage(float baseDamage)
     {
+        // Only apply the attack multiplier here - defense multiplier is applied in TakeDamage
         return baseDamage * attackMultiplier;
     }
 

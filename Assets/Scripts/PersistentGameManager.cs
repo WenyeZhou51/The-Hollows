@@ -50,10 +50,10 @@ public class PersistentGameManager : MonoBehaviour
     // Default action speeds for main characters
     private readonly Dictionary<string, float> defaultActionSpeeds = new Dictionary<string, float>
     {
-        { "The Magician", 25f },
+        { "The Magician", 40f },
         { "The Fighter", 20f },
-        { "The Bard", 30f },
-        { "The Ranger", 27f }
+        { "The Bard", 35f },
+        { "The Ranger", 30f }
     };
     
     // Custom variables

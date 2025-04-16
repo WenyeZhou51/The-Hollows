@@ -737,6 +737,8 @@ public class CombatUI : MonoBehaviour
                     for (int i = 0; i < 3; i++)
                     {
                         float damage = UnityEngine.Random.Range(7f, 10f);
+                        // Apply the attackMultiplier for strength/weakness statuses
+                        damage *= activeCharacter.attackMultiplier;
                         target.TakeDamage(damage);
                         totalDamage += damage;
                     }

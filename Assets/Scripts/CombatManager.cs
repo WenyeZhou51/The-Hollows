@@ -1323,4 +1323,27 @@ public class CombatManager : MonoBehaviour
     {
         return shouldAccumulateAction;
     }
+
+    /// <summary>
+    /// Updates action speeds for all players from the PersistentGameManager
+    /// </summary>
+    public void UpdatePlayerActionSpeeds()
+    {
+        if (PersistentGameManager.Instance == null)
+        {
+            Debug.LogError("Cannot update player action speeds: PersistentGameManager.Instance is null");
+            return;
+        }
+
+        foreach (var player in players)
+        {
+            if (player != null && !player.isEnemy)
+            {
+                float newSpeed = PersistentGameManager.Instance.GetCharacterActionSpeed(player.characterName, player.actionSpeed);
+                player.actionSpeed = newSpeed;
+                player.baseActionSpeed = newSpeed; // Store for status effects
+                Debug.Log($"Updated {player.characterName}'s action speed to {newSpeed}");
+            }
+        }
+    }
 } 
