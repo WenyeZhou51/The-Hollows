@@ -5,6 +5,9 @@ public class PlayerInventory : MonoBehaviour
 {
     [SerializeField] private List<ItemData> items = new List<ItemData>();
     
+    // Flag to prevent saving during scene transitions
+    private bool preventNextSave = false;
+    
     public delegate void InventoryChangedHandler();
     public event InventoryChangedHandler OnInventoryChanged;
     
@@ -18,6 +21,15 @@ public class PlayerInventory : MonoBehaviour
     
     private void OnDisable()
     {
+        // Check if save prevention is active
+        if (preventNextSave)
+        {
+            Debug.Log("[INVENTORY DEBUG] Skipping save on disable due to preventNextSave flag");
+            // Reset the flag for next time
+            preventNextSave = false;
+            return;
+        }
+        
         // Save inventory to PersistentGameManager when disabled
         SaveToPersistentManager();
     }
@@ -82,6 +94,26 @@ public class PlayerInventory : MonoBehaviour
             
             Debug.Log($"Saved {items.Count} items to PersistentGameManager");
         }
+    }
+    
+    /// <summary>
+    /// Prevents the next save operation when OnDisable is called
+    /// Used to prevent race conditions during scene transitions
+    /// </summary>
+    public void PreventNextSave()
+    {
+        preventNextSave = true;
+        Debug.Log("[INVENTORY DEBUG] Next save operation will be skipped");
+    }
+    
+    /// <summary>
+    /// Force saves the current inventory to the PersistentGameManager
+    /// Used during scene transitions to ensure data is properly saved
+    /// </summary>
+    public void ForceSaveToPersistentManager()
+    {
+        Debug.Log("[INVENTORY DEBUG] Forcing save to PersistentGameManager with " + items.Count + " items");
+        SaveToPersistentManager();
     }
     
     public void AddItem(ItemData item)

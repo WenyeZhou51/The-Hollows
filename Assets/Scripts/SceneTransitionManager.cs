@@ -808,6 +808,38 @@ public class SceneTransitionManager : MonoBehaviour
         {
             Debug.Log("[TRANSITION DEBUG] Found player in overworld, setting up after combat");
             
+            // CRITICAL FIX: Immediately update the player's inventory to prevent race condition
+            // where OnDisable gets called before inventory is restored
+            PlayerInventory newInventory = player.GetComponent<PlayerInventory>();
+            if (newInventory != null && storedItems != null && storedItems.Count > 0)
+            {
+                Debug.Log("[TRANSITION DEBUG] CRITICAL FIX: Immediately restoring inventory before any possible OnDisable calls");
+                
+                // Force the PlayerInventory to not save during our update
+                newInventory.PreventNextSave();
+                
+                // Clear the old inventory first to prevent duplicating items
+                newInventory.ClearInventory();
+                
+                // Copy items from saved inventory to new inventory
+                foreach (ItemData item in storedItems)
+                {
+                    newInventory.AddItem(item);
+                    Debug.Log($"[TRANSITION DEBUG] CRITICAL FIX: Immediately restored {item.name} (x{item.amount}, Type: {item.type})");
+                }
+                
+                // Force a save to PersistentGameManager to ensure it has the latest data
+                newInventory.ForceSaveToPersistentManager();
+                
+                Debug.Log("[TRANSITION DEBUG] CRITICAL FIX: Completed immediate inventory restoration with " + newInventory.Items.Count + " items");
+            }
+            else
+            {
+                Debug.LogWarning("[TRANSITION DEBUG] CRITICAL FIX: Could not immediately restore inventory - newInventory: " + 
+                                (newInventory != null ? "valid" : "null") + ", storedItems: " + 
+                                (storedItems != null ? storedItems.Count + " items" : "null"));
+            }
+            
             // Wait another frame to ensure all components are initialized
             yield return null;
             Debug.Log("[TRANSITION DEBUG] Waited additional frame for player components to initialize");
@@ -830,7 +862,6 @@ public class SceneTransitionManager : MonoBehaviour
             player.transform.position = safePosition;
             
             // Restore player inventory
-            PlayerInventory newInventory = player.GetComponent<PlayerInventory>();
             if (newInventory != null && playerInventory != null)
             {
                 Debug.Log("[TRANSITION DEBUG] === Restoring player inventory after combat ===");
