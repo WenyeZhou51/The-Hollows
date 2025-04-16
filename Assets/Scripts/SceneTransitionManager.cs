@@ -910,7 +910,12 @@ public class SceneTransitionManager : MonoBehaviour
             
             // Only do ONE fade from black operation, and ensure we reset the flag afterward
             Debug.Log("[TRANSITION DEBUG] Starting fade from black (only fade in the transition process)");
-            yield return StartCoroutine(ScreenFader.Instance.FadeFromBlack());
+            
+            // CRITICAL FIX: Make sure the screen is black before fading from black
+            ScreenFader.Instance.SetBlackScreen();
+            
+            // Use a longer duration (1.5 seconds) for the fade to make it more noticeable
+            yield return StartCoroutine(ScreenFader.Instance.FadeFromBlack(1f));
             
             // Reset the fading flag now that we've completed the transition
             isFadingInProgress = false;
@@ -922,7 +927,12 @@ public class SceneTransitionManager : MonoBehaviour
             
             // Fade from black even if player wasn't found to prevent screen staying black
             Debug.Log("[TRANSITION DEBUG] Starting fade from black (only fade, even though player wasn't found)");
-            yield return StartCoroutine(ScreenFader.Instance.FadeFromBlack());
+            
+            // CRITICAL FIX: Make sure the screen is black before fading from black
+            ScreenFader.Instance.SetBlackScreen();
+            
+            // Use a longer duration (1.5 seconds) for the fade to make it more noticeable
+            yield return StartCoroutine(ScreenFader.Instance.FadeFromBlack(1f));
             
             // Reset the fading flag now that we've completed the transition
             isFadingInProgress = false;

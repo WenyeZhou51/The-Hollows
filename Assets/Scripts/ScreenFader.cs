@@ -267,20 +267,22 @@ public class ScreenFader : MonoBehaviour
         // Make sure our fade components are still valid after scene change
         InitializeFadeComponents();
         
-        // Skip automatic fading for overworld scenes when returning from battle
-        // SceneTransitionManager will handle fading for these cases
+        // IMPORTANT: We should only skip auto-fading if we're not explicitly calling a fade
+        // from the SceneTransitionManager. The problem is we can't easily detect if a
+        // fade has been explicitly requested. Therefore, we'll only skip if no fade is in progress.
         bool isOverworldScene = scene.name.StartsWith("Overworld_");
-        bool isComingFromBattle = SceneManager.GetActiveScene().name.StartsWith("Battle_");
         
-        if (isOverworldScene && SceneTransitionManager.Instance != null)
+        // Skip automatic backup fading ONLY if another fade isn't already in progress
+        // This ensures explicitly requested fades from SceneTransitionManager work properly
+        if (isOverworldScene && SceneTransitionManager.Instance != null && !isFading)
         {
-            Debug.Log($"ScreenFader skipping automatic fade for overworld scene: {scene.name} - letting SceneTransitionManager handle it");
+            Debug.Log($"ScreenFader skipping automatic fade for overworld scene: {scene.name} - not currently fading");
             return;
         }
         
         // CRITICAL FIX: Reset the screen to clear when a new scene loads
         // This prevents permanent black screens during transitions
-        if (fadeImage != null && fadeImage.color.a > 0.5f)
+        if (fadeImage != null && fadeImage.color.a > 0.5f && !isFading)
         {
             Debug.Log($"ScreenFader detected black screen on scene load for {scene.name}, resetting to visible");
             StartCoroutine(FadeFromBlack(defaultFadeDuration));
