@@ -6,8 +6,11 @@ public class DialogueTriggerArea : MonoBehaviour
     [SerializeField] private TextAsset inkFile;
     [SerializeField] private bool triggerOnce = true;
     [SerializeField] private bool hasEnteredBefore = false;
+    [SerializeField] private bool oncePerRun = false; // Only trigger once per game run (persists across scene transitions)
     
     private InkDialogueHandler inkHandler;
+    private string uniqueDialogueId;
+    private bool hasTriggeredThisSession = false; // Track if triggered during this scene session
     
     private void Awake()
     {
@@ -23,6 +26,11 @@ public class DialogueTriggerArea : MonoBehaviour
         {
             inkHandler.InkJSON = inkFile;
         }
+        
+        // Generate a unique ID for this dialogue trigger
+        // Make the ID more specific without using GetInstanceID() which can change
+        string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        uniqueDialogueId = $"DialogueTrigger_{sceneName}_{areaName}_{transform.position}";
     }
     
     private void Start()
@@ -41,7 +49,43 @@ public class DialogueTriggerArea : MonoBehaviour
             existingCollider.isTrigger = true;
         }
         
+        // Check if this dialogue has already been triggered in this run
+        if (oncePerRun && PersistentGameManager.Instance != null)
+        {
+            // Get the current run ID from PersistentGameManager (deaths counter)
+            int currentRunId = PersistentGameManager.Instance.GetDeaths();
+            
+            // Create a run-specific dialogue ID that changes on death
+            string runSpecificId = $"{uniqueDialogueId}_run{currentRunId}";
+            
+            // Check if this dialogue has been triggered in the current run
+            hasEnteredBefore = PersistentGameManager.Instance.GetInteractableState(
+                UnityEngine.SceneManagement.SceneManager.GetActiveScene().name, 
+                runSpecificId, 
+                false);
+            
+            Debug.Log($"DialogueTriggerArea '{areaName}' oncePerRun check for run {currentRunId}: hasEnteredBefore = {hasEnteredBefore}");
+        }
+        
+        // Subscribe to dialogue state change events
+        DialogueManager.OnDialogueStateChanged += HandleDialogueStateChanged;
+        
         Debug.Log("DialogueTriggerArea initialized on " + gameObject.name + " with name: " + areaName);
+    }
+    
+    private void OnDestroy()
+    {
+        // Unsubscribe from events when destroyed
+        DialogueManager.OnDialogueStateChanged -= HandleDialogueStateChanged;
+    }
+    
+    private void HandleDialogueStateChanged(bool isActive)
+    {
+        // Reset the trigger state when dialogue closes
+        if (!isActive && hasTriggeredThisSession)
+        {
+            hasTriggeredThisSession = false;
+        }
     }
     
     private void OnTriggerEnter2D(Collider2D other)
@@ -49,9 +93,17 @@ public class DialogueTriggerArea : MonoBehaviour
         // Check if the object entering the trigger is the player
         if (other.CompareTag("Player"))
         {
-            // If this trigger should only fire once and has already fired, don't trigger again
-            if (triggerOnce && hasEnteredBefore)
+            // Prevent multiple triggers in same scene session
+            if (hasTriggeredThisSession)
             {
+                Debug.Log($"DialogueTrigger '{areaName}' already triggered this session - ignoring new trigger");
+                return;
+            }
+            
+            // If this trigger should only fire once and has already fired, don't trigger again
+            if ((triggerOnce || oncePerRun) && hasEnteredBefore)
+            {
+                Debug.Log($"DialogueTrigger '{areaName}' hasEnteredBefore = {hasEnteredBefore} - ignoring trigger");
                 return;
             }
             
@@ -63,8 +115,31 @@ public class DialogueTriggerArea : MonoBehaviour
                 playerController.SetCanMove(false);
             }
             
+            // Mark as triggered in this session to prevent immediate retriggering
+            hasTriggeredThisSession = true;
+            
             // Trigger the dialogue
             TriggerDialogue();
+        }
+    }
+    
+    private void OnTriggerExit2D(Collider2D other)
+    {
+        // When player exits the area, don't immediately retrigger if they re-enter
+        if (other.CompareTag("Player") && !hasEnteredBefore)
+        {
+            // Allow retriggering after a while
+            Invoke("ResetSessionTrigger", 1.0f);
+        }
+    }
+    
+    private void ResetSessionTrigger()
+    {
+        // Only reset the session trigger if we're not using oncePerRun or triggerOnce
+        if (!oncePerRun && !triggerOnce)
+        {
+            hasTriggeredThisSession = false;
+            Debug.Log($"DialogueTrigger '{areaName}' session trigger reset - can trigger again");
         }
     }
     
@@ -105,6 +180,24 @@ public class DialogueTriggerArea : MonoBehaviour
                 
                 // Update the trigger state for future triggers
                 hasEnteredBefore = true;
+                
+                // If this dialogue should only trigger once per run, save its state to the PersistentGameManager
+                if (oncePerRun && PersistentGameManager.Instance != null)
+                {
+                    // Get the current run ID (deaths counter)
+                    int currentRunId = PersistentGameManager.Instance.GetDeaths();
+                    
+                    // Create a run-specific dialogue ID that changes on death
+                    string runSpecificId = $"{uniqueDialogueId}_run{currentRunId}";
+                    
+                    // Save state with the run-specific ID
+                    PersistentGameManager.Instance.SaveInteractableState(
+                        UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
+                        runSpecificId,
+                        true);
+                    
+                    Debug.Log($"Saved oncePerRun dialogue state for '{areaName}' for run {currentRunId} to PersistentGameManager");
+                }
             }
             else
             {
@@ -125,6 +218,24 @@ public class DialogueTriggerArea : MonoBehaviour
                 
                 // Update the trigger state for future triggers
                 hasEnteredBefore = true;
+                
+                // If this dialogue should only trigger once per run, save its state to the PersistentGameManager
+                if (oncePerRun && PersistentGameManager.Instance != null)
+                {
+                    // Get the current run ID (deaths counter)
+                    int currentRunId = PersistentGameManager.Instance.GetDeaths();
+                    
+                    // Create a run-specific dialogue ID that changes on death
+                    string runSpecificId = $"{uniqueDialogueId}_run{currentRunId}";
+                    
+                    // Save state with the run-specific ID
+                    PersistentGameManager.Instance.SaveInteractableState(
+                        UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
+                        runSpecificId,
+                        true);
+                    
+                    Debug.Log($"Saved oncePerRun dialogue state for '{areaName}' for run {currentRunId} to PersistentGameManager");
+                }
             }
             else
             {

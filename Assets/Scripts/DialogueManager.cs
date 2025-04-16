@@ -599,6 +599,7 @@ public class DialogueManager : MonoBehaviour
         
         // Step 1: Check for portrait tag - pattern: portrait: portraitID
         string processedText = text;
+        bool wasPortraitMode = isPortraitMode; // Store previous state
         isPortraitMode = false;
         
         // UPDATED regex to handle portrait IDs with spaces (capturing everything up to the comma)
@@ -625,11 +626,23 @@ public class DialogueManager : MonoBehaviour
             }
             
             Debug.Log($"Text after removing portrait tag: \"{processedText}\"");
+            
+            // IMPORTANT: If the portrait mode has changed, make sure to update text visibility
+            if (wasPortraitMode != isPortraitMode)
+            {
+                UpdateTextVisibility();
+            }
         }
         else
         {
             // Hide portrait if no portrait tag is present
             HidePortrait();
+            
+            // IMPORTANT: If the portrait mode has changed, make sure to update text visibility
+            if (wasPortraitMode != isPortraitMode)
+            {
+                UpdateTextVisibility();
+            }
         }
         
         // Step 2: Extract speaker tag if present (pattern: # speaker: Name)
@@ -775,7 +788,25 @@ public class DialogueManager : MonoBehaviour
         return processedText;
     }
 
-    // New method to set the portrait image
+    // Add new method to ensure only one text component is visible at a time
+    private void UpdateTextVisibility()
+    {
+        if (dialogueText != null && portraitText != null)
+        {
+            // Set visibility based on portrait mode
+            dialogueText.gameObject.SetActive(!isPortraitMode);
+            portraitText.gameObject.SetActive(isPortraitMode);
+            
+            Debug.Log($"Updated text visibility - Portrait mode: {isPortraitMode}, " +
+                     $"DialogueText active: {dialogueText.gameObject.activeSelf}, " +
+                     $"PortraitText active: {portraitText.gameObject.activeSelf}");
+        }
+        else
+        {
+            Debug.LogWarning("Cannot update text visibility - missing text components");
+        }
+    }
+
     private void SetPortrait(string portraitID)
     {
         if (portraitObject == null || portraitImage == null)
@@ -849,6 +880,10 @@ public class DialogueManager : MonoBehaviour
         {
             portraitImage.sprite = portraitSprite;
             portraitObject.SetActive(true);
+            
+            // IMPORTANT: Make sure to update text visibility when setting a portrait
+            UpdateTextVisibility();
+            
             Debug.Log($"[PORTRAIT SYSTEM] Successfully set portrait: {portraitID}");
         }
         else
@@ -881,9 +916,15 @@ public class DialogueManager : MonoBehaviour
                 Debug.Log("[PORTRAIT SYSTEM] Using default portrait as fallback");
                 portraitImage.sprite = defaultSprite;
                 portraitObject.SetActive(true);
+                
+                // IMPORTANT: Make sure to update text visibility even when using the default portrait
+                UpdateTextVisibility();
             } else {
                 portraitObject.SetActive(false);
                 isPortraitMode = false;
+                
+                // IMPORTANT: Make sure to update text visibility when hiding the portrait
+                UpdateTextVisibility();
             }
         }
     }
@@ -896,6 +937,9 @@ public class DialogueManager : MonoBehaviour
             portraitObject.SetActive(false);
         }
         isPortraitMode = false;
+        
+        // IMPORTANT: Make sure to update text visibility when hiding the portrait
+        UpdateTextVisibility();
     }
 
     public void ShowDialogue(string message)
@@ -952,11 +996,8 @@ public class DialogueManager : MonoBehaviour
             // Determine which text component to use based on portrait mode
             TextMeshProUGUI targetTextComponent = isPortraitMode && portraitText != null ? portraitText : dialogueText;
             
-            // Set the appropriate text component active
-            if (dialogueText != null)
-                dialogueText.gameObject.SetActive(!isPortraitMode);
-            if (portraitText != null)
-                portraitText.gameObject.SetActive(isPortraitMode);
+            // IMPORTANT: Ensure text visibility is correctly set
+            UpdateTextVisibility();
             
             // Set the text
             if (useTypewriterEffect)
@@ -1113,6 +1154,9 @@ public class DialogueManager : MonoBehaviour
         {
             // Show the dialogue panel
             dialoguePanel.SetActive(true);
+            
+            // IMPORTANT: Ensure visibility is correctly set before displaying text
+            UpdateTextVisibility();
             
             // Display text based on portrait mode
             TextMeshProUGUI targetTextComponent = isPortraitMode && portraitText != null ? portraitText : dialogueText;
