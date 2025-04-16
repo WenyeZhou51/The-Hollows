@@ -145,6 +145,14 @@ public class PlayerController : MonoBehaviour
             Debug.Log("[Player Debug] Interaction cooldown ended, player can interact again");
         }
         
+        // Check if screen is fading - disable movement during fade
+        if (ScreenFader.Instance != null && ScreenFader.Instance.IsFading)
+        {
+            // If we're fading, ensure player can't move
+            movement = Vector2.zero;
+            return;
+        }
+        
         // If the inventory is open, don't process movement and dialogue controls
         if (isInventoryOpen)
         {

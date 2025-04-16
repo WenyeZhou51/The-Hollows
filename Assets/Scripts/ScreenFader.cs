@@ -21,6 +21,9 @@ public class ScreenFader : MonoBehaviour
     private Canvas fadeCanvas;
     private CanvasGroup canvasGroup;
     private bool isFading = false;
+    
+    // Public property to check if a fade is in progress
+    public bool IsFading => isFading;
 
     private void Awake()
     {

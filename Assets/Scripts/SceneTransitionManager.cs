@@ -163,6 +163,16 @@ public class SceneTransitionManager : MonoBehaviour
     {
         Debug.Log("[TRANSITION DEBUG] StartCombat initiated");
         
+        // Check if we're already in the middle of a transition (either fade or scene change)
+        if (isFadingInProgress)
+        {
+            Debug.Log("[TRANSITION DEBUG] Ignoring combat request because a scene transition is already in progress");
+            return;
+        }
+        
+        // Set fading flag to prevent multiple transitions
+        isFadingInProgress = true;
+        
         // Store the current scene name to return to after combat
         currentSceneName = SceneManager.GetActiveScene().name;
         Debug.Log($"[TRANSITION DEBUG] Stored scene name: {currentSceneName} to return after combat");
@@ -1011,6 +1021,16 @@ public class SceneTransitionManager : MonoBehaviour
             return;
         }
         
+        // Check if we're already in the middle of a transition (either fade or scene change)
+        if (isFadingInProgress)
+        {
+            Debug.Log($"[SCENE TRANSITION] Ignoring transition request to {sceneName} because another transition is already in progress");
+            return;
+        }
+        
+        // Set fading flag to prevent multiple transitions
+        isFadingInProgress = true;
+        
         // Store transition details
         targetSceneName = sceneName;
         targetMarkerId = markerId;
@@ -1041,6 +1061,8 @@ public class SceneTransitionManager : MonoBehaviour
             Debug.LogError($"[SCENE TRANSITION] CRITICAL ERROR: Scene '{targetSceneName}' does not exist in build settings. Make sure to add it in File > Build Settings.");
             // Fade back from black since we're not transitioning
             StartCoroutine(ScreenFader.Instance.FadeFromBlack());
+            // Reset the fading flag
+            isFadingInProgress = false;
             yield break;
         }
         
@@ -1204,6 +1226,10 @@ public class SceneTransitionManager : MonoBehaviour
         
         // Fade from black
         yield return StartCoroutine(ScreenFader.Instance.FadeFromBlack());
+        
+        // Reset the fading flag now that we've completed the transition
+        isFadingInProgress = false;
+        Debug.Log("[SCENE TRANSITION] Scene transition complete, reset fading flag");
 
         // CRITICAL FIX: Add safety check to ensure screen is properly reset
         if (ScreenFader.Instance != null && ScreenFader.Instance.gameObject.activeInHierarchy)
