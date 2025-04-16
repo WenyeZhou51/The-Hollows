@@ -9,16 +9,9 @@ portrait: Magician confused, I didn't even realize how hungry I was. It's been a
 
 portrait: Ranger confused, But didn't we just eat half an hour ago?
 
-portrait: Magician angry, [Uh oh, why did you say "ages ago". That is SO suspicious]
+portrait: Magician angry, [Uh oh, why did you say "ages ago".]
 
-portrait: Bard confused, No we didn't. I don't remember having breakfast.
+portrait: Bard confused, But that's only the first one.
 
-portrait: Fighter neutral, We did. I had a chicken sandwich.
-
-portrait: Bard angry, We did not. Stop trying to manipulate my memory.
-
-portrait: Fighter neutral, I…whatever. I guess we can eat again
-
-portrait: magician_neutral_1, Well all's agreed. We can decide on the way out.
-
+portrait: Fighter neutral, Exactly.
 -> END 

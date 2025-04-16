@@ -810,50 +810,39 @@ public class DialogueManager : MonoBehaviour
         
         // CASE 2: If still not found, or in a build, try Resources.Load
         if (portraitSprite == null) {
-            // Try Resources.Load with full path
-            string resourcePath = $"Portraits/{portraitID}";
-            portraitSprite = Resources.Load<Sprite>(resourcePath);
+            // Try multiple formats of the portrait ID with Resources.Load
+            
+            // Format 1: Try the exact ID as provided
+            portraitSprite = Resources.Load<Sprite>($"Portraits/{portraitID}");
             if (portraitSprite != null) {
-                Debug.Log($"[PORTRAIT SYSTEM] Found portrait with Resources.Load: '{resourcePath}'");
+                Debug.Log($"[PORTRAIT SYSTEM] Found portrait with Resources.Load using exact ID: 'Portraits/{portraitID}'");
             }
             
-            // Try direct ID
+            // Format 2: Try lowercase version of the ID
+            if (portraitSprite == null) {
+                string lowercaseID = portraitID.ToLowerInvariant();
+                portraitSprite = Resources.Load<Sprite>($"Portraits/{lowercaseID}");
+                if (portraitSprite != null) {
+                    Debug.Log($"[PORTRAIT SYSTEM] Found portrait with Resources.Load using lowercase: 'Portraits/{lowercaseID}'");
+                }
+            }
+            
+            // Format 3: Try with underscores instead of spaces
+            if (portraitSprite == null && portraitID.Contains(" ")) {
+                string underscoreID = portraitID.Replace(" ", "_").ToLowerInvariant();
+                portraitSprite = Resources.Load<Sprite>($"Portraits/{underscoreID}");
+                if (portraitSprite != null) {
+                    Debug.Log($"[PORTRAIT SYSTEM] Found portrait with Resources.Load using underscores: 'Portraits/{underscoreID}'");
+                }
+            }
+            
+            // Format 4: Try direct ID without Portraits/ prefix
             if (portraitSprite == null) {
                 portraitSprite = Resources.Load<Sprite>(portraitID);
                 if (portraitSprite != null) {
                     Debug.Log($"[PORTRAIT SYSTEM] Found portrait with direct ID: '{portraitID}'");
                 }
             }
-            
-            // Try with .png extension
-            if (portraitSprite == null && !portraitID.EndsWith(".png")) {
-                string pngPath = $"{portraitID}.png";
-                portraitSprite = Resources.Load<Sprite>(pngPath);
-                if (portraitSprite != null) {
-                    Debug.Log($"[PORTRAIT SYSTEM] Found portrait with .png extension: '{pngPath}'");
-                }
-            }
-        }
-        
-        // CASE 3: Special fallback for common portrait issues
-        if (portraitSprite == null) {
-            // Check for case-sensitivity issues in the filename
-            #if UNITY_EDITOR
-            if (System.IO.Directory.Exists("Assets/Sprites/Portraits")) {
-                string[] allFiles = System.IO.Directory.GetFiles("Assets/Sprites/Portraits", "*.png");
-                foreach (string file in allFiles) {
-                    string fileName = System.IO.Path.GetFileNameWithoutExtension(file);
-                    if (string.Equals(fileName, portraitID, System.StringComparison.OrdinalIgnoreCase)) {
-                        // Found a case-insensitive match
-                        portraitSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(file);
-                        if (portraitSprite != null) {
-                            Debug.Log($"[PORTRAIT SYSTEM] Found portrait through case-insensitive match: '{file}' matches '{portraitID}'");
-                            break;
-                        }
-                    }
-                }
-            }
-            #endif
         }
         
         if (portraitSprite != null)
@@ -866,8 +855,8 @@ public class DialogueManager : MonoBehaviour
         {
             Debug.LogError($"[PORTRAIT SYSTEM] Portrait sprite not found after trying all paths: {portraitID}");
             
-            // List available sprites in the Portraits folder to help debugging
             #if UNITY_EDITOR
+            // List available sprites in the Sprites/Portraits folder
             if (System.IO.Directory.Exists("Assets/Sprites/Portraits")) {
                 Debug.Log("[PORTRAIT SYSTEM] Available portraits in Assets/Sprites/Portraits:");
                 string[] portraitFiles = System.IO.Directory.GetFiles("Assets/Sprites/Portraits", "*.png");
@@ -875,10 +864,27 @@ public class DialogueManager : MonoBehaviour
                     Debug.Log($"  - {System.IO.Path.GetFileNameWithoutExtension(file)}");
                 }
             }
+            
+            // List available sprites in Resources/Portraits folder
+            if (System.IO.Directory.Exists("Assets/Resources/Portraits")) {
+                Debug.Log("[PORTRAIT SYSTEM] Available portraits in Resources/Portraits:");
+                string[] resourceFiles = System.IO.Directory.GetFiles("Assets/Resources/Portraits", "*.png");
+                foreach (string file in resourceFiles) {
+                    Debug.Log($"  - {System.IO.Path.GetFileNameWithoutExtension(file)}");
+                }
+            }
             #endif
             
-            portraitObject.SetActive(false);
-            isPortraitMode = false;
+            // Instead of failing completely, let's try to load a default portrait as fallback
+            Sprite defaultSprite = Resources.Load<Sprite>("Portraits/magician_neutral_1");
+            if (defaultSprite != null) {
+                Debug.Log("[PORTRAIT SYSTEM] Using default portrait as fallback");
+                portraitImage.sprite = defaultSprite;
+                portraitObject.SetActive(true);
+            } else {
+                portraitObject.SetActive(false);
+                isPortraitMode = false;
+            }
         }
     }
     
