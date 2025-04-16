@@ -149,7 +149,7 @@ public class CombatStats : MonoBehaviour
 
     private void Start()
     {
-        Debug.Log($"[COMBAT DEBUG] START() called for {name} - current health: {currentHealth}, maxHealth: {maxHealth}, isEnemy: {isEnemy}");
+        Debug.LogError($"[BUILD DEBUG] CombatStats.Start() called for {name}/{characterName} - current health: {currentHealth}/{maxHealth}, isEnemy: {isEnemy}, statsInitializedByManager: {statsInitializedByManager}");
         
         // Track initial health values for debugging
         float initialHealth = currentHealth;
@@ -204,7 +204,13 @@ public class CombatStats : MonoBehaviour
                 actionSpeed = PersistentGameManager.Instance.GetCharacterActionSpeed(characterName, actionSpeed);
                 baseActionSpeed = actionSpeed; // Store for status effects
                 
-                Debug.Log($"[COMBAT DEBUG] Player {name} action speed set from PersistentGameManager: {actionSpeed}");
+                Debug.LogError($"[BUILD DEBUG] Player {name} action speed set from PersistentGameManager: {actionSpeed}");
+            }
+            else
+            {
+                Debug.LogError($"[BUILD DEBUG] WARNING: PersistentGameManager.Instance is NULL when setting player action speed");
+                // Try to create the PersistentGameManager
+                PersistentGameManager.EnsureExists();
             }
             
             // For non-enemy characters, store their original colors
@@ -219,52 +225,112 @@ public class CombatStats : MonoBehaviour
             
             // CRITICAL CHECK: If we're a player character, make sure our health values
             // are coming from PersistentGameManager (for debugging only)
-            Debug.Log($"[COMBAT DEBUG] Character {characterName} - statsInitializedByManager: {statsInitializedByManager}");
+            Debug.LogError($"[BUILD DEBUG] Character {characterName} - statsInitializedByManager: {statsInitializedByManager}");
             
             if (!statsInitializedByManager)
             {
-                Debug.LogWarning($"[COMBAT DEBUG] WARNING: Character {characterName} was not initialized by CombatManager! Will use default values.");
+                Debug.LogError($"[BUILD DEBUG] WARNING: Character {characterName} was not initialized by CombatManager! Will attempt direct load from PersistentGameManager");
             }
         }
         
         // Check if stats were already initialized by the CombatManager
         if (statsInitializedByManager)
         {
-            Debug.Log($"CombatStats.Start: Stats for {characterName} were already initialized by CombatManager, not resetting");
+            Debug.LogError($"[BUILD DEBUG] Stats for {characterName} were already initialized by CombatManager, not resetting");
             
             // Even with statsInitializedByManager=true, verify the values are non-zero
             if (currentHealth <= 0 && !isEnemy)
             {
-                Debug.LogError($"[COMBAT DEBUG] ERROR: Character {characterName} was marked as initialized but health is {currentHealth}! Fixing to maxHealth.");
+                Debug.LogError($"[BUILD DEBUG] ERROR: Character {characterName} was marked as initialized but health is {currentHealth}! Fixing to maxHealth.");
                 currentHealth = maxHealth;
             }
             
             if (currentSanity <= 0 && !isEnemy)
             {
-                Debug.LogError($"[COMBAT DEBUG] ERROR: Character {characterName} was marked as initialized but sanity is {currentSanity}! Fixing to maxSanity.");
+                Debug.LogError($"[BUILD DEBUG] ERROR: Character {characterName} was marked as initialized but sanity is {currentSanity}! Fixing to maxSanity.");
                 currentSanity = maxSanity;
             }
         }
         else
         {
-            // Standard initialization logic for stats that weren't set
-            // Check if current values are already initialized (non-zero)
-            bool healthInitialized = currentHealth > 0;
-            bool sanityInitialized = currentSanity > 0;
-            
-            // Only initialize values that haven't been set
-            if (!healthInitialized) {
-                currentHealth = maxHealth;
-                Debug.Log($"CombatStats.Start: Setting default health for {characterName}: {currentHealth}/{maxHealth}");
-            } else {
-                Debug.Log($"CombatStats.Start: Health already initialized for {characterName}: {currentHealth}/{maxHealth}");
+            // CRITICAL FIX: Try to load stats from PersistentGameManager for player characters
+            // This is crucial for built games where execution order might be different
+            if (!isEnemy)
+            {
+                Debug.LogError($"[BUILD DEBUG] Making EMERGENCY attempt to load {characterName} stats from PersistentGameManager");
+                
+                // Ensure PersistentGameManager exists before attempting to access it
+                if (PersistentGameManager.Instance == null)
+                {
+                    Debug.LogError("[BUILD DEBUG] PersistentGameManager.Instance is NULL - creating via EnsureExists");
+                    PersistentGameManager.EnsureExists();
+                }
+                
+                // Try again after ensuring it exists
+                if (PersistentGameManager.Instance != null && !string.IsNullOrEmpty(characterName))
+                {
+                    try
+                    {
+                        // Get max health and mind from persistent storage
+                        int savedMaxHealth = PersistentGameManager.Instance.GetCharacterMaxHealth(characterName);
+                        int savedMaxMind = PersistentGameManager.Instance.GetCharacterMaxMind(characterName);
+                        
+                        Debug.LogError($"[BUILD DEBUG] Retrieved max values from PersistentGameManager: Health {savedMaxHealth}, Mind {savedMaxMind}");
+                        
+                        // Set max values if they're valid (non-zero)
+                        if (savedMaxHealth > 0) maxHealth = savedMaxHealth;
+                        if (savedMaxMind > 0) maxSanity = savedMaxMind;
+                        
+                        // Get current health and mind values
+                        int savedHealth = PersistentGameManager.Instance.GetCharacterHealth(characterName, (int)maxHealth);
+                        int savedMind = PersistentGameManager.Instance.GetCharacterMind(characterName, (int)maxSanity);
+                        
+                        Debug.LogError($"[BUILD DEBUG] Retrieved current values from PersistentGameManager: Health {savedHealth}, Mind {savedMind}");
+                        
+                        // Set current values if they're valid
+                        if (savedHealth > 0) currentHealth = savedHealth;
+                        if (savedMind > 0) currentSanity = savedMind;
+                        
+                        Debug.LogError($"[BUILD DEBUG] EMERGENCY LOAD SUCCESSFUL: HP:{currentHealth}/{maxHealth}, Mind:{currentSanity}/{maxSanity}");
+                        
+                        // Mark as initialized so we don't override these values
+                        statsInitializedByManager = true;
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogError($"[BUILD DEBUG] EXCEPTION during emergency stats loading for {characterName}: {ex.Message}");
+                        Debug.LogError($"[BUILD DEBUG] Stack trace: {ex.StackTrace}");
+                    }
+                }
+                else
+                {
+                    Debug.LogError("[BUILD DEBUG] CRITICAL ERROR: PersistentGameManager.Instance is STILL NULL after EnsureExists");
+                }
             }
             
-            if (!sanityInitialized) {
-                currentSanity = maxSanity;
-                Debug.Log($"CombatStats.Start: Setting default sanity for {characterName}: {currentSanity}/{maxSanity}");
-            } else {
-                Debug.Log($"CombatStats.Start: Sanity already initialized for {characterName}: {currentSanity}/{maxSanity}");
+            // If stats are still not initialized, fallback to defaults
+            if (!statsInitializedByManager)
+            {
+                Debug.LogError("[BUILD DEBUG] Falling back to default values after all attempts failed");
+                // Standard initialization logic for stats that weren't set
+                // Check if current values are already initialized (non-zero)
+                bool healthInitialized = currentHealth > 0;
+                bool sanityInitialized = currentSanity > 0;
+                
+                // Only initialize values that haven't been set
+                if (!healthInitialized) {
+                    currentHealth = maxHealth;
+                    Debug.LogError($"[BUILD DEBUG] Setting default health for {characterName}: {currentHealth}/{maxHealth}");
+                } else {
+                    Debug.LogError($"[BUILD DEBUG] Health already initialized for {characterName}: {currentHealth}/{maxHealth}");
+                }
+                
+                if (!sanityInitialized) {
+                    currentSanity = maxSanity;
+                    Debug.LogError($"[BUILD DEBUG] Setting default sanity for {characterName}: {currentSanity}/{maxSanity}");
+                } else {
+                    Debug.LogError($"[BUILD DEBUG] Sanity already initialized for {characterName}: {currentSanity}/{maxSanity}");
+                }
             }
         }
         

@@ -51,6 +51,8 @@ public class CombatManager : MonoBehaviour
 
     private void Awake()
     {
+        Debug.LogError("[BUILD DEBUG] CombatManager.Awake() - Beginning initialization");
+        
         // Initialize lists
         if (players == null) players = new List<CombatStats>();
         if (enemies == null) enemies = new List<CombatStats>();
@@ -72,11 +74,61 @@ public class CombatManager : MonoBehaviour
             }
         }
 
-        // Initialize character stats from PersistentGameManager BEFORE Start() is called
-        InitializeCharacterStats();
+        // CRITICAL FIX: Ensure PersistentGameManager exists BEFORE initializing character stats
+        Debug.LogError("[BUILD DEBUG] CombatManager.Awake() - Checking for PersistentGameManager.Instance before initialization");
+        
+        if (PersistentGameManager.Instance == null)
+        {
+            Debug.LogError("[BUILD DEBUG] PersistentGameManager.Instance is NULL - calling EnsureExists");
+            PersistentGameManager.EnsureExists();
+            
+            if (PersistentGameManager.Instance == null)
+            {
+                Debug.LogError("[BUILD DEBUG] CRITICAL ERROR: PersistentGameManager.Instance is STILL NULL after EnsureExists!");
+            }
+            else
+            {
+                Debug.LogError("[BUILD DEBUG] PersistentGameManager.Instance successfully created with ID: " + PersistentGameManager.Instance.GetInstanceID());
+            }
+        }
+        else
+        {
+            Debug.LogError("[BUILD DEBUG] PersistentGameManager.Instance already exists with ID: " + PersistentGameManager.Instance.GetInstanceID());
+        }
+        
+        // Wait one frame to ensure PersistentGameManager is fully initialized
+        StartCoroutine(DelayedCharacterStatsInitialization());
 
         // Find the battle dialogue trigger
         battleDialogueTrigger = FindObjectOfType<BattleDialogueTrigger>();
+        
+        Debug.LogError("[BUILD DEBUG] CombatManager.Awake() - Completed");
+    }
+    
+    // CRITICAL FIX: Use coroutine to delay initialization by one frame
+    // This ensures the PersistentGameManager is fully initialized
+    private IEnumerator DelayedCharacterStatsInitialization()
+    {
+        Debug.LogError("[BUILD DEBUG] Starting DelayedCharacterStatsInitialization coroutine");
+        
+        // Wait for the end of the frame to ensure PersistentGameManager is fully initialized
+        yield return new WaitForEndOfFrame();
+        
+        Debug.LogError("[BUILD DEBUG] After one frame delay - PersistentGameManager.Instance exists: " + (PersistentGameManager.Instance != null));
+        
+        // Initialize character stats now that we've waited a frame
+        InitializeCharacterStats();
+        
+        Debug.LogError("[BUILD DEBUG] DelayedCharacterStatsInitialization complete");
+        
+        // Log player stats after initialization
+        foreach (var player in players)
+        {
+            if (player != null)
+            {
+                Debug.LogError($"[BUILD DEBUG] PLAYER STATS AFTER DELAYED INIT: {player.characterName} - Health: {player.currentHealth}/{player.maxHealth}, Mind: {player.currentSanity}/{player.maxSanity}");
+            }
+        }
     }
 
     private void Start()
@@ -182,56 +234,75 @@ public class CombatManager : MonoBehaviour
     // Initialize character health and mind values from PersistentGameManager
     private void InitializeCharacterStats()
     {
-        Debug.Log("[COMBAT DEBUG] InitializeCharacterStats called - checking if PersistentGameManager exists");
+        Debug.LogError("[BUILD DEBUG] InitializeCharacterStats called - checking if PersistentGameManager exists");
         
-        // Make sure PersistentGameManager exists
+        // Make sure PersistentGameManager exists - this is crucial for builds
         if (PersistentGameManager.Instance == null)
         {
-            Debug.LogWarning("PersistentGameManager not found when initializing combat stats");
+            Debug.LogError("[BUILD DEBUG] PersistentGameManager.Instance is NULL - attempting to create via EnsureExists");
+            PersistentGameManager.EnsureExists();
+        }
+        
+        // CRITICAL: Second check after ensure exists
+        if (PersistentGameManager.Instance == null)
+        {
+            Debug.LogError("[BUILD DEBUG] CRITICAL FAILURE: PersistentGameManager.Instance is STILL NULL after EnsureExists - stats will not be initialized!");
             return;
         }
 
-        Debug.Log("===== INITIALIZING CHARACTER STATS FROM PERSISTENT MANAGER =====");
+        Debug.LogError("===== INITIALIZING CHARACTER STATS FROM PERSISTENT MANAGER =====");
         foreach (var playerStat in players)
         {
-            if (playerStat == null) continue;
+            if (playerStat == null) 
+            {
+                Debug.LogError("[BUILD DEBUG] Skipping NULL player in InitializeCharacterStats");
+                continue;
+            }
 
-            Debug.Log($"[COMBAT DEBUG] Initializing stats for {playerStat.name} with characterName: {playerStat.characterName}");
+            Debug.LogError($"[BUILD DEBUG] Initializing stats for {playerStat.name} with characterName: {playerStat.characterName}");
             
             // Log default values from CombatStats before modification
-            Debug.Log($"Default values for {playerStat.characterName ?? "unnamed character"} before initialization: Health {playerStat.currentHealth}/{playerStat.maxHealth}, Mind {playerStat.currentSanity}/{playerStat.maxSanity}");
+            Debug.LogError($"[BUILD DEBUG] Default values for {playerStat.characterName ?? "unnamed character"} before initialization: Health {playerStat.currentHealth}/{playerStat.maxHealth}, Mind {playerStat.currentSanity}/{playerStat.maxSanity}");
 
             string characterId = playerStat.characterName;
             if (string.IsNullOrEmpty(characterId))
             {
-                Debug.LogWarning($"Character has no name, cannot retrieve persistent stats");
+                Debug.LogError($"[BUILD DEBUG] Character has no name, cannot retrieve persistent stats");
                 continue;
             }
-
-            // Get health values from PersistentGameManager
-            float currentHealth = PersistentGameManager.Instance.GetCharacterHealth(characterId, (int)playerStat.maxHealth);
-            float maxHealth = PersistentGameManager.Instance.GetCharacterMaxHealth(characterId);
             
-            // Get mind/sanity values from PersistentGameManager
-            float currentMind = PersistentGameManager.Instance.GetCharacterMind(characterId, (int)playerStat.maxSanity);
-            float maxMind = PersistentGameManager.Instance.GetCharacterMaxMind(characterId);
+            try
+            {
+                // Get health values from PersistentGameManager - wrap in try/catch for robustness
+                float currentHealth = PersistentGameManager.Instance.GetCharacterHealth(characterId, (int)playerStat.maxHealth);
+                float maxHealth = PersistentGameManager.Instance.GetCharacterMaxHealth(characterId);
+                
+                // Get mind/sanity values from PersistentGameManager
+                float currentMind = PersistentGameManager.Instance.GetCharacterMind(characterId, (int)playerStat.maxSanity);
+                float maxMind = PersistentGameManager.Instance.GetCharacterMaxMind(characterId);
 
-            Debug.Log($"Retrieved values from PersistentGameManager for {characterId}: Health {currentHealth}/{maxHealth}, Mind {currentMind}/{maxMind}");
+                Debug.LogError($"[BUILD DEBUG] Retrieved values from PersistentGameManager for {characterId}: Health {currentHealth}/{maxHealth}, Mind {currentMind}/{maxMind}");
 
-            // Apply values to combat stats - force the values to be applied
-            playerStat.maxHealth = maxHealth;
-            playerStat.currentHealth = currentHealth;
-            playerStat.maxSanity = maxMind;
-            playerStat.currentSanity = currentMind;
-            
-            // Mark the stats as initialized to prevent them from being reset in Start()
-            playerStat.MarkStatsInitialized();
+                // Apply values to combat stats - force the values to be applied
+                playerStat.maxHealth = maxHealth;
+                playerStat.currentHealth = currentHealth;
+                playerStat.maxSanity = maxMind;
+                playerStat.currentSanity = currentMind;
+                
+                // Mark the stats as initialized to prevent them from being reset in Start()
+                playerStat.MarkStatsInitialized();
 
-            // Log the final values after setting them
-            Debug.Log($"Final initialized stats for {characterId}: Health {playerStat.currentHealth}/{playerStat.maxHealth}, Mind {playerStat.currentSanity}/{playerStat.maxSanity}");
+                // Log the final values after setting them
+                Debug.LogError($"[BUILD DEBUG] Final initialized stats for {characterId}: Health {playerStat.currentHealth}/{playerStat.maxHealth}, Mind {playerStat.currentSanity}/{playerStat.maxSanity}");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[BUILD DEBUG] EXCEPTION during stats initialization for {characterId}: {ex.Message}");
+                Debug.LogError($"[BUILD DEBUG] Stack trace: {ex.StackTrace}");
+            }
         }
         
-        Debug.Log("[COMBAT DEBUG] Character initialization from PersistentGameManager complete");
+        Debug.LogError("[BUILD DEBUG] Character initialization from PersistentGameManager complete");
     }
 
     private void Update()
@@ -1160,35 +1231,55 @@ public class CombatManager : MonoBehaviour
         {
             // Get the character's name for lookup in PersistentGameManager
             string characterName = stats.characterName;
-            Debug.Log($"[COMBAT MANAGER] Initializing PLAYER character: {characterName}");
+            Debug.LogError($"[BUILD DEBUG] InitializeCharacterStats for individual character: {characterName}");
+            
+            // CRITICAL: Ensure PersistentGameManager exists
+            if (PersistentGameManager.Instance == null)
+            {
+                Debug.LogError("[BUILD DEBUG] PersistentGameManager.Instance is NULL - creating via EnsureExists");
+                PersistentGameManager.EnsureExists();
+                
+                if (PersistentGameManager.Instance == null)
+                {
+                    Debug.LogError("[BUILD DEBUG] CRITICAL ERROR: PersistentGameManager.Instance is STILL NULL after EnsureExists!");
+                }
+            }
             
             // Only initialize from PersistentGameManager if we have a valid instance and character name
             if (PersistentGameManager.Instance != null && !string.IsNullOrEmpty(characterName))
             {
-                // Get max health and mind from persistent storage
-                int maxHealth = PersistentGameManager.Instance.GetCharacterMaxHealth(characterName);
-                int maxMind = PersistentGameManager.Instance.GetCharacterMaxMind(characterName);
-                float actionSpeed = PersistentGameManager.Instance.GetCharacterActionSpeed(characterName, stats.actionSpeed);
-                
-                // Set max values
-                stats.maxHealth = maxHealth;
-                stats.maxSanity = maxMind;
-                stats.actionSpeed = actionSpeed;
-                stats.baseActionSpeed = actionSpeed; // Store original value for status effects
-                
-                // Get current health and mind from persistent storage
-                int currentHealth = PersistentGameManager.Instance.GetCharacterHealth(characterName, (int)maxHealth);
-                int currentMind = PersistentGameManager.Instance.GetCharacterMind(characterName, (int)maxMind);
-                
-                // Set current values
-                stats.currentHealth = currentHealth;
-                stats.currentSanity = currentMind;
-                
-                Debug.Log($"[COMBAT MANAGER] Initialized {characterName} with health: {currentHealth}/{maxHealth}, mind: {currentMind}/{maxMind}, action speed: {actionSpeed}");
+                try
+                {
+                    // Get max health and mind from persistent storage
+                    int maxHealth = PersistentGameManager.Instance.GetCharacterMaxHealth(characterName);
+                    int maxMind = PersistentGameManager.Instance.GetCharacterMaxMind(characterName);
+                    float actionSpeed = PersistentGameManager.Instance.GetCharacterActionSpeed(characterName, stats.actionSpeed);
+                    
+                    // Set max values
+                    stats.maxHealth = maxHealth;
+                    stats.maxSanity = maxMind;
+                    stats.actionSpeed = actionSpeed;
+                    stats.baseActionSpeed = actionSpeed; // Store original value for status effects
+                    
+                    // Get current health and mind from persistent storage
+                    int currentHealth = PersistentGameManager.Instance.GetCharacterHealth(characterName, (int)maxHealth);
+                    int currentMind = PersistentGameManager.Instance.GetCharacterMind(characterName, (int)maxMind);
+                    
+                    // Set current values
+                    stats.currentHealth = currentHealth;
+                    stats.currentSanity = currentMind;
+                    
+                    Debug.LogError($"[BUILD DEBUG] Initialized {characterName} with health: {currentHealth}/{maxHealth}, mind: {currentMind}/{maxMind}, action speed: {actionSpeed}");
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError($"[BUILD DEBUG] EXCEPTION during individual character initialization for {characterName}: {ex.Message}");
+                    Debug.LogError($"[BUILD DEBUG] Stack trace: {ex.StackTrace}");
+                }
             }
             else
             {
-                Debug.LogWarning($"[COMBAT MANAGER] No PersistentGameManager found or invalid character name: {characterName}. Using default values.");
+                Debug.LogError($"[BUILD DEBUG] No PersistentGameManager found or invalid character name: {characterName}. Using default values.");
             }
             
             // Mark as initialized to prevent default values in Start()
