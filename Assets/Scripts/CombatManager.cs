@@ -307,10 +307,29 @@ public class CombatManager : MonoBehaviour
             // Reset action points BEFORE starting the enemy turn to prevent multiple turns
             character.currentAction = 0;
             
-            // Enemy turn - show the text panel with the obelisk message
+            // Enemy turn - show the text panel with the enemy-specific message
             if (combatUI != null)
             {
-                combatUI.ShowTextPanel("The obelisk focuses on you", 0.5f);
+                // Get the current scene name to determine which enemy message to show
+                string currentSceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+                
+                if (currentSceneName == "Battle_Obelisk")
+                {
+                    combatUI.ShowTextPanel("The obelisk focuses on you", 0.5f);
+                }
+                else if (currentSceneName == "Battle_Weaver")
+                {
+                    combatUI.ShowTextPanel("The weaver spins its threads", 0.5f);
+                }
+                else if (currentSceneName == "Battle_Aperture")
+                {
+                    combatUI.ShowTextPanel("The aperture adjusts its focus", 0.5f);
+                }
+                else
+                {
+                    // Generic fallback message
+                    combatUI.ShowTextPanel($"{character.characterName} prepares to attack", 0.5f);
+                }
             }
             
             // Enemy turn - use the enemy's behavior component if available
@@ -321,19 +340,51 @@ public class CombatManager : MonoBehaviour
             // Player turn - increment turn counter
             playerTurnCount++;
             
-            // Display different messages based on the turn count
+            // Display different messages based on the scene and turn count
             string turnMessage;
-            if (playerTurnCount == 1)
+            string currentSceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            
+            if (currentSceneName == "Battle_Obelisk")
             {
-                turnMessage = "You've reached the end.";
+                if (playerTurnCount == 1)
+                {
+                    turnMessage = "You've reached the end.";
+                }
+                else if (playerTurnCount == 2)
+                {
+                    turnMessage = "The Obelisk towers over you";
+                }
+                else
+                {
+                    turnMessage = "The Obelisk looms";
+                }
             }
-            else if (playerTurnCount == 2)
+            else if (currentSceneName == "Battle_Weaver")
             {
-                turnMessage = "The Obelisk towers over you";
+                if (playerTurnCount == 1)
+                {
+                    turnMessage = "Threads cover the ground";
+                }
+                else
+                {
+                    turnMessage = "Threads cover your body";
+                }
+            }
+            else if (currentSceneName == "Battle_Aperture")
+            {
+                if (playerTurnCount == 1)
+                {
+                    turnMessage = "You cast your gaze into a strange lens";
+                }
+                else
+                {
+                    turnMessage = "The strange lens gazes also";
+                }
             }
             else
             {
-                turnMessage = "The Obelisk looms";
+                // Generic fallback message for unknown battle scenes
+                turnMessage = "Your turn";
             }
             
             // Show the text panel with the appropriate message

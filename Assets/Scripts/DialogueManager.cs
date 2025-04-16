@@ -601,8 +601,8 @@ public class DialogueManager : MonoBehaviour
         string processedText = text;
         isPortraitMode = false;
         
-        // Use regex to find portrait pattern at the beginning of text
-        Regex portraitPattern = new Regex(@"^portrait:\s*([^\s,;]+)");
+        // UPDATED regex to handle portrait IDs with spaces (capturing everything up to the comma)
+        Regex portraitPattern = new Regex(@"^portrait:\s*([^,;]+)");
         Match portraitMatch = portraitPattern.Match(text);
         
         if (portraitMatch.Success)
@@ -787,42 +787,95 @@ public class DialogueManager : MonoBehaviour
         // Try direct loading
         Sprite portraitSprite = null;
         
-        // Try loading from Sprites/portraits folder
-        portraitSprite = Resources.Load<Sprite>($"Sprites/portraits/{portraitID}");
+        // Clean up the portraitID by trimming any whitespace
+        portraitID = portraitID.Trim();
+        Debug.Log($"[PORTRAIT SYSTEM] Attempting to load portrait: '{portraitID}'");
         
-        // If not found, try loading directly without Resources prefix
-        if (portraitSprite == null)
-        {
-            // Unity's LoadAssetAtPath requires full path
-            string assetPath = $"Assets/Sprites/portraits/{portraitID}";
-            #if UNITY_EDITOR
+        // CASE 1: Load directly from the Portraits folder using direct AssetDatabase path
+        // This is the most reliable method in the editor
+        #if UNITY_EDITOR
+        string assetPath = $"Assets/Sprites/Portraits/{portraitID}.png";
+        portraitSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(assetPath);
+        if (portraitSprite != null) {
+            Debug.Log($"[PORTRAIT SYSTEM] Found portrait using direct asset path: '{assetPath}'");
+        } else {
+            // Try without extension
+            assetPath = $"Assets/Sprites/Portraits/{portraitID}";
             portraitSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(assetPath);
-            #endif
-            Debug.Log($"Trying to load sprite from path: {assetPath}");
+            if (portraitSprite != null) {
+                Debug.Log($"[PORTRAIT SYSTEM] Found portrait using direct asset path without extension: '{assetPath}'");
+            }
+        }
+        #endif
+        
+        // CASE 2: If still not found, or in a build, try Resources.Load
+        if (portraitSprite == null) {
+            // Try Resources.Load with full path
+            string resourcePath = $"Portraits/{portraitID}";
+            portraitSprite = Resources.Load<Sprite>(resourcePath);
+            if (portraitSprite != null) {
+                Debug.Log($"[PORTRAIT SYSTEM] Found portrait with Resources.Load: '{resourcePath}'");
+            }
+            
+            // Try direct ID
+            if (portraitSprite == null) {
+                portraitSprite = Resources.Load<Sprite>(portraitID);
+                if (portraitSprite != null) {
+                    Debug.Log($"[PORTRAIT SYSTEM] Found portrait with direct ID: '{portraitID}'");
+                }
+            }
+            
+            // Try with .png extension
+            if (portraitSprite == null && !portraitID.EndsWith(".png")) {
+                string pngPath = $"{portraitID}.png";
+                portraitSprite = Resources.Load<Sprite>(pngPath);
+                if (portraitSprite != null) {
+                    Debug.Log($"[PORTRAIT SYSTEM] Found portrait with .png extension: '{pngPath}'");
+                }
+            }
         }
         
-        // If still not found, try just the ID
-        if (portraitSprite == null)
-        {
-            portraitSprite = Resources.Load<Sprite>(portraitID);
+        // CASE 3: Special fallback for common portrait issues
+        if (portraitSprite == null) {
+            // Check for case-sensitivity issues in the filename
+            #if UNITY_EDITOR
+            if (System.IO.Directory.Exists("Assets/Sprites/Portraits")) {
+                string[] allFiles = System.IO.Directory.GetFiles("Assets/Sprites/Portraits", "*.png");
+                foreach (string file in allFiles) {
+                    string fileName = System.IO.Path.GetFileNameWithoutExtension(file);
+                    if (string.Equals(fileName, portraitID, System.StringComparison.OrdinalIgnoreCase)) {
+                        // Found a case-insensitive match
+                        portraitSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(file);
+                        if (portraitSprite != null) {
+                            Debug.Log($"[PORTRAIT SYSTEM] Found portrait through case-insensitive match: '{file}' matches '{portraitID}'");
+                            break;
+                        }
+                    }
+                }
+            }
+            #endif
         }
         
         if (portraitSprite != null)
         {
             portraitImage.sprite = portraitSprite;
             portraitObject.SetActive(true);
-            Debug.Log($"Set portrait: {portraitID}");
+            Debug.Log($"[PORTRAIT SYSTEM] Successfully set portrait: {portraitID}");
         }
         else
         {
-            Debug.LogError($"Portrait sprite not found: {portraitID}");
-            // Try without file extension
-            if (!portraitID.EndsWith(".png") && !portraitID.EndsWith(".jpg"))
-            {
-                // Try with .png extension
-                SetPortrait(portraitID + ".png");
-                return;
+            Debug.LogError($"[PORTRAIT SYSTEM] Portrait sprite not found after trying all paths: {portraitID}");
+            
+            // List available sprites in the Portraits folder to help debugging
+            #if UNITY_EDITOR
+            if (System.IO.Directory.Exists("Assets/Sprites/Portraits")) {
+                Debug.Log("[PORTRAIT SYSTEM] Available portraits in Assets/Sprites/Portraits:");
+                string[] portraitFiles = System.IO.Directory.GetFiles("Assets/Sprites/Portraits", "*.png");
+                foreach (string file in portraitFiles) {
+                    Debug.Log($"  - {System.IO.Path.GetFileNameWithoutExtension(file)}");
+                }
             }
+            #endif
             
             portraitObject.SetActive(false);
             isPortraitMode = false;
@@ -962,6 +1015,21 @@ public class DialogueManager : MonoBehaviour
         // Store the reference to the ink handler - IMPORTANT: do this before any other calls
         currentInkHandler = inkHandler;
         
+        // Set dialogue active flag first so event handlers respond correctly
+        isDialogueActive = true;
+        
+        // Explicitly stop player movement when dialogue starts
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+        {
+            PlayerController playerController = player.GetComponent<PlayerController>();
+            if (playerController != null)
+            {
+                // Use the public method to disable movement
+                playerController.SetCanMove(false);
+            }
+        }
+        
         if (inkHandler.InkJSON == null)
         {
             ShowDialogue("Error: No ink story assigned to this object.");
@@ -980,9 +1048,6 @@ public class DialogueManager : MonoBehaviour
         
         // Show the first line of dialogue
         ContinueInkStory();
-        
-        // Set the flag for dialogue being active
-        isDialogueActive = true;
         
         // Pause the game if needed
         if (pauseGameDuringDialogue)
@@ -1322,16 +1387,8 @@ public class DialogueManager : MonoBehaviour
             PlayerController playerController = player.GetComponent<PlayerController>();
             if (playerController != null)
             {
-                // Use reflection to set the canMove field to true
-                System.Type type = playerController.GetType();
-                System.Reflection.FieldInfo canMoveField = type.GetField("canMove", 
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                
-                if (canMoveField != null)
-                {
-                    canMoveField.SetValue(playerController, true);
-                    Debug.Log("Set player canMove to true");
-                }
+                // Use the public method to enable movement
+                playerController.SetCanMove(true);
             }
         }
         
@@ -1556,5 +1613,98 @@ public class DialogueManager : MonoBehaviour
         }
         
         return tags;
+    }
+
+    // Public method to test loading a specific Ink file directly
+    public void TestInkFile(string inkFilePath)
+    {
+        Debug.Log($"[DIALOGUE TEST] Attempting to load Ink file: {inkFilePath}");
+        
+        // Check if the file exists
+        TextAsset inkAsset = Resources.Load<TextAsset>(inkFilePath);
+        
+        if (inkAsset == null)
+        {
+            // Try loading directly from Assets path
+            #if UNITY_EDITOR
+            string fullPath = $"Assets/{inkFilePath}.ink";
+            if (System.IO.File.Exists(fullPath))
+            {
+                Debug.Log($"[DIALOGUE TEST] Found ink file at path: {fullPath}");
+                
+                // We can't load .ink files directly in runtime, we need a compiled .json
+                // But we can check it exists
+                Debug.LogWarning($"[DIALOGUE TEST] Can't load .ink files directly. Need to use InkDialogueHandler.");
+                return;
+            }
+            else
+            {
+                // Try with .json extension
+                fullPath = $"Assets/{inkFilePath}.json";
+                if (System.IO.File.Exists(fullPath))
+                {
+                    Debug.Log($"[DIALOGUE TEST] Found compiled ink file at path: {fullPath}");
+                    inkAsset = UnityEditor.AssetDatabase.LoadAssetAtPath<TextAsset>(fullPath);
+                }
+                else
+                {
+                    Debug.LogError($"[DIALOGUE TEST] Could not find ink file at path: {inkFilePath}");
+                    return;
+                }
+            }
+            #else
+            Debug.LogError($"[DIALOGUE TEST] Could not find ink file as TextAsset: {inkFilePath}");
+            return;
+            #endif
+        }
+        
+        // Create an Ink runtime story from the asset
+        Ink.Runtime.Story story = new Ink.Runtime.Story(inkAsset.text);
+        
+        // Set up an InkDialogueHandler
+        // We'll need a GameObject with the handler component
+        GameObject handlerObject = new GameObject("TestInkHandler");
+        InkDialogueHandler handler = handlerObject.AddComponent<InkDialogueHandler>();
+        
+        // Use reflection to set the private _inkAsset and _story fields
+        System.Type type = handler.GetType();
+        
+        System.Reflection.FieldInfo assetField = type.GetField("_inkAsset", 
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        
+        System.Reflection.FieldInfo storyField = type.GetField("_story", 
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        
+        if (assetField != null && storyField != null)
+        {
+            assetField.SetValue(handler, inkAsset);
+            storyField.SetValue(handler, story);
+            
+            // Start dialogue with this handler
+            StartInkDialogue(handler);
+            Debug.Log($"[DIALOGUE TEST] Started dialogue with Ink file: {inkFilePath}");
+        }
+        else
+        {
+            Debug.LogError("[DIALOGUE TEST] Could not access required fields in InkDialogueHandler");
+            Destroy(handlerObject);
+        }
+    }
+
+    // Public method to initialize the manager (ensures canvas is created)
+    public void Initialize()
+    {
+        Debug.Log("[DIALOGUE MANAGER] Initializing DialogueManager");
+        
+        if (!canvasInitialized)
+        {
+            InstantiateDialogueCanvas();
+            canvasInitialized = true;
+            Debug.Log("[DIALOGUE MANAGER] DialogueCanvas initialized");
+        }
+        else
+        {
+            Debug.Log("[DIALOGUE MANAGER] DialogueCanvas already initialized");
+        }
     }
 } 

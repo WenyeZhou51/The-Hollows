@@ -46,7 +46,7 @@ MonoBehaviour:
     icon: {fileID: 0}
   - itemName: Pocket Sand
     description: WEAKENS all target enemies
-    weight: 1
+    weight: 0.05
     itemType: 0
     requiresTarget: 1
     icon: {fileID: 0}

@@ -55,6 +55,15 @@ public class DialogueTriggerArea : MonoBehaviour
                 return;
             }
             
+            // Get the PlayerController to stop movement immediately
+            PlayerController playerController = other.GetComponent<PlayerController>();
+            if (playerController != null)
+            {
+                // Use the public method to disable movement
+                playerController.SetCanMove(false);
+            }
+            
+            // Trigger the dialogue
             TriggerDialogue();
         }
     }

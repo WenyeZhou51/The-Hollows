@@ -2093,43 +2093,15 @@ public class CombatUI : MonoBehaviour
     
     public void DisplayActionLabel(string actionText)
     {
-        if (actionDisplayLabel == null || actionDisplayText == null)
-        {
-            Debug.LogWarning("Action display label or text not found!");
-            return;
-        }
-        
-        StartCoroutine(ShowActionLabel(actionText));
+        // Method disabled as requested - action labels should no longer be displayed
+        return;
     }
     
     private IEnumerator ShowActionLabel(string actionText)
     {
-        // Show the action display label
-        actionDisplayLabel.SetActive(true);
-        
-        // Set the text
-        actionDisplayText.text = actionText;
-        
-        // Set alpha to 1 (fully opaque)
-        Image labelBackground = actionDisplayLabel.GetComponent<Image>();
-        if (labelBackground != null)
-        {
-            Color color = labelBackground.color;
-            color.a = 1f;
-            labelBackground.color = color;
-        }
-        
-        // Pause the game
-        Time.timeScale = 0;
-        
-        // Wait for 0.5 seconds in real time (not affected by time scale)
-        yield return new WaitForSecondsRealtime(actionDisplayDuration);
-        
-        // Resume the game
-        Time.timeScale = 1;
-        
-        // Hide the action display label
-        actionDisplayLabel.SetActive(false);
+        // Method disabled but kept for compatibility
+        // Just wait a moment to maintain timing
+        yield return new WaitForSecondsRealtime(0.1f);
     }
 
     public void ShowTextPanel(string message, float opacity = 0.5f)

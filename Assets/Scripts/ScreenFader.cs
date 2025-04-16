@@ -314,4 +314,20 @@ public class ScreenFader : MonoBehaviour
             Debug.Log("ScreenFader immediately reset to visible using canvasGroup");
         }
     }
+
+    /// <summary>
+    /// Fade to black (or specified color) - Alias for FadeToBlack for better naming consistency
+    /// </summary>
+    public IEnumerator FadeOut(float duration = -1)
+    {
+        return FadeToBlack(duration);
+    }
+    
+    /// <summary>
+    /// Fade from black (or specified color) to clear - Alias for FadeFromBlack for better naming consistency
+    /// </summary>
+    public IEnumerator FadeIn(float duration = -1)
+    {
+        return FadeFromBlack(duration);
+    }
 } 

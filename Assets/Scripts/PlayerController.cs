@@ -118,15 +118,33 @@ public class PlayerController : MonoBehaviour
         DialogueManager.OnDialogueStateChanged -= HandleDialogueStateChanged;
     }
     
-    // Handle dialogue state changes to detect when dialogue ends
+    // Handle dialogue state changes to detect when dialogue starts and ends
     private void HandleDialogueStateChanged(bool isActive)
     {
-        if (!isActive) // Dialogue just ended
+        if (isActive) // Dialogue just started
         {
+            // Stop movement immediately
+            canMove = false;
+            // Clear any residual movement
+            movement = Vector2.zero;
+            // Update animation to idle
+            if (animator != null)
+            {
+                animator.SetFloat("Horizontal", 0);
+                animator.SetFloat("Vertical", 0);
+                animator.SetFloat("Speed", 0);
+            }
+            Debug.Log("[Player Debug] Dialogue started, stopping player movement");
+        }
+        else // Dialogue just ended
+        {
+            // Don't restore movement here - that's handled by CheckDialogueStatus coroutine
+            // to prevent a race condition where multiple scripts might be trying to control movement
+            
             // Start the interaction cooldown
             lastDialogueEndTime = Time.time;
             canInteract = false;
-            Debug.Log($"[Player Debug] Dialogue ended, starting interaction cooldown");
+            Debug.Log("[Player Debug] Dialogue ended, starting interaction cooldown");
         }
     }
 
@@ -248,20 +266,16 @@ public class PlayerController : MonoBehaviour
     
     private void FixedUpdate()
     {
-        // Apply movement if allowed
-        if (canMove)
+        // Apply movement based on input
+        if (canMove && movement.magnitude > 0)
         {
             rb.velocity = movement * moveSpeed;
         }
         else
         {
+            // Explicitly set velocity to zero when player can't move
+            // or when there's no movement input to prevent sliding
             rb.velocity = Vector2.zero;
-            
-            // Set idle animation when not moving
-            if (animator != null)
-            {
-                animator.SetBool("IsMoving", false);
-            }
         }
     }
     
@@ -437,6 +451,33 @@ public class PlayerController : MonoBehaviour
             animator.speed = 0;
             
             // Keep the direction values (don't update them)
+        }
+    }
+
+    // Public method to explicitly control player movement
+    public void SetCanMove(bool moveState)
+    {
+        canMove = moveState;
+        
+        // If disabling movement, clear any residual movement and update animation
+        if (!moveState)
+        {
+            movement = Vector2.zero;
+            rb.velocity = Vector2.zero;
+            
+            // Update animation to idle
+            if (animator != null)
+            {
+                animator.SetFloat("Horizontal", 0);
+                animator.SetFloat("Vertical", 0);
+                animator.SetFloat("Speed", 0);
+            }
+            
+            Debug.Log("[Player Debug] Player movement disabled externally");
+        }
+        else
+        {
+            Debug.Log("[Player Debug] Player movement enabled externally");
         }
     }
 } 
