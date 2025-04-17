@@ -245,8 +245,11 @@ public class SceneTransitionManager : MonoBehaviour
                 ItemData clonedItem = item.Clone();
                 Debug.Log($"[TRANSITION DEBUG] Cloned inventory item: {clonedItem.name}, Amount: {clonedItem.amount}, Type: {clonedItem.type}");
                 
-                // Extra verification specifically for Cold Key
-                if (item.name == "Cold Key" || item.type == ItemData.ItemType.KeyItem)
+                // Extra verification specifically for key items
+                if (item.name == "Cold Key" || 
+                    item.type == ItemData.ItemType.KeyItem || 
+                    item.name.Contains("Medallion") || 
+                    item.name.StartsWith("Medal"))
                 {
                     // Force item type to be KeyItem
                     clonedItem.type = ItemData.ItemType.KeyItem;

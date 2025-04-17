@@ -54,7 +54,10 @@ public class PlayerInventory : MonoBehaviour
                     ItemData.ItemType itemType = ItemData.ItemType.Consumable;
                     
                     // Check for known key items by name
-                    if (pair.Key == "Cold Key" || pair.Key.Contains("Key") && pair.Key.Contains("Cold"))
+                    if (pair.Key == "Cold Key" || 
+                        (pair.Key.Contains("Key") && pair.Key.Contains("Cold")) || 
+                        pair.Key.Contains("Medallion") || 
+                        pair.Key.StartsWith("Medal"))
                     {
                         itemType = ItemData.ItemType.KeyItem;
                         Debug.Log($"Loaded {pair.Key} as a KeyItem type");

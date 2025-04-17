@@ -1075,7 +1075,11 @@ public class CombatManager : MonoBehaviour
             foreach (ItemData item in inventoryItems)
             {
                 // Double-check for key items for extra safety
-                if (item.type == ItemData.ItemType.KeyItem || item.IsKeyItem() || item.name == "Cold Key")
+                if (item.type == ItemData.ItemType.KeyItem || 
+                    item.IsKeyItem() || 
+                    item.name == "Cold Key" || 
+                    item.name.Contains("Medallion") || 
+                    item.name.StartsWith("Medal"))
                 {
                     Debug.Log($"REJECTING key item in combat: {item.name} (Type: {item.type}) - Key items should not be available in combat");
                     keyItemsSkipped++;

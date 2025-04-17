@@ -2028,7 +2028,11 @@ public class CombatUI : MonoBehaviour
         foreach (ItemData item in items)
         {
             // Final safety check - NEVER show KeyItems in combat
-            if (item.IsKeyItem() || item.type == ItemData.ItemType.KeyItem || item.name == "Cold Key")
+            if (item.IsKeyItem() || 
+                item.type == ItemData.ItemType.KeyItem || 
+                item.name == "Cold Key" || 
+                item.name.Contains("Medallion") || 
+                item.name.StartsWith("Medal"))
             {
                 Debug.LogWarning($"CRITICAL: Found KeyItem in combat UI items - filtering out {item.name}");
                 filteredItems++;
