@@ -1060,13 +1060,17 @@ public class SceneTransitionManager : MonoBehaviour
     /// <param name="player">The player GameObject</param>
     public void TransitionToScene(string sceneName, string markerId, GameObject player)
     {
-        if (string.IsNullOrEmpty(sceneName))
+        // CRITICAL FIX: Immediately make local copies of parameters to prevent race conditions
+        string finalSceneName = string.Copy(sceneName);
+        string finalMarkerId = string.Copy(markerId);
+        
+        if (string.IsNullOrEmpty(finalSceneName))
         {
             Debug.LogError("Cannot transition to empty scene name");
             return;
         }
         
-        if (string.IsNullOrEmpty(markerId))
+        if (string.IsNullOrEmpty(finalMarkerId))
         {
             Debug.LogError("Cannot transition with empty marker ID");
             return;
@@ -1080,13 +1084,13 @@ public class SceneTransitionManager : MonoBehaviour
         // Note that combat-to-overworld transitions can bypass this check (see EndCombat method)
         if (isFadingInProgress)
         {
-            Debug.Log($"[SCENE TRANSITION] Ignoring transition request from {currentSceneName} to {sceneName} because another transition is already in progress: {currentTransitionDescription}");
+            Debug.Log($"[SCENE TRANSITION] Ignoring transition request from {currentSceneName} to {finalSceneName} because another transition is already in progress: {currentTransitionDescription}");
             
             // DIRECT FIX: Check how long the transition has been in progress
             // If it's been more than 3 seconds, force reset the flag regardless
             if (Time.time - lastTransitionStartTime > 3f)
             {
-                Debug.LogWarning($"[SCENE TRANSITION] Detected stuck transition: {currentTransitionDescription} started {Time.time - lastTransitionStartTime}s ago. Resetting flag and allowing transition to {sceneName}");
+                Debug.LogWarning($"[SCENE TRANSITION] Detected stuck transition: {currentTransitionDescription} started {Time.time - lastTransitionStartTime}s ago. Resetting flag and allowing transition to {finalSceneName}");
                 isFadingInProgress = false;
                 currentTransitionDescription = "";
             }
@@ -1100,12 +1104,12 @@ public class SceneTransitionManager : MonoBehaviour
         isFadingInProgress = true;
         lastTransitionStartTime = Time.time; // Track when this transition started
         
-        // Store transition details
-        targetSceneName = sceneName;
-        targetMarkerId = markerId;
+        // Store transition details (using the local copies)
+        targetSceneName = finalSceneName;
+        targetMarkerId = finalMarkerId;
         
         // Store current transition description for debugging
-        currentTransitionDescription = $"Transition from {currentSceneName} to {sceneName} (marker: {markerId})";
+        currentTransitionDescription = $"Transition from {currentSceneName} to {finalSceneName} (marker: {finalMarkerId})";
         
         // Store player inventory for restoration after transition
         playerInventory = player.GetComponent<PlayerInventory>();
@@ -1127,10 +1131,14 @@ public class SceneTransitionManager : MonoBehaviour
     {
         Debug.Log($"[SCENE TRANSITION] Beginning transition to scene: {targetSceneName} with marker ID: {targetMarkerId}");
         
+        // CRITICAL FIX: Make local copies of target scene and marker to prevent race conditions
+        string finalSceneName = string.Copy(targetSceneName);
+        string finalMarkerId = string.Copy(targetMarkerId);
+        
         // SPECIAL CASE: Check if this is a transition from Overworld_Entrance to Startroom
         // Use case-insensitive comparison to fix the issue
         bool isOverworldToStartroomTransition = SceneManager.GetActiveScene().name.ToLower().Contains("overworld_entrance") && 
-                                               targetSceneName.Contains("Startroom");
+                                               finalSceneName.Contains("Startroom");
         
         if (isOverworldToStartroomTransition)
         {
@@ -1144,17 +1152,17 @@ public class SceneTransitionManager : MonoBehaviour
         SceneManager.sceneLoaded += ForceResetFlagOnSceneLoad;
         
         // Store scene and marker targets in PlayerPrefs to survive scene unloading
-        PlayerPrefs.SetString("LastTargetSceneName", targetSceneName);
-        PlayerPrefs.SetString("LastTargetMarkerId", targetMarkerId);
+        PlayerPrefs.SetString("LastTargetSceneName", finalSceneName);
+        PlayerPrefs.SetString("LastTargetMarkerId", finalMarkerId);
         PlayerPrefs.SetInt("NeedsPlayerSetup", 1);
         PlayerPrefs.Save();
         
-        Debug.Log($"[SCENE TRANSITION] STORED in PlayerPrefs - Scene: {targetSceneName}, Marker: {targetMarkerId}");
+        Debug.Log($"[SCENE TRANSITION] STORED in PlayerPrefs - Scene: {finalSceneName}, Marker: {finalMarkerId}");
         
         // Validate the scene name before attempting transition
-        if (!IsSceneValid(targetSceneName))
+        if (!IsSceneValid(finalSceneName))
         {
-            Debug.LogError($"[SCENE TRANSITION] CRITICAL ERROR: Scene '{targetSceneName}' does not exist in build settings. Make sure to add it in File > Build Settings.");
+            Debug.LogError($"[SCENE TRANSITION] CRITICAL ERROR: Scene '{finalSceneName}' does not exist in build settings. Make sure to add it in File > Build Settings.");
             // Fade back from black since we're not transitioning
             StartCoroutine(ScreenFader.Instance.FadeFromBlack());
             // Reset the fading flag
@@ -1170,14 +1178,21 @@ public class SceneTransitionManager : MonoBehaviour
         
         // REBUILD FIX: No longer rely on scene loaded event to survive scene loading
         // Instead we'll make the main Awake/Start handle this
-        Debug.Log($"[SCENE TRANSITION] Now loading scene: {targetSceneName} - will perform setup through Start()");
+        Debug.Log($"[SCENE TRANSITION] Now loading scene: {finalSceneName} - will perform setup through Start()");
         
         // IMPORTANT: Capture the current flags before scene load for debugging
         bool flagBeforeLoad = isFadingInProgress;
         string transitionBeforeLoad = currentTransitionDescription;
         
-        // Load the scene
-        SceneManager.LoadScene(targetSceneName);
+        // CRITICAL BUILD FIX: Double-check for empty scene name right before loading
+        if (string.IsNullOrEmpty(finalSceneName))
+        {
+            Debug.LogError("[SCENE TRANSITION] CRITICAL ERROR: Scene name is empty at load time! Falling back to default scene.");
+            finalSceneName = "Overworld_entrance"; // Fallback to a known good scene
+        }
+        
+        // Load the scene (using the local copy to prevent race conditions)
+        SceneManager.LoadScene(finalSceneName);
         
         Debug.Log($"[SCENE TRANSITION] LoadScene called. Flags before load: isFadingInProgress={flagBeforeLoad}, transition={transitionBeforeLoad}");
         
