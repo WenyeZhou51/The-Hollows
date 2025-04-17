@@ -12,6 +12,8 @@ public class CombatStats : MonoBehaviour
     // Reference the fill bars directly
     [SerializeField] private SpriteRenderer healthFill;
     [SerializeField] private SpriteRenderer actionFill;
+    [SerializeField] private SpriteRenderer healthBackground;
+    [SerializeField] private SpriteRenderer actionBackground;
     
     public float maxHealth = 100f;
     public float currentHealth;
@@ -193,6 +195,25 @@ public class CombatStats : MonoBehaviour
             if (healthFill == null || actionFill == null)
             {
                 Debug.LogError("Health or Action fill bar not assigned on " + gameObject.name);
+            }
+            
+            // Find the background sprite renderers if not manually assigned
+            if (healthBackground == null && healthFill != null)
+            {
+                Transform healthBarTransform = healthFill.transform.parent;
+                if (healthBarTransform != null)
+                {
+                    healthBackground = healthBarTransform.Find("BackGround")?.GetComponent<SpriteRenderer>();
+                }
+            }
+            
+            if (actionBackground == null && actionFill != null)
+            {
+                Transform actionBarTransform = actionFill.transform.parent;
+                if (actionBarTransform != null)
+                {
+                    actionBackground = actionBarTransform.Find("BackGround")?.GetComponent<SpriteRenderer>();
+                }
             }
         }
         else
@@ -545,18 +566,12 @@ public class CombatStats : MonoBehaviour
             
         if (healthFill != null)
         {
-            float healthPercent = currentHealth / maxHealth;
-            // Change the local position based on the fill amount to keep left-aligned
-            healthFill.transform.localPosition = new Vector3(-0.5f + (healthPercent * 0.5f), 0, 0);
-            healthFill.transform.localScale = new Vector3(healthPercent, 1, 1);
+            UpdateHealthBar();
         }
         
         if (actionFill != null)
         {
-            float actionPercent = currentAction / maxAction;
-            // Change the local position based on the fill amount to keep left-aligned
-            actionFill.transform.localPosition = new Vector3(-0.5f + (actionPercent * 0.5f), 0, 0);
-            actionFill.transform.localScale = new Vector3(actionPercent, 1, 1);
+            UpdateActionBar();
         }
         
         // Handle blinking highlight effect - for any highlighted character, including active character
@@ -767,6 +782,21 @@ public class CombatStats : MonoBehaviour
                 actionFill.color = actionColor;
             }
             
+            // Fade background sprites as well
+            if (healthBackground != null)
+            {
+                Color healthBgColor = healthBackground.color;
+                healthBgColor.a = easedAlpha;
+                healthBackground.color = healthBgColor;
+            }
+            
+            if (actionBackground != null)
+            {
+                Color actionBgColor = actionBackground.color;
+                actionBgColor.a = easedAlpha;
+                actionBackground.color = actionBgColor;
+            }
+            
             yield return null;
         }
         
@@ -799,6 +829,21 @@ public class CombatStats : MonoBehaviour
             Color transparentColor = actionFill.color;
             transparentColor.a = 0f;
             actionFill.color = transparentColor;
+        }
+        
+        // Ensure background sprites stay completely transparent as well
+        if (healthBackground != null)
+        {
+            Color transparentColor = healthBackground.color;
+            transparentColor.a = 0f;
+            healthBackground.color = transparentColor;
+        }
+        
+        if (actionBackground != null)
+        {
+            Color transparentColor = actionBackground.color;
+            transparentColor.a = 0f;
+            actionBackground.color = transparentColor;
         }
         
         // Disable the action speed for this character to prevent them from taking turns
@@ -1387,6 +1432,13 @@ public class CombatStats : MonoBehaviour
             // Change the local position based on the fill amount to keep left-aligned
             healthFill.transform.localPosition = new Vector3(-0.5f + (healthPercent * 0.5f), 0, 0);
             healthFill.transform.localScale = new Vector3(healthPercent, 1, 1);
+            
+            // Update the health background to match max health
+            if (healthBackground != null)
+            {
+                healthBackground.transform.localPosition = new Vector3(0, 0, 0);
+                healthBackground.transform.localScale = new Vector3(1, 1, 1);
+            }
         }
     }
 
@@ -1420,5 +1472,24 @@ public class CombatStats : MonoBehaviour
         
         // Log the change
         Debug.Log($"{name} guard status removed");
+    }
+
+    // Method to update action bar visuals
+    private void UpdateActionBar()
+    {
+        if (actionFill != null)
+        {
+            float actionPercent = currentAction / maxAction;
+            // Change the local position based on the fill amount to keep left-aligned
+            actionFill.transform.localPosition = new Vector3(-0.5f + (actionPercent * 0.5f), 0, 0);
+            actionFill.transform.localScale = new Vector3(actionPercent, 1, 1);
+            
+            // Update the action background to match max action
+            if (actionBackground != null)
+            {
+                actionBackground.transform.localPosition = new Vector3(0, 0, 0);
+                actionBackground.transform.localScale = new Vector3(1, 1, 1);
+            }
+        }
     }
 } 
