@@ -1264,11 +1264,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5425355503021831761, guid: 6aaf641a1e5f68047bff7176d00c724a, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.52528
+      value: -0.48
       objectReference: {fileID: 0}
     - target: {fileID: 5425355503021831761, guid: 6aaf641a1e5f68047bff7176d00c724a, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -5.967104
+      value: -14.98
       objectReference: {fileID: 0}
     - target: {fileID: 5425355503021831761, guid: 6aaf641a1e5f68047bff7176d00c724a, type: 3}
       propertyPath: m_LocalPosition.z
@@ -1374,6 +1374,7 @@ MonoBehaviour:
   inkFile: {fileID: 4900000, guid: 149ce0e640a99b043b78a7f64eb4c4c2, type: 3}
   triggerOnce: 1
   hasEnteredBefore: 0
+  oncePerRun: 0
 --- !u!4 &1544581419
 Transform:
   m_ObjectHideFlags: 0
@@ -1402,6 +1403,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   battleSceneName: Battle_Obelisk
+  targetMarkerId: PlayerStart
 --- !u!1 &1670431904
 GameObject:
   m_ObjectHideFlags: 0
@@ -1675,6 +1677,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   showDebugUI: 1
   toggleDebugUIKey: 290
+  incrementDeathsKey: 282
   variables:
     chestsLooted: 0
     deaths: 0

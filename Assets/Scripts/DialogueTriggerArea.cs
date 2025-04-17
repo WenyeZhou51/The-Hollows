@@ -159,6 +159,11 @@ public class DialogueTriggerArea : MonoBehaviour
             // Reset the story each time
             inkHandler.ResetStory();
             
+            // CRITICAL FIX: Initialize the story before checking for variables
+            Debug.Log($"[DEATHCOUNT DEBUG] Before InitializeStory - Area: {areaName}, File: {inkFile.name}");
+            inkHandler.InitializeStory(); // Added this line to initialize the story BEFORE checking variables
+            Debug.Log($"[DEATHCOUNT DEBUG] After InitializeStory - Area: {areaName}, File: {inkFile.name}");
+            
             try
             {
                 // Set the hasEnteredBefore variable in the Ink story
@@ -170,6 +175,35 @@ public class DialogueTriggerArea : MonoBehaviour
             {
                 Debug.LogWarning($"Variable 'hasEnteredBefore' not found in Ink story for {areaName}: {e.Message}");
                 // This is fine - not all dialogue files need this variable
+            }
+            
+            // BUGFIX: Set the death count variable in the Ink story if it exists
+            // Make sure PersistentGameManager exists
+            PersistentGameManager.EnsureExists();
+            
+            // Get death count from PersistentGameManager
+            int deathCount = 0;
+            if (PersistentGameManager.Instance != null)
+            {
+                deathCount = PersistentGameManager.Instance.GetDeaths();
+                
+                // Debug logs for diagnosis
+                Debug.Log($"[DEATHCOUNT DEBUG] Area: {areaName}, File: {inkFile.name}, Death Count: {deathCount}");
+                
+                // Check if story has deathCount variable
+                bool hasDeathCountVar = inkHandler.HasStoryVariable("deathCount");
+                Debug.Log($"[DEATHCOUNT DEBUG] Does '{inkFile.name}' have deathCount variable? {hasDeathCountVar}");
+                
+                // Only set the variable if the story has it
+                if (hasDeathCountVar)
+                {
+                    inkHandler.SetStoryVariable("deathCount", deathCount);
+                    Debug.Log($"[DEATHCOUNT DEBUG] Successfully set deathCount={deathCount} in {inkFile.name} as INTEGER");
+                }
+                else
+                {
+                    Debug.LogWarning($"[DEATHCOUNT DEBUG] Failed to find deathCount variable in {inkFile.name} - dialogue may not change with death count");
+                }
             }
             
             // Start the ink dialogue

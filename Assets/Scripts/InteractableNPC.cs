@@ -147,6 +147,11 @@ public class InteractableNPC : MonoBehaviour, IInteractable
                 inkHandler.ResetStory();
             }
             
+            // CRITICAL FIX: Always initialize the story
+            Debug.Log($"[DEATHCOUNT DEBUG] Before InitializeStory - NPC: {npcName}, File: {inkFile.name}");
+            inkHandler.InitializeStory();
+            Debug.Log($"[DEATHCOUNT DEBUG] After InitializeStory - NPC: {npcName}, File: {inkFile.name}");
+            
             // CRITICAL: Verify initialization was successful
             if (!inkHandler.IsInitialized())
             {
@@ -176,6 +181,35 @@ public class InteractableNPC : MonoBehaviour, IInteractable
             catch (System.Exception e)
             {
                 Debug.LogWarning($"[NPC Debug] Variable 'hasInteractedBefore' not found in Ink story for {npcName}: {e.Message}");
+            }
+            
+            // BUGFIX: Set the death count variable in the Ink story if it exists
+            // Make sure PersistentGameManager exists
+            PersistentGameManager.EnsureExists();
+            
+            // Get death count from PersistentGameManager
+            int deathCount = 0;
+            if (PersistentGameManager.Instance != null)
+            {
+                deathCount = PersistentGameManager.Instance.GetDeaths();
+                
+                // Debug logs for diagnosis
+                Debug.Log($"[DEATHCOUNT DEBUG] NPC: {npcName}, File: {inkFile.name}, Death Count: {deathCount}");
+                
+                // Check if story has deathCount variable
+                bool hasDeathCountVar = inkHandler.HasStoryVariable("deathCount");
+                Debug.Log($"[DEATHCOUNT DEBUG] Does '{inkFile.name}' have deathCount variable? {hasDeathCountVar}");
+                
+                // Only set the variable if the story has it
+                if (hasDeathCountVar)
+                {
+                    inkHandler.SetStoryVariable("deathCount", deathCount);
+                    Debug.Log($"[DEATHCOUNT DEBUG] Successfully set deathCount={deathCount} in {inkFile.name} as INTEGER");
+                }
+                else
+                {
+                    Debug.LogWarning($"[DEATHCOUNT DEBUG] Failed to find deathCount variable in {inkFile.name} - dialogue may not change with death count");
+                }
             }
             
             // Register for dialogue events to track when dialogue ends

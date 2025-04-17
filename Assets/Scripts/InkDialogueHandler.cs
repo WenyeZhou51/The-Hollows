@@ -653,9 +653,44 @@ public class InkDialogueHandler : MonoBehaviour
         }
     }
 
+    // CRITICAL FIX: Add method to set an integer variable directly, without converting to string
+    public void SetStoryVariable(string variableName, int value)
+    {
+        if (_story != null)
+        {
+            // Check if the variable exists in the story before setting it
+            if (_story.variablesState.GlobalVariableExistsWithName(variableName))
+            {
+                _story.variablesState[variableName] = value; // Pass as integer, not string
+                Debug.Log($"Set Ink variable {variableName} to {value} (as integer)");
+            }
+            else
+            {
+                Debug.LogWarning($"Cannot set variable '{variableName}' - it doesn't exist in the Ink story for {gameObject.name}");
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"Cannot set variable '{variableName}' - story is null for {gameObject.name}");
+        }
+    }
+
     public bool IsInitialized()
     {
         return _isInitialized;
+    }
+
+    // Add a method to check if a variable exists in the story
+    public bool HasStoryVariable(string variableName)
+    {
+        if (_story != null)
+        {
+            bool exists = _story.variablesState.GlobalVariableExistsWithName(variableName);
+            Debug.Log($"[DEATHCOUNT DEBUG] Checking if variable '{variableName}' exists in story: {exists} (Story initialized: {_isInitialized})");
+            return exists;
+        }
+        Debug.LogWarning($"[DEATHCOUNT DEBUG] Story is null when checking for variable '{variableName}'");
+        return false;
     }
 
     // Add a method to get the current text with choice prefix removed

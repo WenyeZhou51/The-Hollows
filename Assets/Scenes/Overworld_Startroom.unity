@@ -1069,7 +1069,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5425355503021831761, guid: 6aaf641a1e5f68047bff7176d00c724a, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 4.81
+      value: -5.19
       objectReference: {fileID: 0}
     - target: {fileID: 5425355503021831761, guid: 6aaf641a1e5f68047bff7176d00c724a, type: 3}
       propertyPath: m_LocalPosition.z
@@ -1896,6 +1896,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   showDebugUI: 0
   toggleDebugUIKey: 290
+  incrementDeathsKey: 282
   variables:
     chestsLooted: 0
     deaths: 0

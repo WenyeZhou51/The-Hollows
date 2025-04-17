@@ -12,6 +12,7 @@ public class PersistentGameManager : MonoBehaviour
     [Header("Debug Settings")]
     [SerializeField] private bool showDebugUI = false;
     [SerializeField] private KeyCode toggleDebugUIKey = KeyCode.F9;
+    [SerializeField] private KeyCode incrementDeathsKey = KeyCode.F1;
     
     // Singleton pattern
     public static PersistentGameManager Instance { get; private set; }
@@ -176,6 +177,13 @@ public class PersistentGameManager : MonoBehaviour
         if (Input.GetKeyDown(toggleDebugUIKey))
         {
             showDebugUI = !showDebugUI;
+        }
+        
+        // Debug key to increment death count
+        if (Input.GetKeyDown(incrementDeathsKey))
+        {
+            IncrementDeaths();
+            Debug.Log($"[DEBUG] Death count increased to {variables.deaths} using F1 key");
         }
     }
     
