@@ -1127,6 +1127,19 @@ public class SceneTransitionManager : MonoBehaviour
     {
         Debug.Log($"[SCENE TRANSITION] Beginning transition to scene: {targetSceneName} with marker ID: {targetMarkerId}");
         
+        // SPECIAL CASE: Check if this is a transition from Overworld_Entrance to Startroom
+        // Use case-insensitive comparison to fix the issue
+        bool isOverworldToStartroomTransition = SceneManager.GetActiveScene().name.ToLower().Contains("overworld_entrance") && 
+                                               targetSceneName.Contains("Startroom");
+        
+        if (isOverworldToStartroomTransition)
+        {
+            Debug.Log("[SCENE TRANSITION] Special case: Transition from Overworld_entrance to Startroom detected - will skip dialogue");
+            // Set a flag in PlayerPrefs to tell StartRoomDialogueManager to skip the dialogue
+            PlayerPrefs.SetInt("SkipStartRoomDialogue", 1);
+            PlayerPrefs.Save();
+        }
+        
         // IMPORTANT: Force reset static flag on all scene loads to prevent stuck state
         SceneManager.sceneLoaded += ForceResetFlagOnSceneLoad;
         
@@ -1149,8 +1162,11 @@ public class SceneTransitionManager : MonoBehaviour
             yield break;
         }
         
-        // Fade to black
-        yield return StartCoroutine(ScreenFader.Instance.FadeToBlack());
+        // Fade to black (skip for Overworld to Startroom transition)
+        if (!isOverworldToStartroomTransition)
+        {
+            yield return StartCoroutine(ScreenFader.Instance.FadeToBlack());
+        }
         
         // REBUILD FIX: No longer rely on scene loaded event to survive scene loading
         // Instead we'll make the main Awake/Start handle this
@@ -1174,15 +1190,28 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     private void ForceResetFlagOnSceneLoad(Scene scene, LoadSceneMode mode)
     {
+        // Check if this is the special case of Overworld_Entrance to Startroom transition
+        bool isOverworldToStartroomTransition = PlayerPrefs.GetInt("SkipStartRoomDialogue", 0) == 1;
+        
+        // Add debug log for troubleshooting
+        Debug.Log($"[SCENE TRANSITION] ForceResetFlagOnSceneLoad called for scene {scene.name}, SkipStartRoomDialogue={isOverworldToStartroomTransition}");
+        
         // Skip reset in the startroom as it needs to maintain a black screen initially
+        // UNLESS it's our special case of coming from Overworld_Entrance
         bool isStartRoom = scene.name.Contains("Startroom") || scene.name.Contains("start_room");
         
-        if (isStartRoom)
+        if (isStartRoom && !isOverworldToStartroomTransition)
         {
             Debug.Log($"[SCENE TRANSITION] Skipping transition flag reset in startroom to preserve black screen");
             // Unregister this event to avoid multiple calls
             SceneManager.sceneLoaded -= ForceResetFlagOnSceneLoad;
             return;
+        }
+        
+        // Special case: For Overworld_entrance to Startroom transitions, handle differently
+        if (isStartRoom && isOverworldToStartroomTransition)
+        {
+            Debug.Log($"[SCENE TRANSITION] Special case detected: Allowing transition flag reset for Overworld to Startroom transition");
         }
         
         // Reset transition flags after a short delay to ensure all systems initialize
@@ -1917,14 +1946,26 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     public static void ForceResetTransitionState()
     {
+        // Check if this is the special case of Overworld_Entrance to Startroom transition
+        bool isOverworldToStartroomTransition = PlayerPrefs.GetInt("SkipStartRoomDialogue", 0) == 1;
+        
+        // Add debug log for troubleshooting
+        Debug.Log($"[SCENE TRANSITION] ForceResetTransitionState called, SkipStartRoomDialogue={isOverworldToStartroomTransition}");
+        
         // Skip reset if we're in the startroom scene
         bool isStartRoom = SceneManager.GetActiveScene().name.Contains("Startroom") || 
                           SceneManager.GetActiveScene().name.Contains("start_room");
         
-        if (isStartRoom)
+        if (isStartRoom && !isOverworldToStartroomTransition)
         {
             Debug.Log("[SCENE TRANSITION] Skipping static transition flag reset in startroom to preserve black screen");
             return;
+        }
+        
+        // Special case: For Overworld_entrance to Startroom transitions, handle differently
+        if (isStartRoom && isOverworldToStartroomTransition)
+        {
+            Debug.Log($"[SCENE TRANSITION] Special case detected: Allowing static transition flag reset for Overworld to Startroom transition");
         }
         
         // CRITICAL FIX: Check if player positioning is in progress

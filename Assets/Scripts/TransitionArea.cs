@@ -133,6 +133,18 @@ public class TransitionArea : MonoBehaviour, IInteractable
             consecutiveAttempts = 0;
         }
         
+        // Special case: Check if this is a transition from Overworld_Entrance to Startroom
+        bool isOverworldToStartroomTransition = SceneManager.GetActiveScene().name.ToLower().Contains("overworld_entrance") && 
+                                              targetSceneName.Contains("Startroom");
+        
+        if (isOverworldToStartroomTransition)
+        {
+            Debug.Log("[TRANSITION AREA] Special case: Transition from Overworld_entrance to Startroom detected - will skip dialogue");
+            // Set a flag in PlayerPrefs to tell StartRoomDialogueManager to skip the dialogue
+            PlayerPrefs.SetInt("SkipStartRoomDialogue", 1);
+            PlayerPrefs.Save();
+        }
+        
         // CRITICAL BUILD FIX: Save transition data to PlayerPrefs as a backup
         // This ensures player positioning works even if SceneTransitionManager doesn't persist
         PlayerPrefs.SetString("LastTargetSceneName", targetSceneName);

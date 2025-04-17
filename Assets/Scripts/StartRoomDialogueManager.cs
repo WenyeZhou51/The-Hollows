@@ -66,6 +66,15 @@ public class StartRoomDialogueManager : MonoBehaviour
     {
         if (scene.name.Contains("Startroom") || scene.name.Contains("start_room"))
         {
+            // Check if this is our special case from Overworld_entrance
+            bool shouldSkipDialogue = PlayerPrefs.GetInt("SkipStartRoomDialogue", 0) == 1;
+            
+            if (shouldSkipDialogue)
+            {
+                Debug.Log($"[StartRoomDialogueManager] Special case detected in OnSceneLoaded: Skipping black screen setup for Overworld_entrance transition");
+                return; // Don't enforce black screen for the special case
+            }
+            
             Debug.Log($"[StartRoomDialogueManager] OnSceneLoaded detected for {scene.name} - Will override any existing fades");
             // Cancel any existing fade operations by setting screen to black immediately
             StartCoroutine(EnsureBlackScreenOnStartup());
@@ -176,7 +185,36 @@ public class StartRoomDialogueManager : MonoBehaviour
     
     private void Start()
     {
-        Debug.Log("[StartRoomDialogueManager] Start called - Beginning black screen setup");
+        // Check if we should skip dialogue due to coming from Overworld_Entrance
+        bool shouldSkipDialogue = PlayerPrefs.GetInt("SkipStartRoomDialogue", 0) == 1;
+        
+        Debug.Log($"[StartRoomDialogueManager] Start called - SkipStartRoomDialogue flag = {shouldSkipDialogue}");
+        
+        if (shouldSkipDialogue)
+        {
+            Debug.Log("[StartRoomDialogueManager] Special case: Skipping dialogue due to transition from Overworld_entrance");
+            // Clear the flag immediately to prevent this from affecting future StartRoom visits
+            PlayerPrefs.SetInt("SkipStartRoomDialogue", 0);
+            PlayerPrefs.Save();
+            
+            // Mark dialogue as completed so we don't show it
+            dialogueCompleted = true;
+            
+            // Also fade in the screen immediately instead of keeping it black
+            ScreenFader.EnsureExists();
+            if (ScreenFader.Instance != null)
+            {
+                Debug.Log("[StartRoomDialogueManager] Special case: Fading in screen immediately for Overworld_entrance transition");
+                StartCoroutine(ScreenFader.Instance.FadeFromBlack());
+            }
+            
+            // Skip black screen setup entirely and proceed directly to player positioning
+            return;
+        }
+        
+        Debug.Log("[StartRoomDialogueManager] Normal StartRoom behavior - Beginning black screen setup");
+        
+        // Normal StartRoom behavior below for all other cases
         
         // Ensure ScreenFader exists and set the screen to black
         ScreenFader.EnsureExists();
@@ -328,14 +366,44 @@ public class StartRoomDialogueManager : MonoBehaviour
     {
         Debug.Log($"[StartRoomDialogueManager] DialogueStateChanged event: isActive={isActive}, dialogueCompleted={dialogueCompleted}");
         
-        // If dialogue just ended and our ink story was the active one
-        if (!isActive && !dialogueCompleted) 
+        // Special case: coming from Overworld_Entrance - dialogue is already marked as completed
+        bool isSpecialCase = dialogueCompleted && PlayerPrefs.GetInt("NeedsPlayerSetup", 0) == 1;
+        bool isOverworldToStartroomTransition = PlayerPrefs.GetInt("SkipStartRoomDialogue", 0) == 1;
+        
+        // If this is our special case transition, make sure dialogue is marked as completed
+        if (isOverworldToStartroomTransition)
         {
-            // Mark as completed to prevent multiple fades
+            Debug.Log("[StartRoomDialogueManager] Special case detected in HandleDialogueStateChanged: Ensuring dialogue is marked as completed");
             dialogueCompleted = true;
             
+            // Fade from black immediately if not already
+            if (ScreenFader.Instance != null)
+            {
+                Debug.Log("[StartRoomDialogueManager] Special case: Ensuring screen is faded in");
+                StartCoroutine(ScreenFader.Instance.FadeFromBlack());
+            }
+            
+            // Clear the flag
+            PlayerPrefs.SetInt("SkipStartRoomDialogue", 0);
+            PlayerPrefs.Save();
+            return;
+        }
+        
+        // If dialogue just ended and wasn't already completed
+        if (!isActive && !dialogueCompleted)
+        {
             Debug.Log("[StartRoomDialogueManager] Start room dialogue completed - fading in screen");
+            dialogueCompleted = true;
+            
+            // Fade in the screen
             StartCoroutine(FadeInScreen());
+        }
+        // For the special case where we're skipping dialogue but still need to fade in
+        else if (isSpecialCase && ScreenFader.Instance != null)
+        {
+            Debug.Log("[StartRoomDialogueManager] Special case: Skipping dialogue but still need to fade in screen");
+            // Fade from black immediately if player setup is needed
+            StartCoroutine(ScreenFader.Instance.FadeFromBlack());
         }
     }
     
