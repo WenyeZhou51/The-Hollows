@@ -2692,11 +2692,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5636393689027812741, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
       propertyPath: maxHealth
-      value: 100
+      value: 200
+      objectReference: {fileID: 0}
+    - target: {fileID: 5636393689027812741, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
+      propertyPath: actionSpeed
+      value: 57
       objectReference: {fileID: 0}
     - target: {fileID: 5636393689027812741, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
       propertyPath: currentHealth
-      value: 100
+      value: 200
       objectReference: {fileID: 0}
     - target: {fileID: 5636393689027812741, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
       propertyPath: enemyBehavior
