@@ -752,12 +752,12 @@ MonoBehaviour:
   - {fileID: 38721601}
   - {fileID: 907502247}
   - {fileID: 2052749984}
-  selectedTextColor: {r: 0.122641504, g: 0.122641504, b: 0.122641504, a: 1}
-  normalTextColor: {r: 1, g: 1, b: 1, a: 1}
+  selectedTextColor: {r: 1, g: 1, b: 1, a: 1}
+  normalTextColor: {r: 0, g: 0, b: 0, a: 1}
   disabledTextColor: {r: 0.9150943, g: 0.9150943, b: 0.9150943, a: 1}
   disabledMenuTextColor: {r: 0.91372555, g: 0.91372555, b: 0.91372555, a: 1}
-  selectedButtonColor: {r: 1, g: 1, b: 1, a: 1}
-  normalButtonColor: {r: 0.8000001, g: 0.8000001, b: 0.8000001, a: 1}
+  selectedButtonColor: {r: 0, g: 0, b: 0, a: 1}
+  normalButtonColor: {r: 1, g: 1, b: 1, a: 1}
   disabledButtonColor: {r: 0.8018868, g: 0.8018868, b: 0.8018868, a: 1}
   actionMenu: {fileID: 855358691}
 --- !u!114 &397013370
@@ -2692,7 +2692,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5636393689027812741, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
       propertyPath: maxHealth
-      value: 200
+      value: 250
       objectReference: {fileID: 0}
     - target: {fileID: 5636393689027812741, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
       propertyPath: actionSpeed
@@ -2700,7 +2700,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5636393689027812741, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
       propertyPath: currentHealth
-      value: 200
+      value: 250
       objectReference: {fileID: 0}
     - target: {fileID: 5636393689027812741, guid: 7f1145bc952534c4f8a2790ba2a504c0, type: 3}
       propertyPath: enemyBehavior

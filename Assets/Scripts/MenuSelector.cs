@@ -43,7 +43,7 @@ public class MenuSelector : MonoBehaviour
     private ItemData selectedItem;
     private GameObject[] skillOptions;
     private bool isInSkillMenu = false;
-    private int skillMenuColumns = 2;
+    private int skillMenuColumns = 1; // Changed to single column
 
     void Start()
     {
@@ -389,59 +389,24 @@ public class MenuSelector : MonoBehaviour
         }
 
         int oldSelection = currentSelection;
-        int totalSkills = skillOptions.Length;
-        int rows = (totalSkills + skillMenuColumns - 1) / skillMenuColumns;
 
-        if (Input.GetKeyDown(KeyCode.RightArrow))
+        // Simplified vertical navigation for single column layout
+        if (Input.GetKeyDown(KeyCode.DownArrow))
         {
-            // Find the next valid button to the right
+            // Move to next valid button
             int currentIndex = validButtonIndices.IndexOf(currentSelection);
             if (currentIndex >= 0 && currentIndex < validButtonIndices.Count - 1) {
                 currentSelection = validButtonIndices[currentIndex + 1];
-                Debug.Log($"[SkillButton Lifecycle] Navigation - Moved right to skill {currentSelection}");
-            }
-        }
-        else if (Input.GetKeyDown(KeyCode.LeftArrow))
-        {
-            // Find the next valid button to the left
-            int currentIndex = validButtonIndices.IndexOf(currentSelection);
-            if (currentIndex > 0) {
-                currentSelection = validButtonIndices[currentIndex - 1];
-                Debug.Log($"[SkillButton Lifecycle] Navigation - Moved left to skill {currentSelection}");
-            }
-        }
-        else if (Input.GetKeyDown(KeyCode.DownArrow))
-        {
-            // Find a valid button below (approximately)
-            int currentRow = currentSelection / skillMenuColumns;
-            int currentCol = currentSelection % skillMenuColumns;
-            
-            foreach (int index in validButtonIndices) {
-                int row = index / skillMenuColumns;
-                int col = index % skillMenuColumns;
-                if (row > currentRow && col == currentCol) {
-                    currentSelection = index;
-                    Debug.Log($"[SkillButton Lifecycle] Navigation - Moved down to skill {currentSelection}");
-                    break;
-                }
+                Debug.Log($"[SkillButton Lifecycle] Navigation - Moved down to skill {currentSelection}");
             }
         }
         else if (Input.GetKeyDown(KeyCode.UpArrow))
         {
-            // Find a valid button above (approximately)
-            int currentRow = currentSelection / skillMenuColumns;
-            int currentCol = currentSelection % skillMenuColumns;
-            
-            // Iterate in reverse to find the closest button above
-            for (int i = validButtonIndices.Count - 1; i >= 0; i--) {
-                int index = validButtonIndices[i];
-                int row = index / skillMenuColumns;
-                int col = index % skillMenuColumns;
-                if (row < currentRow && col == currentCol) {
-                    currentSelection = index;
-                    Debug.Log($"[SkillButton Lifecycle] Navigation - Moved up to skill {currentSelection}");
-                    break;
-                }
+            // Move to previous valid button
+            int currentIndex = validButtonIndices.IndexOf(currentSelection);
+            if (currentIndex > 0) {
+                currentSelection = validButtonIndices[currentIndex - 1];
+                Debug.Log($"[SkillButton Lifecycle] Navigation - Moved up to skill {currentSelection}");
             }
         }
         
@@ -481,6 +446,7 @@ public class MenuSelector : MonoBehaviour
         if (oldSelection != currentSelection)
         {
             UpdateSkillSelection();
+            UpdateCurrentSelectionDescription();
         }
     }
 
@@ -532,16 +498,20 @@ public class MenuSelector : MonoBehaviour
                 continue;
             }
             
-            // Get the TextMeshProUGUI component directly from the GameObject
-            TextMeshProUGUI text = skillOptions[i].GetComponentInChildren<TextMeshProUGUI>();
+            // Get ALL TextMeshProUGUI components (skill name and cost text)
+            TextMeshProUGUI[] allTexts = skillOptions[i].GetComponentsInChildren<TextMeshProUGUI>();
             Image buttonImage = skillOptions[i].GetComponent<Image>();
 
             if (i == currentSelection)
             {
-                if (text != null) 
+                // Update all text components (skill name and cost)
+                foreach (TextMeshProUGUI text in allTexts)
                 {
-                    text.color = selectedTextColor;
-                    Debug.Log($"[SkillButton Lifecycle] Set selected text color for button {i}: '{text.text}'");
+                    if (text != null) 
+                    {
+                        text.color = selectedTextColor;
+                        Debug.Log($"[SkillButton Lifecycle] Set selected text color for button {i}: '{text.text}'");
+                    }
                 }
                 if (buttonImage != null) 
                 {
@@ -558,12 +528,19 @@ public class MenuSelector : MonoBehaviour
                         cursor.gameObject.SetActive(true);
                     }
                 }
+                
+                // Scroll to show the selected button
+                combatUI.ScrollToSkillButton(i, skillOptions);
             }
             else
             {
-                if (text != null) 
+                // Update all text components (skill name and cost)
+                foreach (TextMeshProUGUI text in allTexts)
                 {
-                    text.color = normalTextColor;
+                    if (text != null) 
+                    {
+                        text.color = normalTextColor;
+                    }
                 }
                 if (buttonImage != null) 
                 {
@@ -589,10 +566,18 @@ public class MenuSelector : MonoBehaviour
             cursor.localPosition.z
         );
 
-        // Update text colors
+        // Update text colors and button colors
         for (int i = 0; i < menuTexts.Length; i++)
         {
+            // Update text color
             menuTexts[i].color = (i == currentSelection) ? selectedTextColor : normalTextColor;
+            
+            // Update button background color
+            Image buttonImage = menuOptions[i].GetComponent<Image>();
+            if (buttonImage != null)
+            {
+                buttonImage.color = (i == currentSelection) ? selectedButtonColor : normalButtonColor;
+            }
         }
     }
 
@@ -1028,12 +1013,40 @@ public class MenuSelector : MonoBehaviour
         if (skillOptions.Length > 0)
         {
             UpdateSkillSelection();
+            UpdateCurrentSelectionDescription(); // Show description for initial selection
         }
         else
         {
             Debug.LogWarning("[SkillButton Lifecycle] No active skill buttons found!");
             cursor.gameObject.SetActive(false);
+            combatUI.ClearDescription(); // Clear description if no buttons
         }
+    }
+
+    private void UpdateCurrentSelectionDescription()
+    {
+        // Update description based on currently selected button
+        if (skillOptions != null && currentSelection >= 0 && currentSelection < skillOptions.Length && skillOptions[currentSelection] != null)
+        {
+            // Check if it's a skill button
+            var skillData = skillOptions[currentSelection].GetComponent<SkillButtonData>();
+            if (skillData != null && skillData.skill != null)
+            {
+                combatUI.UpdateSkillDescription(skillData.skill);
+                return;
+            }
+            
+            // Check if it's an item button
+            var itemData = skillOptions[currentSelection].GetComponent<ItemButtonData>();
+            if (itemData != null && itemData.item != null)
+            {
+                combatUI.UpdateItemDescription(itemData.item);
+                return;
+            }
+        }
+        
+        // Clear description if nothing valid is selected
+        combatUI.ClearDescription();
     }
 
     public void SetSelectedSkill(SkillData skill)
@@ -1124,6 +1137,11 @@ public class MenuSelector : MonoBehaviour
     public bool IsSelectingTarget()
     {
         return isSelectingTarget;
+    }
+    
+    public bool IsInSkillOrItemMenu()
+    {
+        return isInSkillMenu;
     }
     
     public void CancelTargetSelection()

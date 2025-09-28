@@ -13,19 +13,19 @@ MonoBehaviour:
   m_Name: New Loot Table
   m_EditorClassIdentifier: 
   lootItems:
-  - itemName: Fruit Juice
+  - itemName: Stone candy
     description: Heals 30 HP
     weight: 0.2
     itemType: 0
     requiresTarget: 1
     icon: {fileID: 0}
-  - itemName: Shiny Bead
+  - itemName: Throwing dice
     description: Deals 20 damage to target enemy
     weight: 0.2
     itemType: 0
     requiresTarget: 1
     icon: {fileID: 0}
-  - itemName: Super Espress-O
+  - itemName: Skipping pebble
     description: Restores 50 SP and increases ally speed by 50%
     weight: 0.1
     itemType: 0

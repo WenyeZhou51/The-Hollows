@@ -1189,6 +1189,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Overworld enemy
       objectReference: {fileID: 0}
+    - target: {fileID: 9099324014879627324, guid: 20351660f5579bb489aa6601db03a6af, type: 3}
+      propertyPath: maxSpeed
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 9099324014879627326, guid: 20351660f5579bb489aa6601db03a6af, type: 3}
       propertyPath: m_RootOrder
       value: 1
@@ -1449,6 +1453,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   showDebugUI: 0
   toggleDebugUIKey: 290
+  incrementDeathsKey: 282
   variables:
     chestsLooted: 0
     deaths: 0

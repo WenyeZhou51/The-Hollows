@@ -199,29 +199,64 @@ public class CombatManager : MonoBehaviour
         if (skillMenu != null)
         {
             menuButtonsContainer = skillMenu.GetComponentInChildren<RectTransform>();
-            menuButtonsGrid = skillMenu.GetComponentInChildren<GridLayoutGroup>();
-            if (menuButtonsGrid == null)
+            
+            // Remove GridLayoutGroup if it exists and add VerticalLayoutGroup
+            GridLayoutGroup existingGrid = skillMenu.GetComponentInChildren<GridLayoutGroup>();
+            if (existingGrid != null)
             {
-                menuButtonsGrid = menuButtonsContainer.gameObject.AddComponent<GridLayoutGroup>();
-                menuButtonsGrid.cellSize = new Vector2(120, 40);
-                menuButtonsGrid.spacing = new Vector2(10, 10);
-                menuButtonsGrid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-                menuButtonsGrid.constraintCount = 2;
+                DestroyImmediate(existingGrid);
             }
+            
+            VerticalLayoutGroup verticalLayout = skillMenu.GetComponentInChildren<VerticalLayoutGroup>();
+            if (verticalLayout == null && menuButtonsContainer != null)
+            {
+                verticalLayout = menuButtonsContainer.gameObject.AddComponent<VerticalLayoutGroup>();
+                // Get spacing from CombatUI configuration
+                CombatUI combatUI = GetComponent<CombatUI>();
+                float spacing = combatUI != null ? combatUI.GetSkillButtonSpacing() : 5f;
+                verticalLayout.spacing = spacing;
+                verticalLayout.childAlignment = TextAnchor.UpperCenter;
+                verticalLayout.childControlWidth = true;
+                verticalLayout.childControlHeight = false;
+                verticalLayout.childForceExpandWidth = false;
+                verticalLayout.childForceExpandHeight = false;
+                
+                // Don't add ContentSizeFitter here - let CombatUI handle it based on ScrollRect presence
+                // Adding ContentSizeFitter unconditionally causes conflicts and infinite height expansion
+                Debug.Log("[CombatManager] VerticalLayoutGroup configured, ContentSizeFitter will be managed by CombatUI");
+            }
+            
             skillMenu.SetActive(false);
         }
 
         if (itemMenu != null)
         {
-            // Use same grid settings for item menu
-            var itemGrid = itemMenu.GetComponentInChildren<GridLayoutGroup>();
-            if (itemGrid == null)
+            // Remove GridLayoutGroup if it exists and add VerticalLayoutGroup for item menu too
+            var existingItemGrid = itemMenu.GetComponentInChildren<GridLayoutGroup>();
+            if (existingItemGrid != null)
             {
-                itemGrid = itemMenu.GetComponentInChildren<RectTransform>().gameObject.AddComponent<GridLayoutGroup>();
-                itemGrid.cellSize = menuButtonsGrid.cellSize;
-                itemGrid.spacing = menuButtonsGrid.spacing;
-                itemGrid.constraint = menuButtonsGrid.constraint;
-                itemGrid.constraintCount = menuButtonsGrid.constraintCount;
+                DestroyImmediate(existingItemGrid);
+            }
+            
+            VerticalLayoutGroup itemVerticalLayout = itemMenu.GetComponentInChildren<VerticalLayoutGroup>();
+            if (itemVerticalLayout == null)
+            {
+                RectTransform itemContainer = itemMenu.GetComponentInChildren<RectTransform>();
+                if (itemContainer != null)
+                {
+                    itemVerticalLayout = itemContainer.gameObject.AddComponent<VerticalLayoutGroup>();
+                    itemVerticalLayout.spacing = 5f;
+                    itemVerticalLayout.childAlignment = TextAnchor.UpperCenter;
+                    itemVerticalLayout.childControlWidth = true;
+                    itemVerticalLayout.childControlHeight = false;
+                    itemVerticalLayout.childForceExpandWidth = false;
+                    itemVerticalLayout.childForceExpandHeight = false;
+                    
+                    // Add ContentSizeFitter for item menu
+                    ContentSizeFitter itemSizeFitter = itemContainer.gameObject.AddComponent<ContentSizeFitter>();
+                    itemSizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+                    itemSizeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+                }
             }
             itemMenu.SetActive(false);
         }

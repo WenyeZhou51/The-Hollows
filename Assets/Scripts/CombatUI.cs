@@ -36,10 +36,49 @@ public class CombatUI : MonoBehaviour
     public RectTransform skillButtonsContainer; // Assign this in the Inspector
     [Tooltip("Reference to a menu button to use as template for skill buttons")]
     public GameObject menuButtonTemplate; // Assign one of your menu buttons in the Inspector
+    [Tooltip("Reference to the skill description panel")]
+    public GameObject skillDescriptionPanel;
+    [Tooltip("Reference to the TextMeshProUGUI component for skill descriptions")]
+    public TextMeshProUGUI skillDescriptionText;
+    [Tooltip("Reference to the scroll view for skills")]
+    public ScrollRect skillScrollRect;
+    [Tooltip("Reference to the viewport for skills")]
+    public RectTransform skillViewport;
 
+    [Header("Skill Menu Layout")]
+    [Tooltip("Height of individual skill buttons")]
+    [SerializeField] private float skillButtonHeight = 40f;
+    [Tooltip("Width of individual skill buttons")]
+    [SerializeField] private float skillButtonWidth = 200f;
+    [Tooltip("Spacing between skill buttons")]
+    [SerializeField] private float skillButtonSpacing = 5f;
+    [Tooltip("Number of skill buttons visible without scrolling")]
+    [SerializeField] private int visibleSkillButtonCount = 3;
+    [Header("Skill Container Padding")]
+    [Tooltip("Left padding inside the skill container")]
+    [SerializeField] private float skillContainerPaddingLeft = 10f;
+    [Tooltip("Right padding inside the skill container")]
+    [SerializeField] private float skillContainerPaddingRight = 10f;
+    [Tooltip("Top padding inside the skill container")]
+    [SerializeField] private float skillContainerPaddingTop = 10f;
+    [Tooltip("Bottom padding inside the skill container")]
+    [SerializeField] private float skillContainerPaddingBottom = 10f;
+    
     [Header("Skill Parameters")]
     [Tooltip("Damage dealt by the Fiend Fire skill per hit")]
     [SerializeField] private float fiendFireDamage = 10f;
+    
+    // Public getters for other components to access layout values
+    public float GetSkillButtonSpacing() => skillButtonSpacing;
+    public float GetSkillButtonHeight() => skillButtonHeight;
+    public float GetSkillButtonWidth() => skillButtonWidth;
+    public int GetVisibleSkillButtonCount() => visibleSkillButtonCount;
+    public RectOffset GetSkillContainerPadding() => new RectOffset(
+        (int)skillContainerPaddingLeft,
+        (int)skillContainerPaddingRight,
+        (int)skillContainerPaddingTop,
+        (int)skillContainerPaddingBottom
+    );
     [Tooltip("Damage dealt by the Slam skill to all enemies")]
     [SerializeField] private float slamDamage = 10f;
     [Tooltip("Damage dealt by the Piercing Shot skill")]
@@ -102,6 +141,43 @@ public class CombatUI : MonoBehaviour
         if (actionDisplayLabel != null)
             actionDisplayLabel.SetActive(false);
             
+        // Initialize skill description panel if not assigned
+        if (skillDescriptionPanel == null)
+            skillDescriptionPanel = GameObject.Find("Skill Description");
+            
+        if (skillDescriptionPanel != null && skillDescriptionText == null)
+            skillDescriptionText = skillDescriptionPanel.GetComponentInChildren<TextMeshProUGUI>();
+            
+        if (skillDescriptionText == null)
+            Debug.LogWarning("Skill description text not found! Make sure Skill Description panel has a TextMeshProUGUI component.");
+        else
+        {
+            // Set up description text properties to prevent overflow
+            SetupDescriptionTextConstraints();
+            // Set up description panel bounds
+            SetupDescriptionPanelConstraints();
+        }
+            
+        // Hide the skill description panel at start - only show when skill is selected
+        if (skillDescriptionPanel != null)
+            skillDescriptionPanel.SetActive(false);
+            
+        // Initialize scroll components if not assigned
+        if (skillScrollRect == null && skillPanel != null)
+            skillScrollRect = skillPanel.GetComponentInChildren<ScrollRect>();
+            
+        if (skillViewport == null && skillScrollRect != null)
+            skillViewport = skillScrollRect.viewport;
+            
+        // Set up viewport constraints to show only 3 skills at a time
+        SetupSkillViewportConstraints();
+        
+        // If no ScrollRect is available, set up basic container constraints
+        if (skillScrollRect == null && skillButtonsContainer != null)
+        {
+            SetupBasicSkillContainerConstraints();
+        }
+            
         // Don't try to find skillPanel by name if it's already assigned
         // Don't overwrite existing reference
         skillMenu = combatManager.skillMenu;
@@ -133,18 +209,45 @@ public class CombatUI : MonoBehaviour
                 skillButtonsContainer.SetParent(skillPanel.transform, false);
                 skillButtonsContainer.anchorMin = new Vector2(0, 0);
                 skillButtonsContainer.anchorMax = new Vector2(1, 1);
-                skillButtonsContainer.offsetMin = new Vector2(10, 10);
-                skillButtonsContainer.offsetMax = new Vector2(-10, -10);
+                skillButtonsContainer.offsetMin = new Vector2(skillContainerPaddingLeft, skillContainerPaddingBottom);
+                skillButtonsContainer.offsetMax = new Vector2(-skillContainerPaddingRight, -skillContainerPaddingTop);
             }
             
-            skillButtonsGrid = skillButtonsContainer.GetComponent<GridLayoutGroup>();
-            if (skillButtonsGrid == null)
+            // Check if we already have a VerticalLayoutGroup, if not remove GridLayoutGroup and add VerticalLayoutGroup
+            VerticalLayoutGroup verticalLayout = skillButtonsContainer.GetComponent<VerticalLayoutGroup>();
+            GridLayoutGroup gridLayout = skillButtonsContainer.GetComponent<GridLayoutGroup>();
+            
+            if (gridLayout != null)
             {
-                skillButtonsGrid = skillButtonsContainer.gameObject.AddComponent<GridLayoutGroup>();
-                skillButtonsGrid.cellSize = new Vector2(120, 40);
-                skillButtonsGrid.spacing = new Vector2(10, 10);
-                skillButtonsGrid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-                skillButtonsGrid.constraintCount = 2;
+                DestroyImmediate(gridLayout);
+            }
+            
+            if (verticalLayout == null)
+            {
+                verticalLayout = skillButtonsContainer.gameObject.AddComponent<VerticalLayoutGroup>();
+                verticalLayout.spacing = skillButtonSpacing;
+                verticalLayout.childAlignment = TextAnchor.UpperCenter;
+                verticalLayout.childControlWidth = true;
+                verticalLayout.childControlHeight = false;
+                verticalLayout.childForceExpandWidth = false;
+                verticalLayout.childForceExpandHeight = false;
+                
+                // Apply padding from skillContainerPadding settings
+                verticalLayout.padding = new RectOffset(
+                    (int)skillContainerPaddingLeft,   // left
+                    (int)skillContainerPaddingRight,  // right
+                    (int)skillContainerPaddingTop,    // top
+                    (int)skillContainerPaddingBottom  // bottom
+                );
+            }
+            
+            // Don't add ContentSizeFitter here - it conflicts with ScrollRect and causes infinite growth
+            // The ScrollRect will handle the sizing properly
+            ContentSizeFitter existingSizeFitter = skillButtonsContainer.GetComponent<ContentSizeFitter>();
+            if (existingSizeFitter != null)
+            {
+                Debug.Log("[SkillButton Lifecycle] Removing ContentSizeFitter that conflicts with ScrollRect");
+                DestroyImmediate(existingSizeFitter);
             }
         }
         
@@ -252,15 +355,34 @@ public class CombatUI : MonoBehaviour
                     // Set up the container's layout
                     runtimeContainer.anchorMin = new Vector2(0, 0);
                     runtimeContainer.anchorMax = new Vector2(1, 1);
-                    runtimeContainer.offsetMin = new Vector2(10, 10);
-                    runtimeContainer.offsetMax = new Vector2(-10, -10);
+                    runtimeContainer.offsetMin = new Vector2(skillContainerPaddingLeft, skillContainerPaddingBottom);
+                    runtimeContainer.offsetMax = new Vector2(-skillContainerPaddingRight, -skillContainerPaddingTop);
                     
-                    // Add a grid layout group
-                    GridLayoutGroup gridLayout = containerObj.AddComponent<GridLayoutGroup>();
-                    gridLayout.cellSize = new Vector2(120, 40);
-                    gridLayout.spacing = new Vector2(10, 10);
-                    gridLayout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-                    gridLayout.constraintCount = 2;
+                    // Add a vertical layout group
+                    VerticalLayoutGroup verticalLayout = containerObj.AddComponent<VerticalLayoutGroup>();
+                    verticalLayout.spacing = skillButtonSpacing;
+                    verticalLayout.childAlignment = TextAnchor.UpperCenter;
+                    verticalLayout.childControlWidth = true;
+                    verticalLayout.childControlHeight = false;
+                    verticalLayout.childForceExpandWidth = false;
+                    verticalLayout.childForceExpandHeight = false;
+                    
+                    // Apply padding from skillContainerPadding settings
+                    verticalLayout.padding = new RectOffset(
+                        (int)skillContainerPaddingLeft,   // left
+                        (int)skillContainerPaddingRight,  // right
+                        (int)skillContainerPaddingTop,    // top
+                        (int)skillContainerPaddingBottom  // bottom
+                    );
+                    
+                    // For ScrollRect content, we need ContentSizeFitter to size the content area properly
+                    if (skillScrollRect != null)
+                    {
+                        ContentSizeFitter sizeFitter = containerObj.AddComponent<ContentSizeFitter>();
+                        sizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+                        sizeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+                        Debug.Log("[SkillButton Lifecycle] Added ContentSizeFitter for ScrollRect content");
+                    }
                     
                     // If we already have a container in the scene, destroy it to avoid duplicates
                     if (skillButtonsContainer != null && skillButtonsContainer.gameObject != null && 
@@ -271,21 +393,82 @@ public class CombatUI : MonoBehaviour
                     
                     // Update the reference
                     skillButtonsContainer = runtimeContainer;
+                    
+                    // Set this as the content of the ScrollRect if available
+                    if (skillScrollRect != null)
+                    {
+                        skillScrollRect.content = runtimeContainer;
+                        Debug.Log("[SkillButton Lifecycle] Set runtime container as ScrollRect content");
+                    }
                 }
                 else
                 {
                     // Use the existing container
                     runtimeContainer = skillButtonsContainer;
                     
-                    // Make sure it has a grid layout
+                    // Make sure it has a vertical layout
+                    VerticalLayoutGroup verticalLayout = runtimeContainer.GetComponent<VerticalLayoutGroup>();
                     GridLayoutGroup gridLayout = runtimeContainer.GetComponent<GridLayoutGroup>();
-                    if (gridLayout == null)
+                    
+                    if (gridLayout != null)
                     {
-                        gridLayout = runtimeContainer.gameObject.AddComponent<GridLayoutGroup>();
-                        gridLayout.cellSize = new Vector2(120, 40);
-                        gridLayout.spacing = new Vector2(10, 10);
-                        gridLayout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-                        gridLayout.constraintCount = 2;
+                        DestroyImmediate(gridLayout);
+                    }
+                    
+                    if (verticalLayout == null)
+                    {
+                        verticalLayout = runtimeContainer.gameObject.AddComponent<VerticalLayoutGroup>();
+                        verticalLayout.spacing = skillButtonSpacing;
+                        verticalLayout.childAlignment = TextAnchor.UpperCenter;
+                        verticalLayout.childControlWidth = true;
+                        verticalLayout.childControlHeight = false;
+                        verticalLayout.childForceExpandWidth = false;
+                        verticalLayout.childForceExpandHeight = false;
+                        
+                        // Apply padding from skillContainerPadding settings
+                        verticalLayout.padding = new RectOffset(
+                            (int)skillContainerPaddingLeft,   // left
+                            (int)skillContainerPaddingRight,  // right
+                            (int)skillContainerPaddingTop,    // top
+                            (int)skillContainerPaddingBottom  // bottom
+                        );
+                    }
+                    else
+                    {
+                        // Update existing VerticalLayoutGroup padding
+                        verticalLayout.padding = new RectOffset(
+                            (int)skillContainerPaddingLeft,   // left
+                            (int)skillContainerPaddingRight,  // right
+                            (int)skillContainerPaddingTop,    // top
+                            (int)skillContainerPaddingBottom  // bottom
+                        );
+                    }
+                    
+                    // Handle ContentSizeFitter based on ScrollRect presence
+                    ContentSizeFitter existingSizeFitter = runtimeContainer.GetComponent<ContentSizeFitter>();
+                    if (skillScrollRect != null)
+                    {
+                        // We need ContentSizeFitter for ScrollRect content
+                        if (existingSizeFitter == null)
+                        {
+                            existingSizeFitter = runtimeContainer.gameObject.AddComponent<ContentSizeFitter>();
+                            existingSizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+                            existingSizeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+                            Debug.Log("[SkillButton Lifecycle] Added ContentSizeFitter for existing container with ScrollRect");
+                        }
+                        
+                        // Set this as the content of the ScrollRect
+                        skillScrollRect.content = runtimeContainer;
+                        Debug.Log("[SkillButton Lifecycle] Set existing container as ScrollRect content");
+                    }
+                    else
+                    {
+                        // Remove ContentSizeFitter when no ScrollRect (conflicts with basic constraints)
+                        if (existingSizeFitter != null)
+                        {
+                            Debug.Log("[SkillButton Lifecycle] Removing ContentSizeFitter from container without ScrollRect");
+                            DestroyImmediate(existingSizeFitter);
+                        }
                     }
                 }
                 
@@ -298,7 +481,11 @@ public class CombatUI : MonoBehaviour
                 // Create a HashSet to track skills we've already created buttons for
                 HashSet<string> processedSkills = new HashSet<string>();
                 
-                foreach (var skill in activeCharStats.skills)
+                // Limit the number of skills displayed based on visibleSkillButtonCount
+                var skillsToDisplay = activeCharStats.skills.Take(visibleSkillButtonCount).ToList();
+                Debug.Log($"[SkillButton Lifecycle] Displaying {skillsToDisplay.Count} out of {activeCharStats.skills.Count} skills (limited by visibleSkillButtonCount: {visibleSkillButtonCount})");
+                
+                foreach (var skill in skillsToDisplay)
                 {
                     // Skip if we've already processed this skill
                     if (processedSkills.Contains(skill.name))
@@ -363,6 +550,9 @@ public class CombatUI : MonoBehaviour
                     RectTransform buttonRect = skillButton.GetComponent<RectTransform>();
                     if (buttonRect != null)
                     {
+                        // Set consistent size for scrolling
+                        buttonRect.sizeDelta = new Vector2(skillButtonWidth, skillButtonHeight);
+                        
                         // Use the original size from the template
                         if (menuButtonTemplate != null)
                         {
@@ -510,15 +700,65 @@ public class CombatUI : MonoBehaviour
                         }
                     }
                     
+                    // Add LayoutElement to ensure consistent sizing in VerticalLayoutGroup
+                    LayoutElement layoutElement = skillButton.GetComponent<LayoutElement>();
+                    if (layoutElement == null)
+                    {
+                        layoutElement = skillButton.AddComponent<LayoutElement>();
+                    }
+                    layoutElement.minHeight = skillButtonHeight;
+                    layoutElement.preferredHeight = skillButtonHeight;
+                    layoutElement.flexibleHeight = 0f; // Prevent buttons from expanding beyond preferred height
+                    
+                    // CRITICAL: Add width constraints to respect skillButtonWidth and prevent full-width expansion
+                    layoutElement.minWidth = skillButtonWidth;
+                    layoutElement.preferredWidth = skillButtonWidth;
+                    layoutElement.flexibleWidth = 0f; // Prevent buttons from expanding beyond preferred width
+                    
+                    // Ensure the button RectTransform is properly configured
+                    RectTransform skillButtonRect = skillButton.GetComponent<RectTransform>();
+                    if (skillButtonRect != null)
+                    {
+                        skillButtonRect.sizeDelta = new Vector2(skillButtonRect.sizeDelta.x, skillButtonHeight);
+                    }
+                    
                     // Store the skill data directly on the GameObject
                     SkillButtonData skillData = skillButton.AddComponent<SkillButtonData>();
                     skillData.skill = skill;
                     Debug.Log($"[SkillButton Lifecycle] SkillButtonData component added - Skill: {skill.name}, SanityCost: {skill.sanityCost}, RequiresTarget: {skill.requiresTarget}");
                     
+                    // Add hover description handler for mouse support
+                    HoverDescriptionHandler hoverHandler = skillButton.AddComponent<HoverDescriptionHandler>();
+                    Debug.Log($"[SkillButton Lifecycle] HoverDescriptionHandler component added for skill: {skill.name}");
+                    
                     currentSkillButtons.Add(skillButton);
                 }
                 
                 Debug.Log($"[SkillButton Lifecycle] Created {currentSkillButtons.Count} skill buttons, updating MenuSelector");
+                
+                // Debug container information
+                if (runtimeContainer != null)
+                {
+                    Debug.Log($"[Skill Container Debug] Container size: {runtimeContainer.sizeDelta}, Position: {runtimeContainer.anchoredPosition}");
+                    VerticalLayoutGroup vlg = runtimeContainer.GetComponent<VerticalLayoutGroup>();
+                    ContentSizeFitter csf = runtimeContainer.GetComponent<ContentSizeFitter>();
+                    LayoutElement le = runtimeContainer.GetComponent<LayoutElement>();
+                    Debug.Log($"[Skill Container Debug] Has VerticalLayoutGroup: {vlg != null}, ContentSizeFitter: {csf != null}, LayoutElement: {le != null}");
+                    if (skillScrollRect != null)
+                    {
+                        Debug.Log($"[Skill Container Debug] ScrollRect content is this container: {skillScrollRect.content == runtimeContainer}");
+                    }
+                }
+                
+                // Ensure viewport constraints are applied after creating buttons
+                SetupSkillViewportConstraints();
+                
+                // If no ScrollRect is available, set up basic container constraints
+                if (skillScrollRect == null)
+                {
+                    SetupBasicSkillContainerConstraints();
+                }
+                
                 menuSelector.UpdateSkillMenuOptions(currentSkillButtons.ToArray());
             }
         }
@@ -538,6 +778,228 @@ public class CombatUI : MonoBehaviour
         {
             Debug.Log($"[SkillButton Lifecycle] Skill does not require target, executing immediately");
             ExecuteSkill(skill, null);
+        }
+    }
+
+    public void UpdateSkillDescription(SkillData skill)
+    {
+        if (skillDescriptionText != null && skill != null)
+        {
+            string descriptionText = $"{skill.description}\n\nMind Cost: {skill.sanityCost}";
+            skillDescriptionText.text = descriptionText;
+            
+            if (skillDescriptionPanel != null)
+            {
+                skillDescriptionPanel.SetActive(true);
+            }
+        }
+    }
+    
+    public void UpdateItemDescription(ItemData item)
+    {
+        if (skillDescriptionText != null && item != null)
+        {
+            string descriptionText = item.description;
+            skillDescriptionText.text = descriptionText;
+            
+            if (skillDescriptionPanel != null)
+            {
+                skillDescriptionPanel.SetActive(true);
+            }
+        }
+    }
+    
+    public void ClearDescription()
+    {
+        if (skillDescriptionPanel != null)
+        {
+            skillDescriptionPanel.SetActive(false);
+        }
+    }
+    
+    private void SetupSkillViewportConstraints()
+    {
+        if (skillViewport == null) return;
+        
+        // Calculate height for visible skills (button height + spacing)
+        float viewportHeight = (skillButtonHeight * visibleSkillButtonCount) + (skillButtonSpacing * (visibleSkillButtonCount - 1)); // buttons + spaces between them
+        
+        // Set the viewport height constraint
+        RectTransform viewportRect = skillViewport;
+        if (viewportRect != null)
+        {
+            // Set a fixed height for the viewport
+            viewportRect.sizeDelta = new Vector2(viewportRect.sizeDelta.x, viewportHeight);
+            
+            // Add or update LayoutElement to enforce the height
+            LayoutElement viewportLayout = viewportRect.GetComponent<LayoutElement>();
+            if (viewportLayout == null)
+            {
+                viewportLayout = viewportRect.gameObject.AddComponent<LayoutElement>();
+            }
+            viewportLayout.preferredHeight = viewportHeight;
+            viewportLayout.minHeight = viewportHeight;
+            viewportLayout.flexibleHeight = 0f; // Don't allow viewport to expand
+            
+            Debug.Log($"[Skill Viewport] Set viewport height to {viewportHeight} pixels for {visibleSkillButtonCount} skills");
+        }
+        
+        // Ensure the ScrollRect is properly configured
+        if (skillScrollRect != null)
+        {
+            skillScrollRect.horizontal = false; // Only vertical scrolling
+            skillScrollRect.vertical = true;
+            skillScrollRect.movementType = ScrollRect.MovementType.Clamped;
+            skillScrollRect.scrollSensitivity = 20f;
+            Debug.Log("[Skill Viewport] Configured ScrollRect for vertical scrolling");
+        }
+    }
+    
+    private void SetupDescriptionTextConstraints()
+    {
+        if (skillDescriptionText == null) return;
+        
+        // Enable text wrapping and set overflow mode
+        skillDescriptionText.enableWordWrapping = true;
+        skillDescriptionText.overflowMode = TextOverflowModes.Ellipsis;
+        
+        // Set text alignment
+        skillDescriptionText.alignment = TextAlignmentOptions.TopLeft;
+        
+        // Ensure the text stays within its container bounds
+        RectTransform textRect = skillDescriptionText.GetComponent<RectTransform>();
+        if (textRect != null)
+        {
+            // Make sure the text fills its container properly
+            textRect.anchorMin = new Vector2(0, 0);
+            textRect.anchorMax = new Vector2(1, 1);
+            textRect.offsetMin = new Vector2(skillContainerPaddingLeft, skillContainerPaddingBottom); // Add configurable padding
+            textRect.offsetMax = new Vector2(-skillContainerPaddingRight, -skillContainerPaddingTop); // Add configurable padding
+        }
+        
+        // Set a reasonable font size if it's too large
+        if (skillDescriptionText.fontSize > 16)
+        {
+            skillDescriptionText.fontSize = 14;
+        }
+        
+        Debug.Log("[Skill Description] Set up text constraints with word wrapping and proper bounds");
+    }
+    
+    private void SetupDescriptionPanelConstraints()
+    {
+        if (skillDescriptionPanel == null) return;
+        
+        RectTransform panelRect = skillDescriptionPanel.GetComponent<RectTransform>();
+        if (panelRect != null)
+        {
+            // Ensure the panel has reasonable size constraints
+            // Set max width and height to prevent it from going out of bounds
+            float maxWidth = 400f;
+            float maxHeight = 200f;
+            
+            // If the panel is currently larger than our max size, constrain it
+            Vector2 currentSize = panelRect.sizeDelta;
+            float constrainedWidth = Mathf.Min(currentSize.x, maxWidth);
+            float constrainedHeight = Mathf.Min(currentSize.y, maxHeight);
+            
+            panelRect.sizeDelta = new Vector2(constrainedWidth, constrainedHeight);
+            
+            // Add or update LayoutElement to enforce size constraints
+            LayoutElement panelLayout = panelRect.GetComponent<LayoutElement>();
+            if (panelLayout == null)
+            {
+                panelLayout = skillDescriptionPanel.AddComponent<LayoutElement>();
+            }
+            panelLayout.preferredWidth = constrainedWidth;
+            panelLayout.preferredHeight = constrainedHeight;
+            
+            Debug.Log($"[Skill Description Panel] Set up panel constraints: {constrainedWidth}x{constrainedHeight}");
+        }
+    }
+    
+    private void SetupBasicSkillContainerConstraints()
+    {
+        if (skillButtonsContainer == null) return;
+        
+        // Calculate height for visible skills as fallback when no ScrollRect is available
+        float maxHeight = (skillButtonHeight * visibleSkillButtonCount) + (skillButtonSpacing * (visibleSkillButtonCount - 1));
+        
+        // Only apply constraints if we don't have a ScrollRect
+        if (skillScrollRect == null)
+        {
+            // Add or update LayoutElement to constrain the container height
+            LayoutElement containerLayout = skillButtonsContainer.GetComponent<LayoutElement>();
+            if (containerLayout == null)
+            {
+                containerLayout = skillButtonsContainer.gameObject.AddComponent<LayoutElement>();
+            }
+            containerLayout.preferredHeight = maxHeight;
+            containerLayout.minHeight = maxHeight;
+            containerLayout.flexibleHeight = 0f; // Don't allow expansion
+            
+            // Set the container size directly
+            RectTransform containerRect = skillButtonsContainer;
+            if (containerRect != null)
+            {
+                containerRect.sizeDelta = new Vector2(containerRect.sizeDelta.x, maxHeight);
+            }
+            
+            Debug.Log($"[Skill Container] Set up basic height constraints: {maxHeight} pixels for {visibleSkillButtonCount} skills (no ScrollRect)");
+        }
+        else
+        {
+            Debug.Log("[Skill Container] Skipping basic constraints - ScrollRect is handling sizing");
+        }
+    }
+    
+    public void ScrollToSkillButton(int buttonIndex, GameObject[] skillButtons)
+    {
+        if (skillScrollRect == null || skillViewport == null || skillButtons == null || buttonIndex < 0 || buttonIndex >= skillButtons.Length)
+            return;
+            
+        GameObject selectedButton = skillButtons[buttonIndex];
+        if (selectedButton == null) return;
+        
+        RectTransform contentRect = skillScrollRect.content;
+        if (contentRect == null) return;
+        
+        // Force layout update to ensure correct calculations
+        LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);
+        
+        // Calculate button height (consistent with configured values)
+        float totalButtonHeight = skillButtonHeight + skillButtonSpacing;
+        
+        // Calculate the position of this button in the content (from top)
+        float buttonPosition = buttonIndex * totalButtonHeight;
+        
+        // Calculate the viewport height
+        float viewportHeight = skillViewport.rect.height;
+        
+        // Calculate the total content height
+        float contentHeight = skillButtons.Length * totalButtonHeight - skillButtonSpacing; // Remove last spacing
+        
+        // Only scroll if content is larger than viewport
+        if (contentHeight > viewportHeight)
+        {
+            // Calculate how many buttons can fit in the viewport (aim for 3)
+            int visibleButtons = Mathf.FloorToInt(viewportHeight / totalButtonHeight);
+            
+            // Calculate scroll position to keep selected button in view
+            // Try to center the selection, but ensure we don't scroll past content bounds
+            float targetScrollTop = buttonPosition - (visibleButtons / 2f) * totalButtonHeight;
+            
+            // Clamp the target position
+            float maxScrollTop = contentHeight - viewportHeight;
+            targetScrollTop = Mathf.Clamp(targetScrollTop, 0f, maxScrollTop);
+            
+            // Convert to normalized position (1 = top, 0 = bottom for Unity's vertical scroll)
+            float normalizedPosition = 1f - (targetScrollTop / maxScrollTop);
+            
+            // Set the scroll position smoothly
+            skillScrollRect.verticalNormalizedPosition = Mathf.Clamp01(normalizedPosition);
+            
+            Debug.Log($"[Scroll] Button {buttonIndex}, Position: {buttonPosition}, ViewportHeight: {viewportHeight}, ContentHeight: {contentHeight}, NormalizedPos: {normalizedPosition}");
         }
     }
 
@@ -1117,6 +1579,9 @@ public class CombatUI : MonoBehaviour
         if (characterStatsPanel != null) characterStatsPanel.SetActive(true);
         actionMenu.SetActive(true);
         
+        // Clear skill description when leaving skill menu
+        ClearDescription();
+        
         // Restore the menu button template's original state
         if (menuButtonTemplate != null)
         {
@@ -1262,21 +1727,43 @@ public class CombatUI : MonoBehaviour
                     itemButtonsContainer.SetParent(itemMenu.transform, false);
                     itemButtonsContainer.anchorMin = new Vector2(0, 0);
                     itemButtonsContainer.anchorMax = new Vector2(1, 1);
-                    itemButtonsContainer.offsetMin = new Vector2(10, 10);
-                    itemButtonsContainer.offsetMax = new Vector2(-10, -10);
+                    itemButtonsContainer.offsetMin = new Vector2(skillContainerPaddingLeft, skillContainerPaddingBottom);
+                    itemButtonsContainer.offsetMax = new Vector2(-skillContainerPaddingRight, -skillContainerPaddingTop);
                     Debug.Log("[ItemButton Lifecycle] Created new ItemButtonsContainer");
                 }
             }
             
-            // Ensure the container has a grid layout
-            GridLayoutGroup itemButtonsGrid = itemButtonsContainer.GetComponent<GridLayoutGroup>();
-            if (itemButtonsGrid == null)
+            // Ensure the container has a vertical layout
+            VerticalLayoutGroup itemVerticalLayout = itemButtonsContainer.GetComponent<VerticalLayoutGroup>();
+            GridLayoutGroup existingItemGrid = itemButtonsContainer.GetComponent<GridLayoutGroup>();
+            
+            if (existingItemGrid != null)
             {
-                itemButtonsGrid = itemButtonsContainer.gameObject.AddComponent<GridLayoutGroup>();
-                itemButtonsGrid.cellSize = new Vector2(120, 40);
-                itemButtonsGrid.spacing = new Vector2(10, 10);
-                itemButtonsGrid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-                itemButtonsGrid.constraintCount = 2;
+                DestroyImmediate(existingItemGrid);
+            }
+            
+            if (itemVerticalLayout == null)
+            {
+                itemVerticalLayout = itemButtonsContainer.gameObject.AddComponent<VerticalLayoutGroup>();
+                itemVerticalLayout.spacing = skillButtonSpacing;
+                itemVerticalLayout.childAlignment = TextAnchor.UpperCenter;
+                itemVerticalLayout.childControlWidth = true;
+                itemVerticalLayout.childControlHeight = false;
+                itemVerticalLayout.childForceExpandWidth = false;
+                itemVerticalLayout.childForceExpandHeight = false;
+                
+                // Apply padding from skillContainerPadding settings
+                itemVerticalLayout.padding = new RectOffset(
+                    (int)skillContainerPaddingLeft,   // left
+                    (int)skillContainerPaddingRight,  // right
+                    (int)skillContainerPaddingTop,    // top
+                    (int)skillContainerPaddingBottom  // bottom
+                );
+                
+                // Add ContentSizeFitter for item menu
+                ContentSizeFitter itemSizeFitter = itemButtonsContainer.gameObject.AddComponent<ContentSizeFitter>();
+                itemSizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+                itemSizeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
             }
             
             // Create a runtime container for the buttons
@@ -1288,12 +1775,27 @@ public class CombatUI : MonoBehaviour
             runtimeContainerRect.offsetMin = Vector2.zero;
             runtimeContainerRect.offsetMax = Vector2.zero;
             
-            // Add a grid layout to the runtime container
-            GridLayoutGroup runtimeGrid = runtimeContainer.AddComponent<GridLayoutGroup>();
-            runtimeGrid.cellSize = itemButtonsGrid.cellSize;
-            runtimeGrid.spacing = itemButtonsGrid.spacing;
-            runtimeGrid.constraint = itemButtonsGrid.constraint;
-            runtimeGrid.constraintCount = itemButtonsGrid.constraintCount;
+            // Add a vertical layout to the runtime container
+            VerticalLayoutGroup runtimeVerticalLayout = runtimeContainer.AddComponent<VerticalLayoutGroup>();
+            runtimeVerticalLayout.spacing = skillButtonSpacing;
+            runtimeVerticalLayout.childAlignment = TextAnchor.UpperCenter;
+            runtimeVerticalLayout.childControlWidth = true;
+            runtimeVerticalLayout.childControlHeight = false;
+            runtimeVerticalLayout.childForceExpandWidth = false;
+            runtimeVerticalLayout.childForceExpandHeight = false;
+            
+            // Apply padding from skillContainerPadding settings
+            runtimeVerticalLayout.padding = new RectOffset(
+                (int)skillContainerPaddingLeft,   // left
+                (int)skillContainerPaddingRight,  // right
+                (int)skillContainerPaddingTop,    // top
+                (int)skillContainerPaddingBottom  // bottom
+            );
+            
+            // Add ContentSizeFitter to the runtime container
+            ContentSizeFitter runtimeSizeFitter = runtimeContainer.AddComponent<ContentSizeFitter>();
+            runtimeSizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            runtimeSizeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
             
             // Create buttons for each item
             if (activeCharStats != null)
@@ -1365,10 +1867,17 @@ public class CombatUI : MonoBehaviour
                     RectTransform buttonRect = itemButton.GetComponent<RectTransform>();
                     if (buttonRect != null)
                     {
-                        buttonRect.anchorMin = new Vector2(0, 0);
-                        buttonRect.anchorMax = new Vector2(1, 1);
-                        buttonRect.sizeDelta = Vector2.zero;
+                        buttonRect.sizeDelta = new Vector2(skillButtonWidth, skillButtonHeight);
                     }
+                    
+                    // Add LayoutElement to ensure consistent sizing in VerticalLayoutGroup
+                    LayoutElement layoutElement = itemButton.GetComponent<LayoutElement>();
+                    if (layoutElement == null)
+                    {
+                        layoutElement = itemButton.AddComponent<LayoutElement>();
+                    }
+                    layoutElement.minHeight = skillButtonHeight;
+                    layoutElement.preferredHeight = skillButtonHeight;
                     
                     // Add a button component for click handling
                     Button button = itemButton.GetComponent<Button>();
@@ -1380,6 +1889,10 @@ public class CombatUI : MonoBehaviour
                     // Store the item data for reference
                     ItemButtonData itemData = itemButton.AddComponent<ItemButtonData>();
                     itemData.item = item;
+                    
+                    // Add hover description handler for mouse support
+                    HoverDescriptionHandler hoverHandler = itemButton.AddComponent<HoverDescriptionHandler>();
+                    Debug.Log($"[ItemButton Lifecycle] HoverDescriptionHandler component added for item: {item.name}");
                     
                     // Set up the button click handler
                     ItemData capturedItem = item; // Capture for lambda
@@ -1816,6 +2329,9 @@ public class CombatUI : MonoBehaviour
         if (skillMenu != null) skillMenu.SetActive(false); // Ensure skill menu is hidden
         actionMenu.SetActive(true);
         
+        // Clear skill/item description when leaving item menu
+        ClearDescription();
+        
         // Restore the menu button template's original state
         if (menuButtonTemplate != null)
         {
@@ -2009,18 +2525,33 @@ public class CombatUI : MonoBehaviour
             RectTransform rectTransform = container.AddComponent<RectTransform>();
             rectTransform.anchorMin = new Vector2(0, 0);
             rectTransform.anchorMax = new Vector2(1, 1);
-            rectTransform.offsetMin = new Vector2(10, 10);
-            rectTransform.offsetMax = new Vector2(-10, -10);
+            rectTransform.offsetMin = new Vector2(skillContainerPaddingLeft, skillContainerPaddingBottom);
+            rectTransform.offsetMax = new Vector2(-skillContainerPaddingRight, -skillContainerPaddingTop);
             
-            // Add grid layout
-            GridLayoutGroup grid = container.AddComponent<GridLayoutGroup>();
-            grid.cellSize = new Vector2(300, 40);
-            grid.spacing = new Vector2(30, 30);
-            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            grid.constraintCount = 2;
+            // Add vertical layout
+            VerticalLayoutGroup verticalLayout = container.AddComponent<VerticalLayoutGroup>();
+            verticalLayout.spacing = skillButtonSpacing;
+            verticalLayout.childAlignment = TextAnchor.UpperCenter;
+            verticalLayout.childControlWidth = true;
+            verticalLayout.childControlHeight = false;
+            verticalLayout.childForceExpandWidth = false;
+            verticalLayout.childForceExpandHeight = false;
+            
+            // Apply padding from skillContainerPadding settings
+            verticalLayout.padding = new RectOffset(
+                (int)skillContainerPaddingLeft,   // left
+                (int)skillContainerPaddingRight,  // right
+                (int)skillContainerPaddingTop,    // top
+                (int)skillContainerPaddingBottom  // bottom
+            );
+            
+            // Add ContentSizeFitter
+            ContentSizeFitter sizeFitter = container.AddComponent<ContentSizeFitter>();
+            sizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            sizeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
             
             itemsContainer = container.transform;
-            Debug.Log("Created new ItemsContainer with GridLayoutGroup");
+            Debug.Log("Created new ItemsContainer with VerticalLayoutGroup");
         }
         
         // Add buttons for each non-KeyItem
@@ -2045,6 +2576,10 @@ public class CombatUI : MonoBehaviour
                 GameObject buttonObj = Instantiate(buttonPrefab, itemsContainer);
                 ItemButtonData buttonData = buttonObj.AddComponent<ItemButtonData>();
                 buttonData.item = item;
+                
+                // Add hover description handler for mouse support
+                HoverDescriptionHandler hoverHandler = buttonObj.AddComponent<HoverDescriptionHandler>();
+                Debug.Log($"[ItemButton Lifecycle] HoverDescriptionHandler component added for item: {item.name}");
                 
                 // Set button text
                 Text buttonText = buttonObj.GetComponentInChildren<Text>();
