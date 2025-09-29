@@ -42,7 +42,7 @@ public class SceneTransitionManager : MonoBehaviour
     private string targetMarkerId;
     
     // New fields for multiple battle types
-    private string[] battleScenes = new string[] { "Battle_Weaver", "Battle_Aperture" };
+    private string[] battleScenes = new string[] { "Battle_Weaver" };
     
     // Change back to static variable since that's likely the issue - the instance value isn't persisting across scene changes
     // Static flag to track transition state across scene changes

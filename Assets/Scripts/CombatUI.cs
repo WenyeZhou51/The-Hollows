@@ -54,6 +54,10 @@ public class CombatUI : MonoBehaviour
     [SerializeField] private float skillButtonSpacing = 5f;
     [Tooltip("Number of skill buttons visible without scrolling")]
     [SerializeField] private int visibleSkillButtonCount = 3;
+    
+    // Cycling scroll system variables
+    public int currentSkillScrollIndex = 0; // Which skill is at the top of the visible window
+    private List<SkillData> allAvailableSkills = new List<SkillData>(); // All skills for the current character
     [Header("Skill Container Padding")]
     [Tooltip("Left padding inside the skill container")]
     [SerializeField] private float skillContainerPaddingLeft = 10f;
@@ -290,7 +294,7 @@ public class CombatUI : MonoBehaviour
 
     public void ShowSkillMenu()
     {
-        Debug.Log("[SkillButton Lifecycle] ShowSkillMenu called - Beginning skill menu setup");
+        Debug.Log("[SkillButton Lifecycle] ShowSkillMenu called - Beginning cycling skill menu setup");
         if (skillPanel != null)
         {
             if (characterStatsPanel != null) characterStatsPanel.SetActive(false);
@@ -300,467 +304,546 @@ public class CombatUI : MonoBehaviour
             // Hide the menu button template if it's assigned
             if (menuButtonTemplate != null)
             {
-                // Store the original state to restore it later
                 bool wasTemplateActive = menuButtonTemplate.activeSelf;
                 menuButtonTemplate.SetActive(false);
-                
-                // We'll restore this when returning to the action menu
                 menuButtonTemplate.tag = wasTemplateActive ? "ActiveTemplate" : "InactiveTemplate";
                 Debug.Log($"[SkillButton Lifecycle] Hiding menu button template: {menuButtonTemplate.name}");
             }
             
-            // First, create a local copy of the buttons to destroy
-            List<GameObject> buttonsToDestroy = new List<GameObject>(currentSkillButtons);
-            
-            // Clear the list before destroying to prevent access to destroyed objects
-            currentSkillButtons.Clear();
-            
-            // Now destroy the buttons
-            if (buttonsToDestroy.Count > 0)
-            {
-                Debug.Log($"[SkillButton Lifecycle] Destroying {buttonsToDestroy.Count} existing skill buttons");
-                foreach (var button in buttonsToDestroy)
-                {
-                    if (button != null)
-                    {
-                        Debug.Log($"[SkillButton Lifecycle] Destroying button: {(button.GetComponentInChildren<TextMeshProUGUI>()?.text ?? "unknown")}");
-                        Destroy(button);
-                    }
-                }
-            }
-            
-            // Debug to check container status
-            Debug.Log($"SkillButtonsContainer: {skillButtonsContainer != null}");
-            
-            // Create buttons for each skill
+            // Get the active character's skills
             var activeCharStats = combatManager.ActiveCharacter;
             if (activeCharStats != null)
             {
-                // Check if the container is a prefab asset
-                bool isPrefabAsset = false;
-                #if UNITY_EDITOR
-                isPrefabAsset = PrefabUtility.IsPartOfPrefabAsset(skillButtonsContainer);
-                #endif
+                // Store all available skills for cycling
+                allAvailableSkills = new List<SkillData>(activeCharStats.skills);
+                currentSkillScrollIndex = 0; // Start at the beginning
                 
-                // Create a runtime container if needed
-                RectTransform runtimeContainer;
-                if (isPrefabAsset || skillButtonsContainer == null)
+                Debug.Log($"[SkillButton Lifecycle] Active character has {allAvailableSkills.Count} skills: {string.Join(", ", allAvailableSkills.Select(s => s.name))}");
+                
+                // Create or update the 3 cycling buttons
+                CreateCyclingSkillButtons();
+                
+                // Update MenuSelector with the cycling system
+                menuSelector.SetCyclingSkillSystem(this, allAvailableSkills, currentSkillScrollIndex);
+            }
+        }
+    }
+
+    // Cycling scroll system methods
+    private void CreateCyclingSkillButtons()
+    {
+        // Clear existing buttons
+        foreach (var button in currentSkillButtons)
+        {
+            if (button != null)
+            {
+                Destroy(button);
+            }
+        }
+        currentSkillButtons.Clear();
+
+        // Set up the container properly first
+        SetupCyclingContainer();
+
+        // Create exactly 3 buttons for cycling
+        for (int i = 0; i < 3; i++)
+        {
+            GameObject skillButton = CreateSkillButton(i);
+            if (skillButton != null)
+            {
+                currentSkillButtons.Add(skillButton);
+            }
+        }
+
+        Debug.Log($"[Cycling Skill Menu] Created {currentSkillButtons.Count} cycling skill buttons");
+        
+        // Update MenuSelector with the cycling buttons
+        menuSelector.UpdateSkillMenuOptions(currentSkillButtons.ToArray());
+    }
+
+    private void SetupCyclingContainer()
+    {
+        // Check if the container is a prefab asset
+        bool isPrefabAsset = false;
+        #if UNITY_EDITOR
+        isPrefabAsset = PrefabUtility.IsPartOfPrefabAsset(skillButtonsContainer);
+        #endif
+        
+        // Create a runtime container if needed
+        RectTransform runtimeContainer;
+        if (isPrefabAsset || skillButtonsContainer == null)
+        {
+            // Create a new container at runtime
+            GameObject containerObj = new GameObject("RuntimeSkillButtonsContainer");
+            runtimeContainer = containerObj.AddComponent<RectTransform>();
+            runtimeContainer.SetParent(skillPanel.transform, false);
+            
+            // Set up the container's layout
+            runtimeContainer.anchorMin = new Vector2(0, 0);
+            runtimeContainer.anchorMax = new Vector2(1, 1);
+            runtimeContainer.offsetMin = new Vector2(skillContainerPaddingLeft, skillContainerPaddingBottom);
+            runtimeContainer.offsetMax = new Vector2(-skillContainerPaddingRight, -skillContainerPaddingTop);
+            
+            // Add a vertical layout group
+            VerticalLayoutGroup verticalLayout = containerObj.AddComponent<VerticalLayoutGroup>();
+            verticalLayout.spacing = skillButtonSpacing;
+            verticalLayout.childAlignment = TextAnchor.UpperCenter;
+            verticalLayout.childControlWidth = true;
+            verticalLayout.childControlHeight = false;
+            verticalLayout.childForceExpandWidth = false;
+            verticalLayout.childForceExpandHeight = false;
+            
+            // Apply padding from skillContainerPadding settings
+            verticalLayout.padding = new RectOffset(
+                (int)skillContainerPaddingLeft,   // left
+                (int)skillContainerPaddingRight,  // right
+                (int)skillContainerPaddingTop,    // top
+                (int)skillContainerPaddingBottom  // bottom
+            );
+            
+            // For ScrollRect content, we need ContentSizeFitter to size the content area properly
+            if (skillScrollRect != null)
+            {
+                ContentSizeFitter sizeFitter = containerObj.AddComponent<ContentSizeFitter>();
+                sizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+                sizeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+                Debug.Log("[Cycling Skill Menu] Added ContentSizeFitter for ScrollRect content");
+            }
+            
+            // If we already have a container in the scene, destroy it to avoid duplicates
+            if (skillButtonsContainer != null && skillButtonsContainer.gameObject != null && 
+                !isPrefabAsset && skillButtonsContainer.gameObject.scene.IsValid())
+            {
+                Destroy(skillButtonsContainer.gameObject);
+            }
+            
+            // Update the reference
+            skillButtonsContainer = runtimeContainer;
+            
+            // Set this as the content of the ScrollRect if available
+            if (skillScrollRect != null)
+            {
+                skillScrollRect.content = runtimeContainer;
+                Debug.Log("[Cycling Skill Menu] Set runtime container as ScrollRect content");
+            }
+        }
+        else
+        {
+            // Use the existing container
+            runtimeContainer = skillButtonsContainer;
+            
+            // Make sure it has a vertical layout
+            VerticalLayoutGroup verticalLayout = runtimeContainer.GetComponent<VerticalLayoutGroup>();
+            GridLayoutGroup gridLayout = runtimeContainer.GetComponent<GridLayoutGroup>();
+            
+            if (gridLayout != null)
+            {
+                DestroyImmediate(gridLayout);
+            }
+            
+            if (verticalLayout == null)
+            {
+                verticalLayout = runtimeContainer.gameObject.AddComponent<VerticalLayoutGroup>();
+                verticalLayout.spacing = skillButtonSpacing;
+                verticalLayout.childAlignment = TextAnchor.UpperCenter;
+                verticalLayout.childControlWidth = true;
+                verticalLayout.childControlHeight = false;
+                verticalLayout.childForceExpandWidth = false;
+                verticalLayout.childForceExpandHeight = false;
+                
+                // Apply padding from skillContainerPadding settings
+                verticalLayout.padding = new RectOffset(
+                    (int)skillContainerPaddingLeft,   // left
+                    (int)skillContainerPaddingRight,  // right
+                    (int)skillContainerPaddingTop,    // top
+                    (int)skillContainerPaddingBottom  // bottom
+                );
+            }
+            else
+            {
+                // Update existing VerticalLayoutGroup padding
+                verticalLayout.padding = new RectOffset(
+                    (int)skillContainerPaddingLeft,   // left
+                    (int)skillContainerPaddingRight,  // right
+                    (int)skillContainerPaddingTop,    // top
+                    (int)skillContainerPaddingBottom  // bottom
+                );
+            }
+            
+            // Handle ContentSizeFitter based on ScrollRect presence
+            ContentSizeFitter existingSizeFitter = runtimeContainer.GetComponent<ContentSizeFitter>();
+            if (skillScrollRect != null)
+            {
+                // We need ContentSizeFitter for ScrollRect content
+                if (existingSizeFitter == null)
                 {
-                    // Create a new container at runtime
-                    GameObject containerObj = new GameObject("RuntimeSkillButtonsContainer");
-                    runtimeContainer = containerObj.AddComponent<RectTransform>();
-                    runtimeContainer.SetParent(skillPanel.transform, false);
+                    existingSizeFitter = runtimeContainer.gameObject.AddComponent<ContentSizeFitter>();
+                    existingSizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+                    existingSizeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+                    Debug.Log("[Cycling Skill Menu] Added ContentSizeFitter for existing container with ScrollRect");
+                }
+                
+                // Set this as the content of the ScrollRect
+                skillScrollRect.content = runtimeContainer;
+                Debug.Log("[Cycling Skill Menu] Set existing container as ScrollRect content");
+            }
+            else
+            {
+                // Remove ContentSizeFitter when no ScrollRect (conflicts with basic constraints)
+                if (existingSizeFitter != null)
+                {
+                    Debug.Log("[Cycling Skill Menu] Removing ContentSizeFitter from container without ScrollRect");
+                    DestroyImmediate(existingSizeFitter);
+                }
+            }
+        }
+        
+        // Ensure viewport constraints are applied
+        SetupSkillViewportConstraints();
+        
+        // If no ScrollRect is available, set up basic container constraints
+        if (skillScrollRect == null)
+        {
+            SetupBasicSkillContainerConstraints();
+        }
+    }
+
+    private GameObject CreateSkillButton(int buttonIndex)
+    {
+        // Calculate which skill this button should display
+        int skillIndex = currentSkillScrollIndex + buttonIndex;
+        
+        // If we don't have enough skills, don't create the button
+        if (skillIndex >= allAvailableSkills.Count)
+        {
+            return null;
+        }
+
+        SkillData skill = allAvailableSkills[skillIndex];
+        
+        // Use menu button template if available, otherwise fall back to buttonPrefab
+        GameObject skillButton;
+        if (menuButtonTemplate != null)
+        {
+            skillButton = Instantiate(menuButtonTemplate);
+            
+            // Remove any existing components that might interfere
+            Button existingButton = skillButton.GetComponent<Button>();
+            if (existingButton != null)
+            {
+                Destroy(existingButton);
+            }
+            
+            SkillButtonData existingSkillData = skillButton.GetComponent<SkillButtonData>();
+            if (existingSkillData != null)
+            {
+                Destroy(existingSkillData);
+            }
+        }
+        else
+        {
+            skillButton = Instantiate(buttonPrefab);
+        }
+        
+        // Set up the button
+        skillButton.name = $"CyclingSkillButton_{buttonIndex}";
+        skillButton.transform.SetParent(skillButtonsContainer, false);
+        skillButton.SetActive(true);
+        
+        // Configure the button's visual properties
+        SetupSkillButtonVisuals(skillButton, skill);
+        
+        // Add the skill data component
+        SkillButtonData skillData = skillButton.AddComponent<SkillButtonData>();
+        skillData.skill = skill;
+        
+        // Add click handler
+        Button buttonComponent = skillButton.GetComponent<Button>();
+        if (buttonComponent == null)
+        {
+            buttonComponent = skillButton.AddComponent<Button>();
+        }
+        buttonComponent.onClick.AddListener(() => OnSkillButtonClicked(skill));
+        
+        // Add hover description handler
+        HoverDescriptionHandler hoverHandler = skillButton.AddComponent<HoverDescriptionHandler>();
+        
+        return skillButton;
+    }
+
+    private void SetupSkillButtonVisuals(GameObject skillButton, SkillData skill)
+    {
+        // Set up RectTransform
+        RectTransform buttonRect = skillButton.GetComponent<RectTransform>();
+        if (buttonRect != null)
+        {
+            // Set consistent size for scrolling
+            buttonRect.sizeDelta = new Vector2(skillButtonWidth, skillButtonHeight);
+            
+            // Use the original size from the template if available
+            if (menuButtonTemplate != null)
+            {
+                RectTransform templateRect = menuButtonTemplate.GetComponent<RectTransform>();
+                if (templateRect != null)
+                {
+                    buttonRect.sizeDelta = templateRect.sizeDelta;
                     
-                    // Set up the container's layout
-                    runtimeContainer.anchorMin = new Vector2(0, 0);
-                    runtimeContainer.anchorMax = new Vector2(1, 1);
-                    runtimeContainer.offsetMin = new Vector2(skillContainerPaddingLeft, skillContainerPaddingBottom);
-                    runtimeContainer.offsetMax = new Vector2(-skillContainerPaddingRight, -skillContainerPaddingTop);
+                    // Copy anchoring settings
+                    buttonRect.anchorMin = templateRect.anchorMin;
+                    buttonRect.anchorMax = templateRect.anchorMax;
+                    buttonRect.pivot = templateRect.pivot;
                     
-                    // Add a vertical layout group
-                    VerticalLayoutGroup verticalLayout = containerObj.AddComponent<VerticalLayoutGroup>();
-                    verticalLayout.spacing = skillButtonSpacing;
-                    verticalLayout.childAlignment = TextAnchor.UpperCenter;
-                    verticalLayout.childControlWidth = true;
-                    verticalLayout.childControlHeight = false;
-                    verticalLayout.childForceExpandWidth = false;
-                    verticalLayout.childForceExpandHeight = false;
+                    Debug.Log($"[Cycling Skill Menu] Copied RectTransform properties from template - Size: {buttonRect.sizeDelta}, Anchors: {buttonRect.anchorMin}-{buttonRect.anchorMax}");
+                }
+            }
+        }
+        
+        // Copy visual components from template
+        if (menuButtonTemplate != null)
+        {
+            // Copy Image component settings
+            Image templateImage = menuButtonTemplate.GetComponent<Image>();
+            Image buttonImage = skillButton.GetComponent<Image>();
+            if (templateImage != null && buttonImage != null)
+            {
+                buttonImage.sprite = templateImage.sprite;
+                buttonImage.type = templateImage.type;
+                buttonImage.fillMethod = templateImage.fillMethod;
+                buttonImage.color = templateImage.color;
+                Debug.Log($"[Cycling Skill Menu] Copied Image properties from template");
+            }
+            
+            // Copy CanvasGroup settings if present
+            CanvasGroup templateCanvasGroup = menuButtonTemplate.GetComponent<CanvasGroup>();
+            if (templateCanvasGroup != null)
+            {
+                CanvasGroup buttonCanvasGroup = skillButton.GetComponent<CanvasGroup>();
+                if (buttonCanvasGroup == null)
+                {
+                    buttonCanvasGroup = skillButton.AddComponent<CanvasGroup>();
+                }
+                buttonCanvasGroup.alpha = 1f; // Always make visible
+                buttonCanvasGroup.interactable = true;
+                buttonCanvasGroup.blocksRaycasts = true;
+            }
+        }
+        
+        // Set up text
+        TextMeshProUGUI buttonText = skillButton.GetComponentInChildren<TextMeshProUGUI>();
+        if (buttonText != null)
+        {
+            // Store original font and style settings
+            TMP_FontAsset originalFont = buttonText.font;
+            float originalFontSize = buttonText.fontSize;
+            Color originalColor = buttonText.color;
+            TextAlignmentOptions originalAlignment = buttonText.alignment;
+            
+            // Set the text
+            buttonText.text = skill.name;
+            
+            // Restore original style settings
+            buttonText.font = originalFont;
+            buttonText.fontSize = originalFontSize;
+            buttonText.color = originalColor;
+            buttonText.alignment = originalAlignment;
+            
+            // Force update to ensure text is visible
+            buttonText.ForceMeshUpdate();
+            
+            // Find the cost text component (should be a separate TextMeshProUGUI in the prefab)
+            TextMeshProUGUI costText = null;
+            
+            // Look for a child object with "Cost" in its name
+            foreach (Transform child in skillButton.transform)
+            {
+                if (child.name.Contains("Cost"))
+                {
+                    costText = child.GetComponent<TextMeshProUGUI>();
+                    break;
+                }
+            }
+            
+            // If we didn't find it by name, look for a second TextMeshProUGUI component
+            if (costText == null)
+            {
+                TextMeshProUGUI[] allTexts = skillButton.GetComponentsInChildren<TextMeshProUGUI>();
+                if (allTexts.Length > 1)
+                {
+                    // Use the second text component as the cost text
+                    costText = allTexts[1];
+                }
+            }
+            
+            // If we found the cost text component, update it
+            if (costText != null)
+            {
+                costText.text = $"{skill.sanityCost} SP";
+                costText.ForceMeshUpdate();
+                Debug.Log($"[Cycling Skill Menu] Updated cost text: '{costText.text}'");
+            }
+            else
+            {
+                Debug.LogWarning("[Cycling Skill Menu] Cost text component not found on skill button!");
+            }
+        }
+        else
+        {
+            Debug.LogError("[Cycling Skill Menu] Button text not found on skill button!");
+            
+            // Try to find the text in a deeper hierarchy
+            buttonText = skillButton.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (buttonText != null)
+            {
+                Debug.Log("[Cycling Skill Menu] Found text component in deeper hierarchy, enabling it");
+                buttonText.gameObject.SetActive(true);
+                buttonText.text = skill.name;
+                buttonText.ForceMeshUpdate();
+            }
+            else
+            {
+                // Create a new text component if none exists
+                Debug.Log("[Cycling Skill Menu] Creating new TextMeshProUGUI component");
+                GameObject textObj = new GameObject("ButtonText");
+                textObj.transform.SetParent(skillButton.transform, false);
+                buttonText = textObj.AddComponent<TextMeshProUGUI>();
+                buttonText.text = skill.name;
+                buttonText.alignment = TextAlignmentOptions.Center;
+                buttonText.fontSize = 14;
+                buttonText.color = Color.white;
+                
+                // Set up RectTransform for the text
+                RectTransform textRect = textObj.GetComponent<RectTransform>();
+                textRect.anchorMin = new Vector2(0, 0);
+                textRect.anchorMax = new Vector2(1, 1);
+                textRect.offsetMin = Vector2.zero;
+                textRect.offsetMax = Vector2.zero;
+            }
+        }
+        
+        // Add LayoutElement for consistent sizing
+        LayoutElement layoutElement = skillButton.GetComponent<LayoutElement>();
+        if (layoutElement == null)
+        {
+            layoutElement = skillButton.AddComponent<LayoutElement>();
+        }
+        layoutElement.minHeight = skillButtonHeight;
+        layoutElement.preferredHeight = skillButtonHeight;
+        layoutElement.flexibleHeight = 0f; // Prevent buttons from expanding beyond preferred height
+        
+        // CRITICAL: Add width constraints to respect skillButtonWidth and prevent full-width expansion
+        layoutElement.minWidth = skillButtonWidth;
+        layoutElement.preferredWidth = skillButtonWidth;
+        layoutElement.flexibleWidth = 0f; // Prevent buttons from expanding beyond preferred width
+        
+        // Ensure the button RectTransform is properly configured
+        RectTransform skillButtonRect = skillButton.GetComponent<RectTransform>();
+        if (skillButtonRect != null)
+        {
+            skillButtonRect.sizeDelta = new Vector2(skillButtonRect.sizeDelta.x, skillButtonHeight);
+        }
+    }
+
+    public void UpdateCyclingSkillButtons()
+    {
+        Debug.Log($"[Cycling Skill Menu] Updating cycling buttons, scroll index: {currentSkillScrollIndex}");
+        
+        for (int i = 0; i < currentSkillButtons.Count && i < 3; i++)
+        {
+            GameObject button = currentSkillButtons[i];
+            if (button != null)
+            {
+                int skillIndex = currentSkillScrollIndex + i;
+                
+                if (skillIndex < allAvailableSkills.Count)
+                {
+                    SkillData skill = allAvailableSkills[skillIndex];
                     
-                    // Apply padding from skillContainerPadding settings
-                    verticalLayout.padding = new RectOffset(
-                        (int)skillContainerPaddingLeft,   // left
-                        (int)skillContainerPaddingRight,  // right
-                        (int)skillContainerPaddingTop,    // top
-                        (int)skillContainerPaddingBottom  // bottom
-                    );
-                    
-                    // For ScrollRect content, we need ContentSizeFitter to size the content area properly
-                    if (skillScrollRect != null)
+                    // Update the button's skill data
+                    SkillButtonData skillData = button.GetComponent<SkillButtonData>();
+                    if (skillData != null)
                     {
-                        ContentSizeFitter sizeFitter = containerObj.AddComponent<ContentSizeFitter>();
-                        sizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-                        sizeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-                        Debug.Log("[SkillButton Lifecycle] Added ContentSizeFitter for ScrollRect content");
+                        skillData.skill = skill;
                     }
                     
-                    // If we already have a container in the scene, destroy it to avoid duplicates
-                    if (skillButtonsContainer != null && skillButtonsContainer.gameObject != null && 
-                        !isPrefabAsset && skillButtonsContainer.gameObject.scene.IsValid())
+                    // Update the button's text
+                    TextMeshProUGUI buttonText = button.GetComponentInChildren<TextMeshProUGUI>();
+                    if (buttonText != null)
                     {
-                        Destroy(skillButtonsContainer.gameObject);
+                        buttonText.text = skill.name;
+                        buttonText.ForceMeshUpdate();
+                        
+                        // Update cost text
+                        TextMeshProUGUI[] allTexts = button.GetComponentsInChildren<TextMeshProUGUI>();
+                        if (allTexts.Length > 1)
+                        {
+                            allTexts[1].text = $"{skill.sanityCost} SP";
+                            allTexts[1].ForceMeshUpdate();
+                        }
                     }
                     
-                    // Update the reference
-                    skillButtonsContainer = runtimeContainer;
-                    
-                    // Set this as the content of the ScrollRect if available
-                    if (skillScrollRect != null)
+                    // Update click handler
+                    Button buttonComponent = button.GetComponent<Button>();
+                    if (buttonComponent != null)
                     {
-                        skillScrollRect.content = runtimeContainer;
-                        Debug.Log("[SkillButton Lifecycle] Set runtime container as ScrollRect content");
+                        buttonComponent.onClick.RemoveAllListeners();
+                        buttonComponent.onClick.AddListener(() => OnSkillButtonClicked(skill));
                     }
+                    
+                    button.SetActive(true);
                 }
                 else
                 {
-                    // Use the existing container
-                    runtimeContainer = skillButtonsContainer;
-                    
-                    // Make sure it has a vertical layout
-                    VerticalLayoutGroup verticalLayout = runtimeContainer.GetComponent<VerticalLayoutGroup>();
-                    GridLayoutGroup gridLayout = runtimeContainer.GetComponent<GridLayoutGroup>();
-                    
-                    if (gridLayout != null)
-                    {
-                        DestroyImmediate(gridLayout);
-                    }
-                    
-                    if (verticalLayout == null)
-                    {
-                        verticalLayout = runtimeContainer.gameObject.AddComponent<VerticalLayoutGroup>();
-                        verticalLayout.spacing = skillButtonSpacing;
-                        verticalLayout.childAlignment = TextAnchor.UpperCenter;
-                        verticalLayout.childControlWidth = true;
-                        verticalLayout.childControlHeight = false;
-                        verticalLayout.childForceExpandWidth = false;
-                        verticalLayout.childForceExpandHeight = false;
-                        
-                        // Apply padding from skillContainerPadding settings
-                        verticalLayout.padding = new RectOffset(
-                            (int)skillContainerPaddingLeft,   // left
-                            (int)skillContainerPaddingRight,  // right
-                            (int)skillContainerPaddingTop,    // top
-                            (int)skillContainerPaddingBottom  // bottom
-                        );
-                    }
-                    else
-                    {
-                        // Update existing VerticalLayoutGroup padding
-                        verticalLayout.padding = new RectOffset(
-                            (int)skillContainerPaddingLeft,   // left
-                            (int)skillContainerPaddingRight,  // right
-                            (int)skillContainerPaddingTop,    // top
-                            (int)skillContainerPaddingBottom  // bottom
-                        );
-                    }
-                    
-                    // Handle ContentSizeFitter based on ScrollRect presence
-                    ContentSizeFitter existingSizeFitter = runtimeContainer.GetComponent<ContentSizeFitter>();
-                    if (skillScrollRect != null)
-                    {
-                        // We need ContentSizeFitter for ScrollRect content
-                        if (existingSizeFitter == null)
-                        {
-                            existingSizeFitter = runtimeContainer.gameObject.AddComponent<ContentSizeFitter>();
-                            existingSizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-                            existingSizeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-                            Debug.Log("[SkillButton Lifecycle] Added ContentSizeFitter for existing container with ScrollRect");
-                        }
-                        
-                        // Set this as the content of the ScrollRect
-                        skillScrollRect.content = runtimeContainer;
-                        Debug.Log("[SkillButton Lifecycle] Set existing container as ScrollRect content");
-                    }
-                    else
-                    {
-                        // Remove ContentSizeFitter when no ScrollRect (conflicts with basic constraints)
-                        if (existingSizeFitter != null)
-                        {
-                            Debug.Log("[SkillButton Lifecycle] Removing ContentSizeFitter from container without ScrollRect");
-                            DestroyImmediate(existingSizeFitter);
-                        }
-                    }
+                    // Hide button if no skill to display
+                    button.SetActive(false);
                 }
-                
-                // Now create buttons for each skill using the runtime container
-                Debug.Log($"[SkillButton Lifecycle] Creating skill buttons for character: {activeCharStats.name}");
-                
-                // Debug log to show all skills on the active character
-                Debug.Log($"[SkillButton Lifecycle] Active character has {activeCharStats.skills.Count} skills: {string.Join(", ", activeCharStats.skills.Select(s => s.name))}");
-                
-                // Create a HashSet to track skills we've already created buttons for
-                HashSet<string> processedSkills = new HashSet<string>();
-                
-                // Limit the number of skills displayed based on visibleSkillButtonCount
-                var skillsToDisplay = activeCharStats.skills.Take(visibleSkillButtonCount).ToList();
-                Debug.Log($"[SkillButton Lifecycle] Displaying {skillsToDisplay.Count} out of {activeCharStats.skills.Count} skills (limited by visibleSkillButtonCount: {visibleSkillButtonCount})");
-                
-                foreach (var skill in skillsToDisplay)
-                {
-                    // Skip if we've already processed this skill
-                    if (processedSkills.Contains(skill.name))
-                    {
-                        Debug.Log($"[SkillButton Lifecycle] Skipping duplicate skill: {skill.name}");
-                        continue;
-                    }
-                    
-                    // Add to processed skills
-                    processedSkills.Add(skill.name);
-                    
-                    // Skip if this is the template button's skill (safety check)
-                    if (menuButtonTemplate != null && 
-                        menuButtonTemplate.GetComponent<SkillButtonData>() != null && 
-                        menuButtonTemplate.GetComponent<SkillButtonData>().skill == skill)
-                    {
-                        Debug.Log($"[SkillButton Lifecycle] Skipping template button's skill: {skill.name}");
-                        continue;
-                    }
-                    
-                    Debug.Log($"[SkillButton Lifecycle] Creating button for skill: {skill.name}");
-                    
-                    // Use menu button template if available, otherwise fall back to buttonPrefab
-                    GameObject skillButton;
-                    if (menuButtonTemplate != null)
-                    {
-                        // Instantiate from menu button template
-                        skillButton = Instantiate(menuButtonTemplate);
-                        Debug.Log($"[SkillButton Lifecycle] Using menu button template: {menuButtonTemplate.name}");
-                        
-                        // Remove any existing components that might interfere
-                        Button existingButton = skillButton.GetComponent<Button>();
-                        if (existingButton != null)
-                        {
-                            Destroy(existingButton);
-                        }
-                        
-                        // Remove any existing SkillButtonData component
-                        SkillButtonData existingSkillData = skillButton.GetComponent<SkillButtonData>();
-                        if (existingSkillData != null)
-                        {
-                            Destroy(existingSkillData);
-                        }
-                    }
-                    else
-                    {
-                        // Fall back to the original button prefab
-                        skillButton = Instantiate(buttonPrefab);
-                        Debug.Log($"[SkillButton Lifecycle] Using fallback button prefab");
-                    }
-                    
-                    // Give the button a meaningful name
-                    skillButton.name = $"SkillButton_{skill.name}";
-                    
-                    // Then set the parent to our runtime container
-                    skillButton.transform.SetParent(runtimeContainer, false);
-                    
-                    // Ensure the button is active
-                    skillButton.SetActive(true);
-                    
-                    // Ensure the button has the correct size
-                    RectTransform buttonRect = skillButton.GetComponent<RectTransform>();
-                    if (buttonRect != null)
-                    {
-                        // Set consistent size for scrolling
-                        buttonRect.sizeDelta = new Vector2(skillButtonWidth, skillButtonHeight);
-                        
-                        // Use the original size from the template
-                        if (menuButtonTemplate != null)
-                        {
-                            RectTransform templateRect = menuButtonTemplate.GetComponent<RectTransform>();
-                            if (templateRect != null)
-                            {
-                                buttonRect.sizeDelta = templateRect.sizeDelta;
-                                
-                                // Copy anchoring settings
-                                buttonRect.anchorMin = templateRect.anchorMin;
-                                buttonRect.anchorMax = templateRect.anchorMax;
-                                buttonRect.pivot = templateRect.pivot;
-                                
-                                Debug.Log($"[SkillButton Lifecycle] Copied RectTransform properties from template - Size: {buttonRect.sizeDelta}, Anchors: {buttonRect.anchorMin}-{buttonRect.anchorMax}");
-                            }
-                        }
-                    }
-                    
-                    // Copy visual components from template
-                    if (menuButtonTemplate != null)
-                    {
-                        // Copy Image component settings
-                        Image templateImage = menuButtonTemplate.GetComponent<Image>();
-                        Image buttonImage = skillButton.GetComponent<Image>();
-                        if (templateImage != null && buttonImage != null)
-                        {
-                            buttonImage.sprite = templateImage.sprite;
-                            buttonImage.type = templateImage.type;
-                            buttonImage.fillMethod = templateImage.fillMethod;
-                            buttonImage.color = templateImage.color;
-                            Debug.Log($"[SkillButton Lifecycle] Copied Image properties from template");
-                        }
-                        
-                        // Copy CanvasGroup settings if present
-                        CanvasGroup templateCanvasGroup = menuButtonTemplate.GetComponent<CanvasGroup>();
-                        if (templateCanvasGroup != null)
-                        {
-                            CanvasGroup buttonCanvasGroup = skillButton.GetComponent<CanvasGroup>();
-                            if (buttonCanvasGroup == null)
-                            {
-                                buttonCanvasGroup = skillButton.AddComponent<CanvasGroup>();
-                            }
-                            buttonCanvasGroup.alpha = 1f; // Always make visible
-                            buttonCanvasGroup.interactable = true;
-                            buttonCanvasGroup.blocksRaycasts = true;
-                        }
-                    }
-                    
-                    // Find or create TextMeshProUGUI component
-                    TextMeshProUGUI buttonText = skillButton.GetComponentInChildren<TextMeshProUGUI>();
-                    if (buttonText != null)
-                    {
-                        // Store original font and style settings
-                        TMP_FontAsset originalFont = buttonText.font;
-                        float originalFontSize = buttonText.fontSize;
-                        Color originalColor = buttonText.color;
-                        TextAlignmentOptions originalAlignment = buttonText.alignment;
-                        
-                        // Set the text
-                        buttonText.text = skill.name;
-                        
-                        // Restore original style settings
-                        buttonText.font = originalFont;
-                        buttonText.fontSize = originalFontSize;
-                        buttonText.color = originalColor;
-                        buttonText.alignment = originalAlignment;
-                        
-                        // Force update to ensure text is visible
-                        buttonText.ForceMeshUpdate();
-                        
-                        Debug.Log($"[SkillButton Lifecycle] Skill button created and configured - Text: '{skill.name}', " +
-                                 $"Font: {buttonText.font?.name ?? "null"}, " +
-                                 $"Size: {buttonText.fontSize}, " +
-                                 $"Color: {buttonText.color}, " +
-                                 $"Position: {skillButton.transform.position}, " +
-                                 $"Size: {skillButton.GetComponent<RectTransform>().sizeDelta}");
-                        
-                        // Find the cost text component (should be a separate TextMeshProUGUI in the prefab)
-                        TextMeshProUGUI costText = null;
-                        
-                        // Look for a child object with "Cost" in its name
-                        foreach (Transform child in skillButton.transform)
-                        {
-                            if (child.name.Contains("Cost"))
-                            {
-                                costText = child.GetComponent<TextMeshProUGUI>();
-                                break;
-                            }
-                        }
-                        
-                        // If we didn't find it by name, look for a second TextMeshProUGUI component
-                        if (costText == null)
-                        {
-                            TextMeshProUGUI[] allTexts = skillButton.GetComponentsInChildren<TextMeshProUGUI>();
-                            if (allTexts.Length > 1)
-                            {
-                                // Use the second text component as the cost text
-                                costText = allTexts[1];
-                            }
-                        }
-                        
-                        // If we found the cost text component, update it
-                        if (costText != null)
-                        {
-                            costText.text = $"{skill.sanityCost} SP";
-                            costText.ForceMeshUpdate();
-                            Debug.Log($"[SkillButton Lifecycle] Updated cost text: '{costText.text}'");
-                        }
-                        else
-                        {
-                            Debug.LogWarning("[SkillButton Lifecycle] Cost text component not found on skill button!");
-                        }
-                    }
-                    else
-                    {
-                        Debug.LogError("[SkillButton Lifecycle] Button text not found on skill button!");
-                        
-                        // Try to find the text in a deeper hierarchy
-                        buttonText = skillButton.GetComponentInChildren<TextMeshProUGUI>(true);
-                        if (buttonText != null)
-                        {
-                            Debug.Log("[SkillButton Lifecycle] Found text component in deeper hierarchy, enabling it");
-                            buttonText.gameObject.SetActive(true);
-                            buttonText.text = skill.name;
-                            buttonText.ForceMeshUpdate();
-                        }
-                        else
-                        {
-                            // Create a new text component if none exists
-                            Debug.Log("[SkillButton Lifecycle] Creating new TextMeshProUGUI component");
-                            GameObject textObj = new GameObject("ButtonText");
-                            textObj.transform.SetParent(skillButton.transform, false);
-                            buttonText = textObj.AddComponent<TextMeshProUGUI>();
-                            buttonText.text = skill.name;
-                            buttonText.alignment = TextAlignmentOptions.Center;
-                            buttonText.fontSize = 14;
-                            buttonText.color = Color.white;
-                            
-                            // Set up RectTransform for the text
-                            RectTransform textRect = textObj.GetComponent<RectTransform>();
-                            textRect.anchorMin = new Vector2(0, 0);
-                            textRect.anchorMax = new Vector2(1, 1);
-                            textRect.offsetMin = Vector2.zero;
-                            textRect.offsetMax = Vector2.zero;
-                        }
-                    }
-                    
-                    // Add LayoutElement to ensure consistent sizing in VerticalLayoutGroup
-                    LayoutElement layoutElement = skillButton.GetComponent<LayoutElement>();
-                    if (layoutElement == null)
-                    {
-                        layoutElement = skillButton.AddComponent<LayoutElement>();
-                    }
-                    layoutElement.minHeight = skillButtonHeight;
-                    layoutElement.preferredHeight = skillButtonHeight;
-                    layoutElement.flexibleHeight = 0f; // Prevent buttons from expanding beyond preferred height
-                    
-                    // CRITICAL: Add width constraints to respect skillButtonWidth and prevent full-width expansion
-                    layoutElement.minWidth = skillButtonWidth;
-                    layoutElement.preferredWidth = skillButtonWidth;
-                    layoutElement.flexibleWidth = 0f; // Prevent buttons from expanding beyond preferred width
-                    
-                    // Ensure the button RectTransform is properly configured
-                    RectTransform skillButtonRect = skillButton.GetComponent<RectTransform>();
-                    if (skillButtonRect != null)
-                    {
-                        skillButtonRect.sizeDelta = new Vector2(skillButtonRect.sizeDelta.x, skillButtonHeight);
-                    }
-                    
-                    // Store the skill data directly on the GameObject
-                    SkillButtonData skillData = skillButton.AddComponent<SkillButtonData>();
-                    skillData.skill = skill;
-                    Debug.Log($"[SkillButton Lifecycle] SkillButtonData component added - Skill: {skill.name}, SanityCost: {skill.sanityCost}, RequiresTarget: {skill.requiresTarget}");
-                    
-                    // Add hover description handler for mouse support
-                    HoverDescriptionHandler hoverHandler = skillButton.AddComponent<HoverDescriptionHandler>();
-                    Debug.Log($"[SkillButton Lifecycle] HoverDescriptionHandler component added for skill: {skill.name}");
-                    
-                    currentSkillButtons.Add(skillButton);
-                }
-                
-                Debug.Log($"[SkillButton Lifecycle] Created {currentSkillButtons.Count} skill buttons, updating MenuSelector");
-                
-                // Debug container information
-                if (runtimeContainer != null)
-                {
-                    Debug.Log($"[Skill Container Debug] Container size: {runtimeContainer.sizeDelta}, Position: {runtimeContainer.anchoredPosition}");
-                    VerticalLayoutGroup vlg = runtimeContainer.GetComponent<VerticalLayoutGroup>();
-                    ContentSizeFitter csf = runtimeContainer.GetComponent<ContentSizeFitter>();
-                    LayoutElement le = runtimeContainer.GetComponent<LayoutElement>();
-                    Debug.Log($"[Skill Container Debug] Has VerticalLayoutGroup: {vlg != null}, ContentSizeFitter: {csf != null}, LayoutElement: {le != null}");
-                    if (skillScrollRect != null)
-                    {
-                        Debug.Log($"[Skill Container Debug] ScrollRect content is this container: {skillScrollRect.content == runtimeContainer}");
-                    }
-                }
-                
-                // Ensure viewport constraints are applied after creating buttons
-                SetupSkillViewportConstraints();
-                
-                // If no ScrollRect is available, set up basic container constraints
-                if (skillScrollRect == null)
-                {
-                    SetupBasicSkillContainerConstraints();
-                }
-                
-                menuSelector.UpdateSkillMenuOptions(currentSkillButtons.ToArray());
             }
         }
+        
+        // Update the description for the currently selected button
+        if (menuSelector != null)
+        {
+            menuSelector.UpdateCurrentSelectionDescription();
+        }
+    }
+
+    public bool CanScrollUp()
+    {
+        return currentSkillScrollIndex > 0;
+    }
+
+    public bool CanScrollDown()
+    {
+        return currentSkillScrollIndex + 3 < allAvailableSkills.Count;
+    }
+
+    public void ScrollUp()
+    {
+        if (CanScrollUp())
+        {
+            currentSkillScrollIndex--;
+            UpdateCyclingSkillButtons();
+            Debug.Log($"[Cycling Skill Menu] Scrolled up to index {currentSkillScrollIndex}");
+        }
+    }
+
+    public void ScrollDown()
+    {
+        if (CanScrollDown())
+        {
+            currentSkillScrollIndex++;
+            UpdateCyclingSkillButtons();
+            Debug.Log($"[Cycling Skill Menu] Scrolled down to index {currentSkillScrollIndex}");
+        }
+    }
+
+    public SkillData GetSkillAtButtonIndex(int buttonIndex)
+    {
+        int skillIndex = currentSkillScrollIndex + buttonIndex;
+        if (skillIndex >= 0 && skillIndex < allAvailableSkills.Count)
+        {
+            return allAvailableSkills[skillIndex];
+        }
+        return null;
     }
 
     private void OnSkillButtonClicked(SkillData skill)
@@ -1575,6 +1658,9 @@ public class CombatUI : MonoBehaviour
                 }
             }
         }
+        
+        // Clear cycling system variables
+        menuSelector.ClearCyclingSystem();
         
         // Reset the menu state
         menuSelector.EnableMenu();

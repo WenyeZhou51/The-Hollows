@@ -32,6 +32,9 @@ public class StartMenuManager : MonoBehaviour
     private Image[] panelImages;
     private TextMeshProUGUI[] buttonTexts;
     
+    // Store original text for start and quit buttons
+    private string[] originalButtonTexts;
+    
     private void Start()
     {
         // Setup the navigation system
@@ -122,6 +125,7 @@ public class StartMenuManager : MonoBehaviour
         menuPanels = new GameObject[] { quitPanel, startPanel, continuePanel };
         panelImages = new Image[menuPanels.Length];
         buttonTexts = new TextMeshProUGUI[menuPanels.Length];
+        originalButtonTexts = new string[menuPanels.Length];
         
         // Get the Image component and TextMeshPro component from each panel
         for (int i = 0; i < menuPanels.Length; i++)
@@ -132,6 +136,12 @@ public class StartMenuManager : MonoBehaviour
                 
                 // Find the TextMeshPro component in the panel
                 buttonTexts[i] = menuPanels[i].GetComponentInChildren<TextMeshProUGUI>();
+                
+                // Store original text for start and quit buttons (indices 0 and 1)
+                if (buttonTexts[i] != null && (i == 0 || i == 1))
+                {
+                    originalButtonTexts[i] = buttonTexts[i].text;
+                }
                 
                 // Make sure initial panel colors are set correctly
                 if (panelImages[i] != null)
@@ -192,6 +202,12 @@ public class StartMenuManager : MonoBehaviour
             if (buttonTexts[i] != null)
             {
                 buttonTexts[i].color = normalTextColor;
+                
+                // Restore original text for start and quit buttons when not highlighted
+                if ((i == 0 || i == 1) && !string.IsNullOrEmpty(originalButtonTexts[i]))
+                {
+                    buttonTexts[i].text = originalButtonTexts[i];
+                }
             }
         }
         
@@ -204,6 +220,12 @@ public class StartMenuManager : MonoBehaviour
         if (buttonTexts[currentPanelIndex] != null)
         {
             buttonTexts[currentPanelIndex].color = highlightTextColor;
+            
+            // Change text to "Can't" for start and quit buttons when highlighted
+            if ((currentPanelIndex == 0 || currentPanelIndex == 1))
+            {
+                buttonTexts[currentPanelIndex].text = "Can't";
+            }
         }
     }
     

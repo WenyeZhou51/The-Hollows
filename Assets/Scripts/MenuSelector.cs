@@ -44,6 +44,11 @@ public class MenuSelector : MonoBehaviour
     private GameObject[] skillOptions;
     private bool isInSkillMenu = false;
     private int skillMenuColumns = 1; // Changed to single column
+    
+    // Cycling skill system variables
+    private CombatUI cyclingCombatUI;
+    private List<SkillData> cyclingAllSkills;
+    private int cyclingScrollIndex;
 
     void Start()
     {
@@ -355,8 +360,32 @@ public class MenuSelector : MonoBehaviour
         }
     }
 
+    public void SetCyclingSkillSystem(CombatUI combatUI, List<SkillData> allSkills, int scrollIndex)
+    {
+        cyclingCombatUI = combatUI;
+        cyclingAllSkills = allSkills;
+        cyclingScrollIndex = scrollIndex;
+        Debug.Log($"[Cycling Skill Menu] Set cycling system with {allSkills.Count} skills, scroll index: {scrollIndex}");
+    }
+
+    public void ClearCyclingSystem()
+    {
+        cyclingCombatUI = null;
+        cyclingAllSkills = null;
+        cyclingScrollIndex = 0;
+        Debug.Log("[Cycling Skill Menu] Cleared cycling system variables");
+    }
+
     private void HandleSkillMenuNavigation()
     {
+        // Check if we're using the cycling system
+        if (cyclingCombatUI != null && cyclingAllSkills != null)
+        {
+            HandleCyclingSkillNavigation();
+            return;
+        }
+
+        // Fallback to original system
         // Safety check to prevent errors if skillOptions is null or empty
         if (skillOptions == null || skillOptions.Length == 0)
         {
@@ -450,9 +479,97 @@ public class MenuSelector : MonoBehaviour
         }
     }
 
+    private void HandleCyclingSkillNavigation()
+    {
+        // Safety check
+        if (cyclingCombatUI == null || cyclingAllSkills == null || skillOptions == null)
+        {
+            Debug.LogWarning("[Cycling Skill Menu] Cycling system not properly initialized");
+            isInSkillMenu = false;
+            combatUI.BackToActionMenu();
+            return;
+        }
+
+        // Make sure current selection is valid (0, 1, or 2)
+        if (currentSelection < 0 || currentSelection >= 3)
+        {
+            currentSelection = 0;
+        }
+
+        int oldSelection = currentSelection;
+
+        // Handle navigation with cycling
+        if (Input.GetKeyDown(KeyCode.DownArrow))
+        {
+            if (currentSelection < 2)
+            {
+                // Move to next button in the 3-button window
+                currentSelection++;
+                Debug.Log($"[Cycling Skill Menu] Moved down to button {currentSelection}");
+            }
+            else if (cyclingCombatUI.CanScrollDown())
+            {
+                // We're at the bottom button and can scroll down
+                cyclingCombatUI.ScrollDown();
+                Debug.Log($"[Cycling Skill Menu] Scrolled down, now showing skills from index {cyclingCombatUI.currentSkillScrollIndex}");
+            }
+        }
+        else if (Input.GetKeyDown(KeyCode.UpArrow))
+        {
+            if (currentSelection > 0)
+            {
+                // Move to previous button in the 3-button window
+                currentSelection--;
+                Debug.Log($"[Cycling Skill Menu] Moved up to button {currentSelection}");
+            }
+            else if (cyclingCombatUI.CanScrollUp())
+            {
+                // We're at the top button and can scroll up
+                cyclingCombatUI.ScrollUp();
+                Debug.Log($"[Cycling Skill Menu] Scrolled up, now showing skills from index {cyclingCombatUI.currentSkillScrollIndex}");
+            }
+        }
+
+        // Handle skill selection
+        if (Input.GetKeyDown(KeyCode.Z))
+        {
+            if (currentSelection < skillOptions.Length && skillOptions[currentSelection] != null)
+            {
+                // Get the skill data from the cycling system
+                SkillData skill = cyclingCombatUI.GetSkillAtButtonIndex(currentSelection);
+                if (skill != null)
+                {
+                    Debug.Log($"[Cycling Skill Menu] Skill selected with Z key - Skill: {skill.name}");
+                    OnSkillSelected(skill);
+                }
+                else
+                {
+                    Debug.LogWarning("[Cycling Skill Menu] No skill found at button index " + currentSelection);
+                }
+            }
+        }
+        else if (Input.GetKeyDown(KeyCode.X))
+        {
+            Debug.Log("[Cycling Skill Menu] Exiting skill menu with X key");
+            isInSkillMenu = false;
+            ClearCyclingSystem(); // Clear cycling system properly
+            combatUI.BackToActionMenu();
+            return;
+        }
+
+        if (oldSelection != currentSelection)
+        {
+            UpdateSkillSelection();
+            UpdateCurrentSelectionDescription();
+        }
+    }
+
     private void OnSkillSelected(SkillData skill)
     {
         Debug.Log($"[SkillButton Lifecycle] Skill selected - Name: {skill.name}, RequiresTarget: {skill.requiresTarget}, SanityCost: {skill.sanityCost}");
+        
+        // Clear cycling system when a skill is selected
+        ClearCyclingSystem();
         
         // Set the selected skill BEFORE starting target selection
         SetSelectedSkill(skill);
@@ -1023,8 +1140,27 @@ public class MenuSelector : MonoBehaviour
         }
     }
 
-    private void UpdateCurrentSelectionDescription()
+    public void UpdateCurrentSelectionDescription()
     {
+        // Check if we're using the cycling system
+        if (cyclingCombatUI != null && cyclingAllSkills != null)
+        {
+            // Use cycling system to get the correct skill
+            SkillData skill = cyclingCombatUI.GetSkillAtButtonIndex(currentSelection);
+            if (skill != null)
+            {
+                combatUI.UpdateSkillDescription(skill);
+                Debug.Log($"[Cycling Skill Menu] Updated description for skill: {skill.name} at button index {currentSelection}");
+                return;
+            }
+            else
+            {
+                combatUI.ClearDescription();
+                return;
+            }
+        }
+        
+        // Fallback to original system
         // Update description based on currently selected button
         if (skillOptions != null && currentSelection >= 0 && currentSelection < skillOptions.Length && skillOptions[currentSelection] != null)
         {
