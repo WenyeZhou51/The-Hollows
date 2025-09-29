@@ -427,20 +427,20 @@ public class CombatManager : MonoBehaviour
                 
                 if (currentSceneName == "Battle_Obelisk")
                 {
-                    combatUI.ShowTextPanel("The obelisk focuses on you", 0.5f);
+                    combatUI.ShowTextPanel("The obelisk focuses on you");
                 }
                 else if (currentSceneName == "Battle_Weaver")
                 {
-                    combatUI.ShowTextPanel("The weaver spins its threads", 0.5f);
+                    combatUI.ShowTextPanel("The weaver spins its threads");
                 }
                 else if (currentSceneName == "Battle_Aperture")
                 {
-                    combatUI.ShowTextPanel("The aperture adjusts its focus", 0.5f);
+                    combatUI.ShowTextPanel("The aperture adjusts its focus");
                 }
                 else
                 {
                     // Generic fallback message
-                    combatUI.ShowTextPanel($"{character.characterName} prepares to attack", 0.5f);
+                    combatUI.ShowTextPanel($"{character.characterName} prepares to attack");
                 }
             }
             
@@ -502,7 +502,7 @@ public class CombatManager : MonoBehaviour
             // Show the text panel with the appropriate message
             if (combatUI != null)
             {
-                combatUI.ShowTextPanel(turnMessage, 0.5f);
+                combatUI.ShowTextPanel(turnMessage);
             }
             
             // Player turn - show action menu
@@ -829,7 +829,7 @@ public class CombatManager : MonoBehaviour
                 // Display defeat message
                 if (combatUI != null)
                 {
-                    combatUI.ShowTextPanel("Defeat!", 2f);
+                    combatUI.ShowTextPanel("Defeat!");
                 }
                 
                 // Trigger the combat end event after a delay
@@ -842,7 +842,7 @@ public class CombatManager : MonoBehaviour
                 // Display victory message
                 if (combatUI != null)
                 {
-                    combatUI.ShowTextPanel("You are victorious", 1f);
+                    combatUI.ShowTextPanel("You are victorious");
                 }
                 
                 // Set flag for phase transition and combat end notification

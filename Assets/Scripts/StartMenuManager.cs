@@ -2,6 +2,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using TMPro;
 
 public class StartMenuManager : MonoBehaviour
 {
@@ -18,6 +19,10 @@ public class StartMenuManager : MonoBehaviour
     [SerializeField] private Color normalColor = Color.white;
     [SerializeField] private Color highlightColor = Color.white;
     
+    [Header("Text Colors")]
+    [SerializeField] private Color normalTextColor = Color.white;
+    [SerializeField] private Color highlightTextColor = Color.white;
+    
     [Header("Scene Management")]
     [SerializeField] private string overworldSceneName = "Overworld_Startroom";
     
@@ -25,6 +30,7 @@ public class StartMenuManager : MonoBehaviour
     private int currentPanelIndex = 0;
     private GameObject[] menuPanels;
     private Image[] panelImages;
+    private TextMeshProUGUI[] buttonTexts;
     
     private void Start()
     {
@@ -115,19 +121,29 @@ public class StartMenuManager : MonoBehaviour
         // Create arrays of menu panels and their image components
         menuPanels = new GameObject[] { quitPanel, startPanel, continuePanel };
         panelImages = new Image[menuPanels.Length];
+        buttonTexts = new TextMeshProUGUI[menuPanels.Length];
         
-        // Get the Image component from each panel
+        // Get the Image component and TextMeshPro component from each panel
         for (int i = 0; i < menuPanels.Length; i++)
         {
             if (menuPanels[i] != null)
             {
                 panelImages[i] = menuPanels[i].GetComponent<Image>();
                 
+                // Find the TextMeshPro component in the panel
+                buttonTexts[i] = menuPanels[i].GetComponentInChildren<TextMeshProUGUI>();
+                
                 // Make sure initial panel colors are set correctly
                 if (panelImages[i] != null)
                 {
                     // Make panel background transparent or clear
                     panelImages[i].color = normalColor;
+                }
+                
+                // Set initial text color
+                if (buttonTexts[i] != null)
+                {
+                    buttonTexts[i].color = normalTextColor;
                 }
             }
         }
@@ -165,19 +181,29 @@ public class StartMenuManager : MonoBehaviour
     
     private void UpdateSelection()
     {
-        // Reset all panels to normal color
+        // Reset all panels to normal color and text to normal color
         for (int i = 0; i < panelImages.Length; i++)
         {
             if (panelImages[i] != null)
             {
                 panelImages[i].color = normalColor;
             }
+            
+            if (buttonTexts[i] != null)
+            {
+                buttonTexts[i].color = normalTextColor;
+            }
         }
         
-        // Highlight the selected panel
+        // Highlight the selected panel and text
         if (panelImages[currentPanelIndex] != null)
         {
             panelImages[currentPanelIndex].color = highlightColor;
+        }
+        
+        if (buttonTexts[currentPanelIndex] != null)
+        {
+            buttonTexts[currentPanelIndex].color = highlightTextColor;
         }
     }
     

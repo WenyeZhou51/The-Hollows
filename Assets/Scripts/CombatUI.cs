@@ -154,8 +154,7 @@ public class CombatUI : MonoBehaviour
         {
             // Set up description text properties to prevent overflow
             SetupDescriptionTextConstraints();
-            // Set up description panel bounds
-            SetupDescriptionPanelConstraints();
+            // Note: Removed SetupDescriptionPanelConstraints() to respect original inspector settings
         }
             
         // Hide the skill description panel at start - only show when skill is selected
@@ -785,7 +784,7 @@ public class CombatUI : MonoBehaviour
     {
         if (skillDescriptionText != null && skill != null)
         {
-            string descriptionText = $"{skill.description}\n\nMind Cost: {skill.sanityCost}";
+            string descriptionText = skill.description;
             skillDescriptionText.text = descriptionText;
             
             if (skillDescriptionPanel != null)
@@ -877,46 +876,11 @@ public class CombatUI : MonoBehaviour
             textRect.offsetMax = new Vector2(-skillContainerPaddingRight, -skillContainerPaddingTop); // Add configurable padding
         }
         
-        // Set a reasonable font size if it's too large
-        if (skillDescriptionText.fontSize > 16)
-        {
-            skillDescriptionText.fontSize = 14;
-        }
+        // Note: Removed font size modification to respect original inspector settings
         
         Debug.Log("[Skill Description] Set up text constraints with word wrapping and proper bounds");
     }
     
-    private void SetupDescriptionPanelConstraints()
-    {
-        if (skillDescriptionPanel == null) return;
-        
-        RectTransform panelRect = skillDescriptionPanel.GetComponent<RectTransform>();
-        if (panelRect != null)
-        {
-            // Ensure the panel has reasonable size constraints
-            // Set max width and height to prevent it from going out of bounds
-            float maxWidth = 400f;
-            float maxHeight = 200f;
-            
-            // If the panel is currently larger than our max size, constrain it
-            Vector2 currentSize = panelRect.sizeDelta;
-            float constrainedWidth = Mathf.Min(currentSize.x, maxWidth);
-            float constrainedHeight = Mathf.Min(currentSize.y, maxHeight);
-            
-            panelRect.sizeDelta = new Vector2(constrainedWidth, constrainedHeight);
-            
-            // Add or update LayoutElement to enforce size constraints
-            LayoutElement panelLayout = panelRect.GetComponent<LayoutElement>();
-            if (panelLayout == null)
-            {
-                panelLayout = skillDescriptionPanel.AddComponent<LayoutElement>();
-            }
-            panelLayout.preferredWidth = constrainedWidth;
-            panelLayout.preferredHeight = constrainedHeight;
-            
-            Debug.Log($"[Skill Description Panel] Set up panel constraints: {constrainedWidth}x{constrainedHeight}");
-        }
-    }
     
     private void SetupBasicSkillContainerConstraints()
     {
@@ -2665,7 +2629,7 @@ public class CombatUI : MonoBehaviour
         }
     }
 
-    public void ShowTextPanel(string message, float opacity = 0.5f)
+    public void ShowTextPanel(string message)
     {
         if (textPanel == null || turnText == null)
         {
@@ -2679,14 +2643,7 @@ public class CombatUI : MonoBehaviour
         // Set the text
         turnText.text = message;
         
-        // Set the opacity of the text panel
-        Image panelImage = textPanel.GetComponent<Image>();
-        if (panelImage != null)
-        {
-            Color color = panelImage.color;
-            color.a = opacity;
-            panelImage.color = color;
-        }
+        // Note: Removed opacity modification to respect original inspector settings
     }
     
     public void HideTextPanel()
