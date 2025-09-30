@@ -252,10 +252,9 @@ public class CombatManager : MonoBehaviour
                     itemVerticalLayout.childForceExpandWidth = false;
                     itemVerticalLayout.childForceExpandHeight = false;
                     
-                    // Add ContentSizeFitter for item menu
-                    ContentSizeFitter itemSizeFitter = itemContainer.gameObject.AddComponent<ContentSizeFitter>();
-                    itemSizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-                    itemSizeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+                    // DO NOT add ContentSizeFitter - it causes the item menu to expand infinitely
+                    // The item menu must respect its original fixed size from the editor
+                    Debug.Log("[CombatManager] Item menu VerticalLayoutGroup configured without ContentSizeFitter");
                 }
             }
             itemMenu.SetActive(false);

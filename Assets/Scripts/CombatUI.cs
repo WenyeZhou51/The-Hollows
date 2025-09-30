@@ -1810,10 +1810,14 @@ public class CombatUI : MonoBehaviour
                     (int)skillContainerPaddingBottom  // bottom
                 );
                 
-                // Add ContentSizeFitter for item menu
-                ContentSizeFitter itemSizeFitter = itemButtonsContainer.gameObject.AddComponent<ContentSizeFitter>();
-                itemSizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-                itemSizeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+                // Don't add ContentSizeFitter - it causes infinite growth and breaks the fixed container size
+                // Remove any existing ContentSizeFitter to ensure proper sizing
+                ContentSizeFitter existingItemSizeFitter = itemButtonsContainer.GetComponent<ContentSizeFitter>();
+                if (existingItemSizeFitter != null)
+                {
+                    Debug.Log("[ItemButton Lifecycle] Removing ContentSizeFitter that causes infinite growth");
+                    DestroyImmediate(existingItemSizeFitter);
+                }
             }
             
             // Create a runtime container for the buttons
@@ -1842,10 +1846,8 @@ public class CombatUI : MonoBehaviour
                 (int)skillContainerPaddingBottom  // bottom
             );
             
-            // Add ContentSizeFitter to the runtime container
-            ContentSizeFitter runtimeSizeFitter = runtimeContainer.AddComponent<ContentSizeFitter>();
-            runtimeSizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            runtimeSizeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            // Don't add ContentSizeFitter to the runtime container - it causes infinite growth
+            // The container should respect the item menu's original size from the editor
             
             // Create buttons for each item
             if (activeCharStats != null)
@@ -1999,6 +2001,10 @@ public class CombatUI : MonoBehaviour
                 
                 Debug.Log($"[ItemButton Lifecycle] Created {currentSkillButtons.Count} item buttons, updating MenuSelector");
                 menuSelector.UpdateSkillMenuOptions(currentSkillButtons.ToArray());
+                
+                // Clear the cycling system since items use simple navigation
+                menuSelector.ClearCyclingSystem();
+                Debug.Log($"[ItemButton Lifecycle] Cleared cycling system for item menu navigation");
             }
         }
     }
@@ -2595,10 +2601,8 @@ public class CombatUI : MonoBehaviour
                 (int)skillContainerPaddingBottom  // bottom
             );
             
-            // Add ContentSizeFitter
-            ContentSizeFitter sizeFitter = container.AddComponent<ContentSizeFitter>();
-            sizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            sizeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            // DO NOT add ContentSizeFitter - it causes the container to expand infinitely
+            // The container must respect the item menu's original fixed size from the editor
             
             itemsContainer = container.transform;
             Debug.Log("Created new ItemsContainer with VerticalLayoutGroup");
