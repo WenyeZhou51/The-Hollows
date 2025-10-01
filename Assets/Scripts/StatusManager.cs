@@ -307,6 +307,33 @@ public class StatusManager : MonoBehaviour
         }
     }
     
+    // Clear only negative status effects from a character (WEAK, VULNERABLE, SLOW)
+    public void ClearNegativeStatuses(CombatStats character)
+    {
+        if (character == null || !characterStatuses.ContainsKey(character)) return;
+        
+        // List of negative status types
+        StatusType[] negativeStatuses = new StatusType[] 
+        { 
+            StatusType.Weakness, 
+            StatusType.Vulnerable, 
+            StatusType.Slowed 
+        };
+        
+        // Remove each negative status effect
+        foreach (StatusType statusType in negativeStatuses)
+        {
+            if (characterStatuses[character].ContainsKey(statusType))
+            {
+                RemoveStatus(character, statusType);
+                Debug.Log($"[Status Manager] Cleared negative status {statusType} from {character.characterName}");
+            }
+        }
+        
+        // Update the status icons
+        UpdateStatusIcons(character);
+    }
+    
     // New method to remove all statuses from a character when they die
     public void RemoveAllStatuses(CombatStats character)
     {

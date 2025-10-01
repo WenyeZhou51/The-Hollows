@@ -3,13 +3,13 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "Fortify", menuName = "Skills/Fortify")]
 public class Fortify : BaseSkill
 {
-    [SerializeField] private float healAmount = 10f;
+    [SerializeField] private float healAmount = 40f;
     [SerializeField] private int toughDuration = 2; // Duration for the Tough status
     
     private void OnEnable()
     {
         Name = "Fortify";
-        Description = "Heal self for 10 HP and gain TOUGH (50% damage reduction) for 2 turns";
+        Description = "Heal self for 40 HP and gain TOUGH (50% damage reduction) for 2 turns";
         SPCost = 10f;
         RequiresTarget = false; // Self-targeting skill
     }

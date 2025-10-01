@@ -4,12 +4,12 @@ using UnityEngine;
 public class HealingWords : BaseSkill
 {
     [SerializeField] private float healthHealAmount = 70f;
-    [SerializeField] private float sanityHealAmount = 30f;
+    [SerializeField] private float sanityHealAmount = 50f;
     
     private void OnEnable()
     {
         Name = "Healing Words";
-        Description = "Heal an ally for 70 HP and 30 sanity. Costs 20 sanity to cast.";
+        Description = "Heal an ally for 70 HP and 50 sanity";
         SPCost = 20f;
         RequiresTarget = true;
     }

@@ -428,7 +428,7 @@ public class CombatManager : MonoBehaviour
                 {
                     combatUI.ShowTextPanel("The obelisk focuses on you");
                 }
-                else if (currentSceneName == "Battle_Weaver")
+                else if (currentSceneName == "Battle_Weaver 1")
                 {
                     combatUI.ShowTextPanel("The weaver spins its threads");
                 }
@@ -470,7 +470,7 @@ public class CombatManager : MonoBehaviour
                     turnMessage = "The Obelisk looms";
                 }
             }
-            else if (currentSceneName == "Battle_Weaver")
+            else if (currentSceneName == "Battle_Weaver 1")
             {
                 if (playerTurnCount == 1)
                 {

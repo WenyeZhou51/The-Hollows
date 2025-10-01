@@ -30,7 +30,7 @@ EditorBuildSettings:
     path: Assets/Scenes/Battle_Aperture.unity
     guid: 32dcf645f982cca4fa083ce538b5b7f0
   - enabled: 1
-    path: Assets/Scenes/Battle_Weaver.unity
+    path: Assets/Scenes/Battle_Weaver 1.unity
     guid: 13f683c6580dd794497a519e67810ecd
   - enabled: 1
     path: Assets/Scenes/Overworld_Junction.unity

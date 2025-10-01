@@ -404,7 +404,7 @@ public class CombatStats : MonoBehaviour
             // Add the Disappearing Trick skill
             skills.Add(new SkillData(
                 "Cleansing Wave",
-                "Remove all status effects from allies (not including self). Costs 5 Mind.",
+                "Remove all negative status effects from self and allies",
                 5f,   // Costs 5 sanity
                 false // Does not require a target
             ));
@@ -454,7 +454,7 @@ public class CombatStats : MonoBehaviour
             // Add the Fortify skill
             skills.Add(new SkillData(
                 "Fortify",
-                "Heal self for 10 HP and gain TOUGH (50% damage reduction) for 2 turns",
+                "Heal self for 40 HP and gain TOUGH (50% damage reduction) for 2 turns",
                 10f,  // Costs 10 sanity
                 false  // Does not require a target (self-targeting)
             ));
@@ -472,7 +472,7 @@ public class CombatStats : MonoBehaviour
             // Add the Healing Words skill with updated healing values
             skills.Add(new SkillData(
                 "Healing Words",
-                "Heal an ally for 70 HP and 30 sanity. Costs 20 sanity to cast.",
+                "Heal an ally for 70 HP and 50 sanity",
                 20f,  // Costs 20 sanity
                 true  // Requires a target (the ally to heal)
             ));

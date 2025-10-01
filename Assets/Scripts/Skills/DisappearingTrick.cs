@@ -7,7 +7,7 @@ public class DisappearingTrick : BaseSkill
     private void OnEnable()
     {
         Name = "Cleansing Wave";
-        Description = "Remove all status effects from allies (not including self). Costs 5 Mind.";
+        Description = "Remove all negative status effects from self and allies";
         SPCost = 5f;
         RequiresTarget = false; // Targets all allies automatically
     }
@@ -28,19 +28,16 @@ public class DisappearingTrick : BaseSkill
             {
                 int clearedCount = 0;
                 
-                // Loop through all players
+                // Loop through all players including self
                 foreach (CombatStats player in allPlayers)
                 {
-                    // Skip self (the caster)
-                    if (player == user) continue;
-                    
                     if (player != null && !player.IsDead())
                     {
-                        // Clear all status effects from this ally
-                        statusManager.ClearAllStatuses(player);
+                        // Clear all negative status effects from this ally (including self)
+                        statusManager.ClearNegativeStatuses(player);
                         clearedCount++;
                         
-                        Debug.Log($"{Name} used: Cleared all status effects from {player.characterName}");
+                        Debug.Log($"{Name} used: Cleared negative status effects from {player.characterName}");
                     }
                 }
                 

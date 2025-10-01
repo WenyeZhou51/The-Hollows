@@ -90,7 +90,7 @@ public class CombatUI : MonoBehaviour
     [Tooltip("Amount of health restored by Healing Words")]
     [SerializeField] private float healingWordsHealthAmount = 70f;
     [Tooltip("Amount of sanity restored by Healing Words")]
-    [SerializeField] private float healingWordsSanityAmount = 30f;
+    [SerializeField] private float healingWordsSanityAmount = 50f;
 
     [Header("Visual Effects")]
     [Tooltip("Prefab for healing number popup")]
@@ -1466,7 +1466,7 @@ public class CombatUI : MonoBehaviour
                 break;
                 
             case "Cleansing Wave":
-                Debug.Log($"[Skill Execution] Cleansing Wave! {activeCharacter.name} is removing status effects from allies");
+                Debug.Log($"[Skill Execution] Cleansing Wave! {activeCharacter.name} is removing negative status effects from self and allies");
                 
                 // Get all players
                 var allPlayers = combatManager.players;
@@ -1477,29 +1477,26 @@ public class CombatUI : MonoBehaviour
                 {
                     int clearedCount = 0;
                     
-                    // Loop through all players
+                    // Loop through all players including self
                     foreach (CombatStats player in allPlayers)
                     {
-                        // Skip self (the caster)
-                        if (player == activeCharacter) continue;
-                        
                         if (player != null && !player.IsDead())
                         {
-                            // Clear all status effects from this ally
-                            statusMgr.ClearAllStatuses(player);
+                            // Clear negative status effects from this ally (including self)
+                            statusMgr.ClearNegativeStatuses(player);
                             clearedCount++;
                             
-                            Debug.Log($"[Skill Execution] Cleansing Wave cleared all status effects from {player.characterName}");
+                            Debug.Log($"[Skill Execution] Cleansing Wave cleared negative status effects from {player.characterName}");
                         }
                     }
                     
                     if (clearedCount > 0)
                     {
-                        DisplayTurnAndActionMessage($"Cleared status effects from {clearedCount} allies!");
+                        DisplayTurnAndActionMessage($"Cleared negative status effects from {clearedCount} party members!");
                     }
                     else
                     {
-                        DisplayTurnAndActionMessage("No allies had status effects to clear!");
+                        DisplayTurnAndActionMessage("No party members had negative status effects to clear!");
                     }
                 }
                 else
@@ -1586,8 +1583,8 @@ public class CombatUI : MonoBehaviour
             case "Fortify":
                 Debug.Log($"[Skill Execution] Fortify! {activeCharacter.name} is fortifying themselves");
                 
-                // Heal the user for 10 HP
-                activeCharacter.HealHealth(10f);
+                // Heal the user for 40 HP
+                activeCharacter.HealHealth(40f);
                 
                 // Apply TOUGH status to the user
                 StatusManager fortifyStatusMgr = StatusManager.Instance;
@@ -1595,7 +1592,7 @@ public class CombatUI : MonoBehaviour
                 {
                     // Apply Tough status with the status system
                     fortifyStatusMgr.ApplyStatus(activeCharacter, StatusType.Tough, 2);
-                    Debug.Log($"[Skill Execution] Fortify! {activeCharacter.characterName} healed for 10 HP and gained Tough status for 2 turns");
+                    Debug.Log($"[Skill Execution] Fortify! {activeCharacter.characterName} healed for 40 HP and gained Tough status for 2 turns");
                 }
                 else
                 {
