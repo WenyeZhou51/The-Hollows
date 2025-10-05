@@ -9,12 +9,12 @@ VAR hasInteractedBefore = false
 -> start
 
 === start ===
-portrait: hood_neutral_1, You wish for the key, and I wish to feast
-portrait: hood_neutral_1, Then riddle my answer and answer me these:
+portrait: Sphinx portrait, You wish for the key, and I wish to feast
+portrait: Sphinx portrait, Then riddle my answer and answer me these:
 -> riddle1
 
 === riddle1 ===
-portrait: hood_neutral_1, Needle
+portrait: Sphinx portrait, Needle
 -> riddle1_choices
 
 === riddle1_choices ===
@@ -23,7 +23,7 @@ portrait: hood_neutral_1, Needle
 * [What has an eye but cannot see?] -> riddle2
 
 === riddle2 ===
-portrait: hood_neutral_1, Name
+portrait: Sphinx portrait, Name
 -> riddle2_choices
 
 === riddle2_choices ===
@@ -32,13 +32,13 @@ portrait: hood_neutral_1, Name
 * [What is the difference between a raven and a writing desk?] -> riddle2_alternative
 
 === riddle2_alternative ===
-portrait: hood_neutral_1, That's incorrect
-portrait: hood_neutral_1, Although...I rather like the sound of that
-portrait: hood_neutral_1, I'll overlook your mistake just this once
+portrait: Sphinx portrait, That's incorrect
+portrait: Sphinx portrait, Although...I rather like the sound of that
+portrait: Sphinx portrait, I'll overlook your mistake just this once
 -> riddle3
 
 === riddle3 ===
-portrait: hood_neutral_1, Tomorrow
+portrait: Sphinx portrait, Tomorrow
 -> riddle3_choices
 
 === riddle3_choices ===
@@ -52,7 +52,7 @@ The stranger spits out a metal key. It feels cold to the touch. # GIVE_COLD_KEY
 -> END
 
 === failure ===
-portrait: hood_neutral_1, That makes no sense.
+portrait: Sphinx portrait, That makes no sense.
 portrait: Magician neutral, Your questions make no sense!
 All party members lose 20 HP. # RAVENBOND_FAILURE
 ~ player_health = player_health - 20

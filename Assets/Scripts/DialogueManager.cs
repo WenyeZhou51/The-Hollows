@@ -1241,6 +1241,35 @@ public class DialogueManager : MonoBehaviour
                 dialogueButtonContainer.transform.SetParent(dialoguePanel.transform, false);
             }
             
+            // IMPORTANT: Adjust button container layout based on portrait mode
+            RectTransform containerRect = dialogueButtonContainer.GetComponent<RectTransform>();
+            if (containerRect != null)
+            {
+                if (isPortraitMode && portraitObject != null && portraitObject.activeSelf)
+                {
+                    // Portrait is active - adjust button container to avoid overlapping with portrait
+                    // Portrait takes up roughly the left 20% of the dialogue box, so shift buttons to the right
+                    containerRect.anchorMin = new Vector2(0.25f, 0.5f); // Start further to the right
+                    containerRect.anchorMax = new Vector2(0.95f, 0.5f); // Keep right edge the same
+                    containerRect.pivot = new Vector2(0.5f, 0.5f);
+                    containerRect.anchoredPosition = new Vector2(0, -40); // Adjust vertical position as needed
+                    containerRect.sizeDelta = new Vector2(containerRect.sizeDelta.x, 122.4f); // Maintain height
+                    
+                    Debug.Log("Adjusted button container layout for portrait mode - shifted right to avoid overlap");
+                }
+                else
+                {
+                    // No portrait - use full width of dialogue box
+                    containerRect.anchorMin = new Vector2(0.05f, 0.5f);
+                    containerRect.anchorMax = new Vector2(0.95f, 0.5f);
+                    containerRect.pivot = new Vector2(0.5f, 0.5f);
+                    containerRect.anchoredPosition = new Vector2(0, -40);
+                    containerRect.sizeDelta = new Vector2(containerRect.sizeDelta.x, 122.4f);
+                    
+                    Debug.Log("Using full-width button container layout (no portrait)");
+                }
+            }
+            
             dialogueButtonContainer.SetActive(true);
             
             // Make sure the parent canvas is active
