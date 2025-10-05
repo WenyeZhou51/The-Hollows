@@ -15,9 +15,9 @@ public class InkDialogueHandler : MonoBehaviour
     
     [Header("Ravenbond Penalty Settings")]
     [Tooltip("Amount to reduce max HP by when failing the Ravenbond challenge")]
-    [SerializeField] private int ravenbondMaxHPPenalty = 10;
+    [SerializeField] private int ravenbondMaxHPPenalty = 20;
     [Tooltip("Amount to reduce max sanity by when failing the Ravenbond challenge")]
-    [SerializeField] private int ravenbondMaxSanityPenalty = 10;
+    [SerializeField] private int ravenbondMaxSanityPenalty = 20;
     [Tooltip("Debug key to manually trigger the Ravenbond penalty (editor only)")]
     [SerializeField] private KeyCode ravenbondDebugKey = KeyCode.F8;
 
@@ -65,7 +65,7 @@ public class InkDialogueHandler : MonoBehaviour
         }
     }
 
-    public string GetNextDialogueLine()
+    public virtual string GetNextDialogueLine()
     {
         if (!_isInitialized)
         {
@@ -286,48 +286,55 @@ public class InkDialogueHandler : MonoBehaviour
     }
     
     /// <summary>
-    /// Applies the Ravenbond game penalty - reduces The Magician's max HP and sanity
+    /// Applies the Ravenbond game penalty - reduces all party members' current HP and sanity
     /// </summary>
     private void ApplyRavenbondPenalty()
     {
         // Make sure PersistentGameManager exists
         PersistentGameManager.EnsureExists();
         
-        // The character ID for The Magician
-        string magicianId = "The Magician";
+        Debug.Log($"Applying Ravenbond penalty to all party members: -{ravenbondMaxHPPenalty} HP, -{ravenbondMaxSanityPenalty} Sanity");
         
-        // Get current max values
-        int currentMaxHealth = PersistentGameManager.Instance.GetCharacterMaxHealth(magicianId);
-        int currentMaxSanity = PersistentGameManager.Instance.GetCharacterMaxMind(magicianId);
+        bool anyCharacterDied = false;
         
-        // Get current values
-        int currentHealth = PersistentGameManager.Instance.GetCharacterHealth(magicianId, currentMaxHealth);
-        int currentSanity = PersistentGameManager.Instance.GetCharacterMind(magicianId, currentMaxSanity);
-        
-        Debug.Log($"Before Ravenbond penalty - The Magician: HP={currentHealth}/{currentMaxHealth}, Mind={currentSanity}/{currentMaxSanity}");
-        Debug.Log($"Applying Ravenbond penalty: -{ravenbondMaxHPPenalty} Max HP, -{ravenbondMaxSanityPenalty} Max Sanity");
-        
-        // Apply the configured penalties
-        int newMaxHealth = currentMaxHealth - ravenbondMaxHPPenalty;
-        int newMaxSanity = currentMaxSanity - ravenbondMaxSanityPenalty;
-        
-        // Allow max values to reach 0 to trigger game over
-        newMaxHealth = Mathf.Max(0, newMaxHealth);
-        newMaxSanity = Mathf.Max(0, newMaxSanity);
-        
-        // Current values should not exceed max values
-        int newHealth = Mathf.Min(currentHealth, newMaxHealth);
-        int newSanity = Mathf.Min(currentSanity, newMaxSanity);
-        
-        // Save the updated values
-        PersistentGameManager.Instance.SaveCharacterStats(magicianId, newHealth, newMaxHealth, newSanity, newMaxSanity);
-        
-        Debug.Log($"After Ravenbond penalty - The Magician: HP={newHealth}/{newMaxHealth}, Mind={newSanity}/{newMaxSanity}");
-        
-        // Check if the Magician is now dead (HP or maxHP reached 0)
-        if (newHealth <= 0 || newMaxHealth <= 0)
+        // Apply penalty to all main characters
+        foreach (string characterId in PersistentGameManager.Instance.mainCharacters)
         {
-            Debug.Log("The Magician's health has reached 0 - triggering game over");
+            // Get current max values
+            int maxHealth = PersistentGameManager.Instance.GetCharacterMaxHealth(characterId);
+            int maxSanity = PersistentGameManager.Instance.GetCharacterMaxMind(characterId);
+            
+            // Get current values
+            int currentHealth = PersistentGameManager.Instance.GetCharacterHealth(characterId, maxHealth);
+            int currentSanity = PersistentGameManager.Instance.GetCharacterMind(characterId, maxSanity);
+            
+            Debug.Log($"Before penalty - {characterId}: HP={currentHealth}/{maxHealth}, Mind={currentSanity}/{maxSanity}");
+            
+            // Reduce current HP and sanity (not max values)
+            int newHealth = currentHealth - ravenbondMaxHPPenalty;
+            int newSanity = currentSanity - ravenbondMaxSanityPenalty;
+            
+            // Clamp to prevent negative values
+            newHealth = Mathf.Max(0, newHealth);
+            newSanity = Mathf.Max(0, newSanity);
+            
+            // Save the updated values (max values remain unchanged)
+            PersistentGameManager.Instance.SaveCharacterStats(characterId, newHealth, maxHealth, newSanity, maxSanity);
+            
+            Debug.Log($"After penalty - {characterId}: HP={newHealth}/{maxHealth}, Mind={newSanity}/{maxSanity}");
+            
+            // Check if this character died from the penalty
+            if (newHealth <= 0 || newSanity <= 0)
+            {
+                Debug.Log($"{characterId} has died from the Ravenbond penalty!");
+                anyCharacterDied = true;
+            }
+        }
+        
+        // If any character died, trigger game over
+        if (anyCharacterDied)
+        {
+            Debug.Log("At least one party member died from the Ravenbond penalty - triggering game over");
             StartCoroutine(TriggerGameOver());
         }
     }

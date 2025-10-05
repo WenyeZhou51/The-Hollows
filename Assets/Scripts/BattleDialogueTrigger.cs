@@ -76,7 +76,28 @@ public class BattleDialogueTrigger : MonoBehaviour
         yield return new WaitForSeconds(1f);
         
         hasPlayedIntro = true;
+        
+        // BATTLE: Position dialogue at the top of the screen
+        DialogueManager.Instance.SetDialoguePositionTop();
+        
+        // Subscribe to dialogue end event to reset position
+        DialogueManager.OnDialogueStateChanged += OnIntroDialogueStateChanged;
+        
         DialogueManager.Instance.StartInkDialogue(introHandler);
+    }
+    
+    private void OnIntroDialogueStateChanged(bool isActive)
+    {
+        if (!isActive) // Dialogue ended
+        {
+            Debug.Log("[Battle] Intro dialogue ended");
+            
+            // Reset dialogue position to bottom (default)
+            DialogueManager.Instance.SetDialoguePositionBottom();
+            
+            // Unsubscribe from event
+            DialogueManager.OnDialogueStateChanged -= OnIntroDialogueStateChanged;
+        }
     }
     
     private void SetupDialogueHandlers()
@@ -107,7 +128,28 @@ public class BattleDialogueTrigger : MonoBehaviour
         if (!hasPlayedMidBattle && midBattleHandler != null && currentTurn == midBattleTriggerTurn)
         {
             hasPlayedMidBattle = true;
+            
+            // BATTLE: Position dialogue at the top of the screen
+            DialogueManager.Instance.SetDialoguePositionTop();
+            
+            // Subscribe to dialogue end event to reset position
+            DialogueManager.OnDialogueStateChanged += OnMidBattleDialogueStateChanged;
+            
             DialogueManager.Instance.StartInkDialogue(midBattleHandler);
+        }
+    }
+    
+    private void OnMidBattleDialogueStateChanged(bool isActive)
+    {
+        if (!isActive) // Dialogue ended
+        {
+            Debug.Log("[Battle] Mid-battle dialogue ended");
+            
+            // Reset dialogue position to bottom (default)
+            DialogueManager.Instance.SetDialoguePositionBottom();
+            
+            // Unsubscribe from event
+            DialogueManager.OnDialogueStateChanged -= OnMidBattleDialogueStateChanged;
         }
     }
     
@@ -162,6 +204,10 @@ public class BattleDialogueTrigger : MonoBehaviour
         
         // Play the victory dialogue while screen is black
         Debug.Log("[DEBUG OBELISK TRANSITION] Starting victory dialogue");
+        
+        // BATTLE: Position dialogue at the top of the screen
+        DialogueManager.Instance.SetDialoguePositionTop();
+        
         DialogueManager.Instance.StartInkDialogue(victoryHandler);
         
         // Subscribe to dialogue end event to handle phase transition
@@ -175,6 +221,9 @@ public class BattleDialogueTrigger : MonoBehaviour
         
         if (!isActive) // Dialogue ended
         {
+            // Reset dialogue position to bottom (default)
+            DialogueManager.Instance.SetDialoguePositionBottom();
+            
             // Unsubscribe to prevent multiple calls
             Debug.Log("[DEBUG OBELISK TRANSITION] Dialogue ended, unsubscribing from event");
             DialogueManager.OnDialogueStateChanged -= HandleVictoryDialogueEnd;
@@ -536,6 +585,9 @@ public class BattleDialogueTrigger : MonoBehaviour
             combatManager.OnCombatEnd -= HandleCombatEnd;
         }
         
+        // Clean up all dialogue event subscriptions
+        DialogueManager.OnDialogueStateChanged -= OnIntroDialogueStateChanged;
+        DialogueManager.OnDialogueStateChanged -= OnMidBattleDialogueStateChanged;
         DialogueManager.OnDialogueStateChanged -= HandleVictoryDialogueEnd;
     }
 } 

@@ -38,6 +38,9 @@ public class DialogueManager : MonoBehaviour
     [SerializeField] private bool pauseGameDuringDialogue = true;
     [SerializeField] private bool affectEnemies = true;
     
+    [Header("Positioning Settings")]
+    [SerializeField] private bool useTopPosition = false;
+    
     private bool isDialogueActive = false;
     private InkDialogueHandler currentInkHandler;
     private List<GameObject> choiceButtons = new List<GameObject>();
@@ -1628,6 +1631,52 @@ public class DialogueManager : MonoBehaviour
         
         // Broadcast the pause state change in case other systems need to respond
         Debug.Log($"Game {(pause ? "paused" : "unpaused")} due to dialogue");
+    }
+    
+    /// <summary>
+    /// Repositions the dialogue panel to the top of the screen (for tutorial battles)
+    /// </summary>
+    public void SetDialoguePositionTop()
+    {
+        if (dialoguePanel != null)
+        {
+            RectTransform panelRect = dialoguePanel.GetComponent<RectTransform>();
+            if (panelRect != null)
+            {
+                panelRect.anchorMin = new Vector2(0.1f, 0.7f);
+                panelRect.anchorMax = new Vector2(0.9f, 0.9f);
+                panelRect.offsetMin = Vector2.zero;
+                panelRect.offsetMax = Vector2.zero;
+                Debug.Log("Dialogue panel repositioned to TOP of screen");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("Cannot reposition dialogue panel - panel is null");
+        }
+    }
+    
+    /// <summary>
+    /// Repositions the dialogue panel to the bottom of the screen (default position)
+    /// </summary>
+    public void SetDialoguePositionBottom()
+    {
+        if (dialoguePanel != null)
+        {
+            RectTransform panelRect = dialoguePanel.GetComponent<RectTransform>();
+            if (panelRect != null)
+            {
+                panelRect.anchorMin = new Vector2(0.1f, 0.1f);
+                panelRect.anchorMax = new Vector2(0.9f, 0.3f);
+                panelRect.offsetMin = Vector2.zero;
+                panelRect.offsetMax = Vector2.zero;
+                Debug.Log("Dialogue panel repositioned to BOTTOM of screen");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("Cannot reposition dialogue panel - panel is null");
+        }
     }
 
     // Helper class to store tag information
