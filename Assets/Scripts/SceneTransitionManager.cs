@@ -447,6 +447,41 @@ public class SceneTransitionManager : MonoBehaviour
             }
         }
         
+        // SPECIAL CASE: Check if this is the end of the tutorial combat
+        bool isPostTutorialTransition = PlayerPrefs.GetInt("PostTutorialTransition", 0) == 1;
+        if (isPostTutorialTransition && won)
+        {
+            Debug.Log("[TRANSITION DEBUG] Tutorial combat completed successfully!");
+            
+            // Mark tutorial as completed
+            PersistentGameManager.EnsureExists();
+            PersistentGameManager.Instance.SetCustomDataValue("TutorialCompleted", true);
+            Debug.Log("[TRANSITION DEBUG] Marked tutorial as completed in PersistentGameManager");
+            
+            // Get the post-tutorial scene and marker
+            string postTutorialScene = PlayerPrefs.GetString("PostTutorialScene", "Overworld_Entrance");
+            string postTutorialMarker = PlayerPrefs.GetString("PostTutorialMarker", "bottom_entrance");
+            
+            // Clear the tutorial flags
+            PlayerPrefs.SetInt("PostTutorialTransition", 0);
+            PlayerPrefs.DeleteKey("PostTutorialScene");
+            PlayerPrefs.DeleteKey("PostTutorialMarker");
+            PlayerPrefs.Save();
+            
+            Debug.Log($"[TRANSITION DEBUG] Post-tutorial transition to {postTutorialScene} at {postTutorialMarker}");
+            
+            // Set the target scene and marker for transition
+            currentSceneName = postTutorialScene;
+            targetSceneName = postTutorialScene;
+            targetMarkerId = postTutorialMarker;
+            
+            // Store in PlayerPrefs for player positioning
+            PlayerPrefs.SetString("LastTargetSceneName", postTutorialScene);
+            PlayerPrefs.SetString("LastTargetMarkerId", postTutorialMarker);
+            PlayerPrefs.SetInt("NeedsPlayerSetup", 1);
+            PlayerPrefs.Save();
+        }
+        
         // Set fading flag to prevent duplicate transitions
         isFadingInProgress = true;
         

@@ -4,6 +4,8 @@
 -> main
 
 === main ===
+portrait: ranger_neutral, Calm down everyone # speaker: Ranger
+
 portrait: ranger_neutral, You still remember the basics of combat, right? # speaker: Ranger
 
 portrait: fighter_neutral, This is our HP bar # speaker: Fighter # HIGHLIGHT:player_health
@@ -18,15 +20,15 @@ portrait: ranger_neutral, The enemy also has HP bars... # speaker: Ranger # UNHI
 
 portrait: ranger_neutral, ...and Action bars. # speaker: Ranger # STOPFLASH:enemy_health # FLASH:enemy_action
 
-portrait: bard_neutral, You can do basic attacks or Guard, these don't consume any resources. # speaker: Bard # STOPFLASH:enemy_action # HIGHLIGHT:attack_button
+portrait: bard_happy1, You can do basic attacks or Guard, these don't consume any resources. # speaker: Bard # STOPFLASH:enemy_action # HIGHLIGHT:attack_button
 
-portrait: bard_neutral, You can also Guard to reduce incoming damage. # speaker: Bard # UNHIGHLIGHT:attack_button # HIGHLIGHT:guard_button
+portrait: bard_happy1, You can also Guard to reduce incoming damage. # speaker: Bard # UNHIGHLIGHT:attack_button # HIGHLIGHT:guard_button
 
-portrait: bard_neutral, You can use skills, which sometimes consume mind. # speaker: Bard # UNHIGHLIGHT:guard_button # HIGHLIGHT:skill_button
+portrait: bard_happy1, You can use skills, which sometimes consume mind. # speaker: Bard # UNHIGHLIGHT:guard_button # HIGHLIGHT:skill_button
 
-portrait: bard_neutral, You can also use items you've collected along the way. # speaker: Bard # UNHIGHLIGHT:skill_button # HIGHLIGHT:item_button
+portrait: bard_happy1, You can also use items you've collected along the way. # speaker: Bard # UNHIGHLIGHT:skill_button # HIGHLIGHT:item_button
 
-portrait: magician_neutral, Got it, let's get them! # speaker: Magician # CLEAR_HIGHLIGHTS
+portrait: magician_neutral_1, Got it, let's get them! # speaker: Magician # CLEAR_HIGHLIGHTS
 
 -> END
 

@@ -305,7 +305,8 @@ PrefabInstance:
       propertyPath: m_Name
       value: Transition Area
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: -1239469871867323168, guid: 1bf6f5963fecfb04693a2b58130cc028, type: 3}
   m_SourcePrefab: {fileID: 100100000, guid: 1bf6f5963fecfb04693a2b58130cc028, type: 3}
 --- !u!1 &127032941
 GameObject:
@@ -480,6 +481,27 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 8701234567890123457, guid: 6ababe05f3c97f94a8e466a51b5d75e3, type: 3}
   m_PrefabInstance: {fileID: 292507122}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &312946107 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3612052336720511554, guid: 1bf6f5963fecfb04693a2b58130cc028, type: 3}
+  m_PrefabInstance: {fileID: 41620994}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &312946108
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 312946107}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c3b9f356fdec77d4993c98c5a609b9b7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  targetSceneName: Overworld_Entrance
+  targetMarkerId: down
+  tutorialIntroDialogue: {fileID: 4900000, guid: 85791dbb7fc58e74489c98ac27a0019d, type: 3}
+  autoTransition: 1
 --- !u!1 &421771786
 GameObject:
   m_ObjectHideFlags: 0
@@ -1495,6 +1517,7 @@ MonoBehaviour:
   interactKey: 122
   pauseGameDuringDialogue: 1
   affectEnemies: 1
+  useTopPosition: 0
 --- !u!1001 &1759247788
 PrefabInstance:
   m_ObjectHideFlags: 0

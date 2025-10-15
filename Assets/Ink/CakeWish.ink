@@ -1,9 +1,40 @@
+// CakeWish Dialogue - Different responses based on death count
+VAR deathCount = 0
+
 A cake with a candle on it.
 Make a wish?
 * Yes
-    -> wish_options
+    -> make_wish
 * No
     -> END
+
+=== make_wish ===
+{
+    - deathCount >= 0 && deathCount <= 1:
+        -> death_0_1
+    - deathCount >= 2 && deathCount <= 3:
+        -> death_2_3
+    - deathCount >= 4:
+        -> death_4_plus
+}
+
+=== death_0_1 ===
+The candle burns brightly with the strenghth of your wish
+-> wish_options
+
+=== death_2_3 ===
+The candle burns brightly with the strenghth of your wish
+
+It is melting
+-> wish_options
+
+=== death_4_plus ===
+The candle burns brightly with the strenghth of your wish
+
+It is melting
+
+You see yourself in it
+-> wish_options
 
 === wish_options ===
 What do you wish for?

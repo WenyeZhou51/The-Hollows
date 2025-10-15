@@ -30,8 +30,16 @@ public class AperatureBehaviorPre : EnemyBehavior
 
     public override IEnumerator ExecuteTurn(CombatStats enemy, List<CombatStats> players, CombatUI combatUI)
     {
+        // TUTORIAL SCENE: Disable METAMORPHOSIS in Battle_Tutorial scene
+        float effectiveMetamorphosisChance = metamorphosisChance;
+        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == "Battle_Tutorial")
+        {
+            effectiveMetamorphosisChance = 0f;
+            Debug.Log("[AperatureBehaviorPre] METAMORPHOSIS disabled in tutorial battle");
+        }
+        
         // Normalize chance values to ensure they add up to 100%
-        float totalChance = blindingLightsChance + wobbleChance + metamorphosisChance;
+        float totalChance = blindingLightsChance + wobbleChance + effectiveMetamorphosisChance;
         if (totalChance <= 0)
         {
             Debug.LogWarning("All Aperature_pre skill chances are set to 0, defaulting to basic attack");
@@ -42,7 +50,7 @@ public class AperatureBehaviorPre : EnemyBehavior
         // Calculate normalized probabilities
         float normalizedBlindingLights = blindingLightsChance / totalChance * 100f;
         float normalizedWobble = wobbleChance / totalChance * 100f;
-        float normalizedMetamorphosis = metamorphosisChance / totalChance * 100f;
+        float normalizedMetamorphosis = effectiveMetamorphosisChance / totalChance * 100f;
         
         // Roll for skill selection
         float roll = Random.Range(0f, 100f);

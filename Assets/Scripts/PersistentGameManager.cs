@@ -179,11 +179,17 @@ public class PersistentGameManager : MonoBehaviour
             showDebugUI = !showDebugUI;
         }
         
-        // Debug key to increment death count
+        // Debug key to increment death count and Fortune Teller conversation count
         if (Input.GetKeyDown(incrementDeathsKey))
         {
             IncrementDeaths();
-            Debug.Log($"[DEBUG] Death count increased to {variables.deaths} using F1 key");
+            
+            // Also increment Fortune Teller conversation count for testing
+            const string FORTUNE_TELLER_COUNT_KEY = "FortuneNeller_ConversationCount";
+            int currentFTCount = GetCustomDataValue(FORTUNE_TELLER_COUNT_KEY, 0);
+            SetCustomDataValue(FORTUNE_TELLER_COUNT_KEY, currentFTCount + 1);
+            
+            Debug.Log($"[DEBUG] F1 pressed - Death count: {variables.deaths}, Fortune Teller conversation count: {currentFTCount + 1}");
         }
     }
     
@@ -240,6 +246,12 @@ public class PersistentGameManager : MonoBehaviour
         GUILayout.BeginVertical(GUI.skin.box);
         GUILayout.Label($"Chests Looted: {variables.chestsLooted}", valueStyle);
         GUILayout.Label($"Deaths: {variables.deaths}", valueStyle);
+        
+        // Fortune Teller count
+        const string FORTUNE_TELLER_COUNT_KEY = "FortuneNeller_ConversationCount";
+        int fortuneTellerCount = GetCustomDataValue(FORTUNE_TELLER_COUNT_KEY, 0);
+        GUILayout.Label($"Fortune Teller Count: {fortuneTellerCount}", valueStyle);
+        
         GUILayout.Label($"Current Scene: {SceneManager.GetActiveScene().name}", valueStyle);
         GUILayout.EndVertical();
         
@@ -814,6 +826,9 @@ public class PersistentGameManager : MonoBehaviour
         variables.deaths++;
         OnGameVariableChanged?.Invoke("deaths");
         Debug.Log($"Incremented deaths to {variables.deaths}");
+        
+        // Reset Fortune Teller's per-run interaction state (new run begins on death)
+        FortuneNeller.ResetRunState();
     }
     
     /// <summary>

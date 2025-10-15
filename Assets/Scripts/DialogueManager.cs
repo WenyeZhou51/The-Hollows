@@ -137,6 +137,73 @@ public class DialogueManager : MonoBehaviour
         UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
     }
     
+    /// <summary>
+    /// Re-initialize dialogue UI after destroying the old canvas
+    /// </summary>
+    private IEnumerator ReinitializeDialogueUI()
+    {
+        // Wait a frame to ensure the scene is fully loaded
+        yield return null;
+        
+        Debug.Log("[DIALOGUE MANAGER] Starting re-initialization of dialogue UI");
+        
+        // Try to find dialogue UI in the current scene first
+        TryFindDialogueUIInScene();
+        
+        // If we found the UI in the scene, we're done
+        if (dialoguePanel != null)
+        {
+            Debug.Log("[DIALOGUE MANAGER] Successfully found dialogue UI in overworld scene");
+            canvasInitialized = true;
+            
+            // Make sure it's initially hidden
+            dialoguePanel.SetActive(false);
+            if (dialogueButtonContainer != null)
+            {
+                dialogueButtonContainer.SetActive(false);
+            }
+            
+            // Clear any placeholder text
+            if (dialogueText != null)
+            {
+                dialogueText.text = "";
+            }
+            if (portraitText != null)
+            {
+                portraitText.text = "";
+            }
+            
+            // Hide portrait
+            if (portraitObject != null)
+            {
+                portraitObject.SetActive(false);
+            }
+            
+            // Also hide the parent canvas if it exists
+            Canvas parentCanvas = dialoguePanel.GetComponentInParent<Canvas>();
+            if (parentCanvas != null && parentCanvas.gameObject != dialoguePanel)
+            {
+                // Only hide the canvas if the panel is already inactive
+                // This prevents issues if the canvas contains other UI elements
+                parentCanvas.enabled = false;
+                Debug.Log("[DIALOGUE MANAGER] Also disabled parent canvas");
+            }
+            
+            Debug.Log("[DIALOGUE MANAGER] Dialogue UI hidden and cleared");
+        }
+        // Otherwise, instantiate from prefab if available
+        else if (dialogueCanvasPrefab != null)
+        {
+            Debug.Log("[DIALOGUE MANAGER] No dialogue UI in scene, instantiating from prefab");
+            InstantiateDialogueCanvas();
+            canvasInitialized = true;
+        }
+        else
+        {
+            Debug.LogError("[DIALOGUE MANAGER] CRITICAL: Cannot find dialogue UI in scene and no prefab assigned!");
+        }
+    }
+    
     // Add a new method to handle scene loading and reset dialogue state
     private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
     {
@@ -151,6 +218,34 @@ public class DialogueManager : MonoBehaviour
         {
             Debug.Log("[DEBUG NEW] Dialogue was still active during scene change - forcing close");
             CloseDialogue();
+        }
+        
+        // CRITICAL FIX: Destroy the persisted dialogue canvas when transitioning from combat to overworld
+        bool isCombatScene = scene.name.StartsWith("Battle_");
+        bool isOverworldScene = scene.name.StartsWith("Overworld_");
+        
+        // If we're loading an overworld scene and have an instantiated canvas from a previous scene
+        if (isOverworldScene && instantiatedCanvas != null)
+        {
+            Debug.Log("[DIALOGUE MANAGER] Transitioning from combat to overworld - destroying old dialogue canvas and re-initializing");
+            Destroy(instantiatedCanvas);
+            instantiatedCanvas = null;
+            
+            // Clear references so they can be re-initialized from the new scene
+            dialoguePanel = null;
+            dialogueText = null;
+            dialogueButtonContainer = null;
+            portraitObject = null;
+            portraitImage = null;
+            portraitText = null;
+            
+            // CRITICAL: Reset the initialized flag so it can re-initialize
+            canvasInitialized = false;
+            
+            Debug.Log("[DIALOGUE MANAGER] Cleared all dialogue canvas references, will re-initialize from scene");
+            
+            // Re-initialize from the new scene
+            StartCoroutine(ReinitializeDialogueUI());
         }
         
         Debug.Log("[DEBUG NEW] Dialogue state after scene load - isDialogueActive: " + isDialogueActive + 
@@ -437,6 +532,40 @@ public class DialogueManager : MonoBehaviour
         }
         
         Debug.Log("Dialogue UI initialized from prefab successfully");
+        
+        // CRITICAL FIX: Make sure dialogue panel starts hidden and text is cleared
+        if (dialoguePanel != null)
+        {
+            dialoguePanel.SetActive(false);
+            Debug.Log("Set instantiated dialogue panel to inactive");
+        }
+        
+        // Clear any placeholder text from the prefab
+        if (dialogueText != null)
+        {
+            dialogueText.text = "";
+            Debug.Log("Cleared placeholder text from DialogueText");
+        }
+        
+        if (portraitText != null)
+        {
+            portraitText.text = "";
+            Debug.Log("Cleared placeholder text from PortraitText");
+        }
+        
+        // Hide portrait object
+        if (portraitObject != null)
+        {
+            portraitObject.SetActive(false);
+        }
+        
+        // Also disable the parent canvas to ensure it's completely hidden
+        Canvas parentCanvas = instantiatedCanvas.GetComponent<Canvas>();
+        if (parentCanvas != null)
+        {
+            parentCanvas.enabled = false;
+            Debug.Log("Disabled instantiated Canvas component");
+        }
         
         canvasInitialized = true;
     }
@@ -977,6 +1106,14 @@ public class DialogueManager : MonoBehaviour
                 parent.gameObject.SetActive(true);
             }
             
+            // Also re-enable the Canvas component if it was disabled
+            Canvas parentCanvas = dialoguePanel.GetComponentInParent<Canvas>();
+            if (parentCanvas != null && !parentCanvas.enabled)
+            {
+                Debug.Log("Re-enabling parent Canvas component");
+                parentCanvas.enabled = true;
+            }
+            
             // Make sure the panel is active and visible
             Debug.Log($"Setting dialoguePanel active (currently: {dialoguePanel.activeSelf})");
             dialoguePanel.SetActive(true);
@@ -1094,6 +1231,17 @@ public class DialogueManager : MonoBehaviour
         if (dialoguePanel != null && !dialoguePanel.activeSelf)
         {
             dialoguePanel.SetActive(true);
+        }
+        
+        // Also re-enable the Canvas component if it was disabled
+        if (dialoguePanel != null)
+        {
+            Canvas parentCanvas = dialoguePanel.GetComponentInParent<Canvas>();
+            if (parentCanvas != null && !parentCanvas.enabled)
+            {
+                Debug.Log("Re-enabling parent Canvas component in StartInkDialogue");
+                parentCanvas.enabled = true;
+            }
         }
         
         // Show the first line of dialogue
@@ -1441,6 +1589,14 @@ public class DialogueManager : MonoBehaviour
         {
             dialoguePanel.SetActive(false);
             Debug.Log("Dialogue panel hidden");
+            
+            // Also disable the parent canvas to ensure it's completely hidden
+            Canvas parentCanvas = dialoguePanel.GetComponentInParent<Canvas>();
+            if (parentCanvas != null && parentCanvas.gameObject != dialoguePanel)
+            {
+                parentCanvas.enabled = false;
+                Debug.Log("Disabled parent Canvas component");
+            }
         }
         
         // Hide the dialogue button container

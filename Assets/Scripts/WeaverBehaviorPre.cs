@@ -31,8 +31,16 @@ public class WeaverBehaviorPre : EnemyBehavior
 
     public override IEnumerator ExecuteTurn(CombatStats enemy, List<CombatStats> players, CombatUI combatUI)
     {
+        // TUTORIAL SCENE: Disable METAMORPHOSIS in Battle_Tutorial scene
+        float effectiveMetamorphosisChance = metamorphosisChance;
+        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == "Battle_Tutorial")
+        {
+            effectiveMetamorphosisChance = 0f;
+            Debug.Log("[WeaverBehaviorPre] METAMORPHOSIS disabled in tutorial battle");
+        }
+        
         // Normalize chance values to ensure they add up to 100%
-        float totalChance = tangleChance + pokeChance + connectChance + metamorphosisChance;
+        float totalChance = tangleChance + pokeChance + connectChance + effectiveMetamorphosisChance;
         if (totalChance <= 0)
         {
             Debug.LogWarning("All Weaver_pre skill chances are set to 0, defaulting to basic attack");
@@ -44,7 +52,7 @@ public class WeaverBehaviorPre : EnemyBehavior
         float normalizedTangle = tangleChance / totalChance * 100f;
         float normalizedPoke = pokeChance / totalChance * 100f;
         float normalizedConnect = connectChance / totalChance * 100f;
-        float normalizedMetamorphosis = metamorphosisChance / totalChance * 100f;
+        float normalizedMetamorphosis = effectiveMetamorphosisChance / totalChance * 100f;
         
         // Roll for skill selection
         float roll = Random.Range(0f, 100f);
