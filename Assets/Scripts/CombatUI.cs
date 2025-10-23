@@ -28,8 +28,11 @@ public class CombatUI : MonoBehaviour
     public GameObject actionDisplayLabel;
     [Tooltip("Reference to the TextMeshProUGUI component in the action display label")]
     public TextMeshProUGUI actionDisplayText;
-    [Tooltip("How long to pause the game when displaying action")]
-    [SerializeField] private float actionDisplayDuration = 1.0f;
+    [Tooltip("How long to show action label before executing (visual feedback only, no game pause)")]
+    [SerializeField] private float actionDisplayDuration = 0.4f;
+    
+    // Execution guard to prevent double-execution
+    public bool isExecutingAction { get; private set; } = false;
 
     [Header("Skill UI")]
     public GameObject skillPanel; // Assign this in the Inspector
@@ -55,9 +58,13 @@ public class CombatUI : MonoBehaviour
     [Tooltip("Number of skill buttons visible without scrolling")]
     [SerializeField] private int visibleSkillButtonCount = 3;
     
-    // Cycling scroll system variables
+    // Cycling scroll system variables for skills
     public int currentSkillScrollIndex = 0; // Which skill is at the top of the visible window
     private List<SkillData> allAvailableSkills = new List<SkillData>(); // All skills for the current character
+    
+    // Cycling scroll system variables for items
+    public int currentItemScrollIndex = 0; // Which item is at the top of the visible window
+    private List<ItemData> allAvailableItems = new List<ItemData>(); // All items available in combat
     [Header("Skill Container Padding")]
     [Tooltip("Left padding inside the skill container")]
     [SerializeField] private float skillContainerPaddingLeft = 10f;
@@ -99,8 +106,9 @@ public class CombatUI : MonoBehaviour
     [SerializeField] private GameObject damagePopupPrefab;
 
     private GameObject characterStatsPanel;
-    private GameObject skillMenu;
-    private GameObject itemMenu;
+    // Reference to actual menu GameObjects - sourced from CombatManager
+    private GameObject skillMenuObject;
+    private GameObject itemMenuObject;
     private GameObject buttonPrefab;
     private GridLayoutGroup skillButtonsGrid;
     private List<GameObject> currentSkillButtons = new List<GameObject>();
@@ -181,11 +189,21 @@ public class CombatUI : MonoBehaviour
             SetupBasicSkillContainerConstraints();
         }
             
-        // Don't try to find skillPanel by name if it's already assigned
-        // Don't overwrite existing reference
-        skillMenu = combatManager.skillMenu;
-        itemMenu = combatManager.itemMenu;
+        // Get menu references from CombatManager (single source of truth)
+        skillMenuObject = combatManager.skillMenu;
+        itemMenuObject = combatManager.itemMenu;
         buttonPrefab = combatManager.buttonPrefab;
+        
+        // IMPORTANT: skillPanel should be the SAME as skillMenuObject for consistency
+        if (skillPanel == null)
+        {
+            skillPanel = skillMenuObject;
+        }
+        else if (skillPanel != skillMenuObject)
+        {
+            Debug.LogWarning("[CombatUI] skillPanel and skillMenuObject are different! Using skillPanel as authoritative source.");
+            skillMenuObject = skillPanel;
+        }
         
         // If menu button template is not assigned, try to use the first menu option from MenuSelector
         if (menuButtonTemplate == null && menuSelector != null && menuSelector.menuOptions.Length > 0)
@@ -277,28 +295,46 @@ public class CombatUI : MonoBehaviour
             }
         }
     }
+    
+    /// <summary>
+    /// Centralized function to hide ALL menus to prevent overlay bugs
+    /// </summary>
+    private void HideAllMenus()
+    {
+        if (skillPanel != null) skillPanel.SetActive(false);
+        if (skillMenuObject != null && skillMenuObject != skillPanel) skillMenuObject.SetActive(false);
+        if (itemMenuObject != null) itemMenuObject.SetActive(false);
+        if (actionMenu != null) actionMenu.SetActive(false);
+        if (characterStatsPanel != null) characterStatsPanel.SetActive(false);
+        
+        Debug.Log("[Menu Management] All menus hidden");
+    }
 
     public void ShowActionMenu(CombatStats character)
     {
-        // Hide other menus
-        if (skillMenu != null) skillMenu.SetActive(false);
-        if (itemMenu != null) itemMenu.SetActive(false);
+        // Hide ALL menus first to prevent overlays
+        HideAllMenus();
         
-        // Make sure the action menu is visible
+        // Show action menu and character stats
         actionMenu.SetActive(true);
+        if (characterStatsPanel != null) characterStatsPanel.SetActive(true);
         
         // Ensure the menu is properly enabled
         menuSelector.SetMenuItemsEnabled(true);
         menuSelector.EnableMenu();
+        
+        Debug.Log("[Menu Management] Showing action menu");
     }
 
     public void ShowSkillMenu()
     {
         Debug.Log("[SkillButton Lifecycle] ShowSkillMenu called - Beginning cycling skill menu setup");
+        
+        // Hide ALL menus first to prevent overlays
+        HideAllMenus();
+        
         if (skillPanel != null)
         {
-            if (characterStatsPanel != null) characterStatsPanel.SetActive(false);
-            actionMenu.SetActive(false);
             skillPanel.SetActive(true);
             
             // Hide the menu button template if it's assigned
@@ -781,13 +817,8 @@ public class CombatUI : MonoBehaviour
                         }
                     }
                     
-                    // Update click handler
-                    Button buttonComponent = button.GetComponent<Button>();
-                    if (buttonComponent != null)
-                    {
-                        buttonComponent.onClick.RemoveAllListeners();
-                        buttonComponent.onClick.AddListener(() => OnSkillButtonClicked(skill));
-                    }
+                    // DON'T update click handler during cycling - the button reads from SkillButtonData component
+                    // This prevents listener churn and potential double-clicks during menu navigation
                     
                     button.SetActive(true);
                 }
@@ -844,6 +875,233 @@ public class CombatUI : MonoBehaviour
             return allAvailableSkills[skillIndex];
         }
         return null;
+    }
+    
+    // Item scrolling support methods
+    public bool CanScrollUpItems()
+    {
+        return currentItemScrollIndex > 0;
+    }
+
+    public bool CanScrollDownItems()
+    {
+        return currentItemScrollIndex + 3 < allAvailableItems.Count;
+    }
+
+    public void ScrollUpItems()
+    {
+        if (CanScrollUpItems())
+        {
+            currentItemScrollIndex--;
+            UpdateCyclingItemButtons();
+            Debug.Log($"[Cycling Item Menu] Scrolled up to index {currentItemScrollIndex}");
+        }
+    }
+
+    public void ScrollDownItems()
+    {
+        if (CanScrollDownItems())
+        {
+            currentItemScrollIndex++;
+            UpdateCyclingItemButtons();
+            Debug.Log($"[Cycling Item Menu] Scrolled down to index {currentItemScrollIndex}");
+        }
+    }
+
+    public ItemData GetItemAtButtonIndex(int buttonIndex)
+    {
+        int itemIndex = currentItemScrollIndex + buttonIndex;
+        if (itemIndex >= 0 && itemIndex < allAvailableItems.Count)
+        {
+            return allAvailableItems[itemIndex];
+        }
+        return null;
+    }
+    
+    private void CreateCyclingItemButtons()
+    {
+        // Clear existing buttons
+        foreach (var button in currentSkillButtons)
+        {
+            if (button != null)
+            {
+                Destroy(button);
+            }
+        }
+        currentSkillButtons.Clear();
+
+        // Create exactly 3 buttons for cycling items
+        for (int i = 0; i < 3; i++)
+        {
+            GameObject itemButton = CreateItemButton(i);
+            if (itemButton != null)
+            {
+                currentSkillButtons.Add(itemButton);
+            }
+        }
+
+        Debug.Log($"[Cycling Item Menu] Created {currentSkillButtons.Count} cycling item buttons");
+        
+        // Update MenuSelector with the cycling buttons (reuse cycling infrastructure for items)
+        menuSelector.UpdateSkillMenuOptions(currentSkillButtons.ToArray());
+    }
+    
+    private GameObject CreateItemButton(int buttonIndex)
+    {
+        // Calculate which item this button should display
+        int itemIndex = currentItemScrollIndex + buttonIndex;
+        
+        // If we don't have enough items, don't create the button
+        if (itemIndex >= allAvailableItems.Count)
+        {
+            return null;
+        }
+
+        ItemData item = allAvailableItems[itemIndex];
+        
+        // Use menu button template if available
+        GameObject itemButton;
+        if (menuButtonTemplate != null)
+        {
+            itemButton = Instantiate(menuButtonTemplate);
+            
+            // Remove any existing components that might interfere
+            Button existingButton = itemButton.GetComponent<Button>();
+            if (existingButton != null)
+            {
+                Destroy(existingButton);
+            }
+            
+            ItemButtonData existingItemData = itemButton.GetComponent<ItemButtonData>();
+            if (existingItemData != null)
+            {
+                Destroy(existingItemData);
+            }
+        }
+        else
+        {
+            itemButton = Instantiate(buttonPrefab);
+        }
+        
+        // Set up the button
+        itemButton.name = $"CyclingItemButton_{buttonIndex}";
+        
+        // Find the parent container - use itemMenuObject's first child or create one
+        Transform container = itemMenuObject.transform.Find("ItemButtonsContainer");
+        if (container == null && itemMenuObject.transform.childCount > 0)
+        {
+            container = itemMenuObject.transform.GetChild(0);
+        }
+        
+        if (container != null)
+        {
+            itemButton.transform.SetParent(container, false);
+        }
+        else
+        {
+            itemButton.transform.SetParent(itemMenuObject.transform, false);
+        }
+        
+        itemButton.SetActive(true);
+        
+        // Configure the button's visual properties
+        SetupItemButtonVisuals(itemButton, item);
+        
+        // Add the item data component
+        ItemButtonData itemData = itemButton.AddComponent<ItemButtonData>();
+        itemData.item = item;
+        
+        // Add click handler
+        Button buttonComponent = itemButton.GetComponent<Button>();
+        if (buttonComponent == null)
+        {
+            buttonComponent = itemButton.AddComponent<Button>();
+        }
+        buttonComponent.onClick.AddListener(() => OnItemButtonClicked(item));
+        
+        // Add hover description handler
+        HoverDescriptionHandler hoverHandler = itemButton.AddComponent<HoverDescriptionHandler>();
+        
+        return itemButton;
+    }
+    
+    private void SetupItemButtonVisuals(GameObject itemButton, ItemData item)
+    {
+        // Set up RectTransform
+        RectTransform rectTransform = itemButton.GetComponent<RectTransform>();
+        if (rectTransform != null)
+        {
+            rectTransform.sizeDelta = new Vector2(skillButtonWidth, skillButtonHeight);
+        }
+        
+        // Set up text for item name and amount
+        TextMeshProUGUI[] textComponents = itemButton.GetComponentsInChildren<TextMeshProUGUI>();
+        if (textComponents.Length > 0)
+        {
+            textComponents[0].text = item.name;
+            textComponents[0].ForceMeshUpdate();
+            
+            if (textComponents.Length > 1)
+            {
+                textComponents[1].text = $"x{item.amount}";
+                textComponents[1].ForceMeshUpdate();
+            }
+        }
+    }
+    
+    public void UpdateCyclingItemButtons()
+    {
+        Debug.Log($"[Cycling Item Menu] Updating cycling buttons, scroll index: {currentItemScrollIndex}");
+        
+        for (int i = 0; i < currentSkillButtons.Count && i < 3; i++)
+        {
+            GameObject button = currentSkillButtons[i];
+            if (button != null)
+            {
+                int itemIndex = currentItemScrollIndex + i;
+                
+                if (itemIndex < allAvailableItems.Count)
+                {
+                    ItemData item = allAvailableItems[itemIndex];
+                    
+                    // Update the button's item data
+                    ItemButtonData itemData = button.GetComponent<ItemButtonData>();
+                    if (itemData != null)
+                    {
+                        itemData.item = item;
+                    }
+                    
+                    // Update the button's text
+                    TextMeshProUGUI[] allTexts = button.GetComponentsInChildren<TextMeshProUGUI>();
+                    if (allTexts.Length > 0)
+                    {
+                        allTexts[0].text = item.name;
+                        allTexts[0].ForceMeshUpdate();
+                        
+                        if (allTexts.Length > 1)
+                        {
+                            allTexts[1].text = $"x{item.amount}";
+                            allTexts[1].ForceMeshUpdate();
+                        }
+                    }
+                    
+                    // DON'T update click handler during cycling - prevents listener churn
+                    
+                    button.SetActive(true);
+                }
+                else
+                {
+                    // Hide button if no item to display
+                    button.SetActive(false);
+                }
+            }
+        }
+        
+        // Update the description for the currently selected button
+        if (menuSelector != null)
+        {
+            menuSelector.UpdateCurrentSelectionDescription();
+        }
     }
 
     private void OnSkillButtonClicked(SkillData skill)
@@ -1053,12 +1311,23 @@ public class CombatUI : MonoBehaviour
     public void ExecuteSkill(SkillData skill, CombatStats target)
     {
         Debug.Log($"[SkillButton Lifecycle] Executing skill: {skill.name}, Target: {target?.name ?? "none"}");
+        
+        // Guard against double-execution
+        if (isExecutingAction)
+        {
+            Debug.Log($"[SkillButton Lifecycle] Action already executing, ignoring duplicate skill execution");
+            return;
+        }
+        
         var activeCharacter = combatManager.ActiveCharacter;
         if (activeCharacter == null || activeCharacter.currentSanity < skill.sanityCost) 
         {
             Debug.Log($"[SkillButton Lifecycle] Cannot execute skill - ActiveCharacter: {activeCharacter != null}, CurrentSanity: {activeCharacter?.currentSanity ?? 0}, Required: {skill.sanityCost}");
             return;
         }
+
+        // Set execution flag
+        isExecutingAction = true;
 
         // Hide the text panel when player selects an action
         HideTextPanel();
@@ -1612,6 +1881,9 @@ public class CombatUI : MonoBehaviour
             menuSelector.CancelTargetSelection();
         }
         
+        // Clear execution flag
+        isExecutingAction = false;
+        
         BackToActionMenu();
         combatManager.EndPlayerTurn();
     }
@@ -1619,9 +1891,11 @@ public class CombatUI : MonoBehaviour
     public void BackToActionMenu()
     {
         Debug.Log("[SkillButton Lifecycle] Returning to action menu, hiding skill panel");
-        if (skillPanel != null) skillPanel.SetActive(false);
-        if (characterStatsPanel != null) characterStatsPanel.SetActive(true);
+        
+        // Hide ALL menus first, then show action menu
+        HideAllMenus();
         actionMenu.SetActive(true);
+        if (characterStatsPanel != null) characterStatsPanel.SetActive(true);
         
         // Clear skill description when leaving skill menu
         ClearDescription();
@@ -1659,6 +1933,9 @@ public class CombatUI : MonoBehaviour
         // Clear cycling system variables
         menuSelector.ClearCyclingSystem();
         
+        // Clear the skill/item buttons array to prevent stale state
+        menuSelector.ClearSkillOptions();
+        
         // Reset the menu state
         menuSelector.EnableMenu();
     }
@@ -1678,6 +1955,17 @@ public class CombatUI : MonoBehaviour
             }
         }
         
+        // Remove duplicates by name - create a dictionary keyed by item name
+        Dictionary<string, ItemData> uniqueItems = new Dictionary<string, ItemData>();
+        foreach (var item in partyItems)
+        {
+            if (!uniqueItems.ContainsKey(item.name))
+            {
+                uniqueItems[item.name] = item;
+            }
+        }
+        partyItems = uniqueItems.Values.ToList();
+        
         // Check if there are any items before proceeding
         if (partyItems.Count == 0)
         {
@@ -1688,16 +1976,19 @@ public class CombatUI : MonoBehaviour
             return;
         }
         
+        // Set up the cycling item system
+        allAvailableItems = partyItems;
+        currentItemScrollIndex = 0;
+        
         // Set the item menu active flag in the combat manager
         combatManager.isItemMenuActive = true;
         
-        if (itemMenu != null)
+        // Hide ALL menus first to prevent overlays
+        HideAllMenus();
+        
+        if (itemMenuObject != null)
         {
-            if (characterStatsPanel != null) characterStatsPanel.SetActive(false);
-            actionMenu.SetActive(false);
-            // Hide skill menu if it's active
-            if (skillMenu != null) skillMenu.SetActive(false);
-            itemMenu.SetActive(true);
+            itemMenuObject.SetActive(true);
             
             // Hide the menu button template if it's assigned
             if (menuButtonTemplate != null)
@@ -1731,8 +2022,8 @@ public class CombatUI : MonoBehaviour
                 }
             }
             
-            // Find the container for the item buttons - look for a direct child of itemMenu
-            Transform containerTransform = itemMenu.transform.Find("ItemButtonsContainer");
+            // Find the container for the item buttons - look for a direct child of itemMenuObject
+            Transform containerTransform = itemMenuObject.transform.Find("ItemButtonsContainer");
             RectTransform itemButtonsContainer;
             
             if (containerTransform != null)
@@ -1752,10 +2043,10 @@ public class CombatUI : MonoBehaviour
             else
             {
                 // If we didn't find a direct child container, check if there are any children at all
-                if (itemMenu.transform.childCount > 0)
+                if (itemMenuObject.transform.childCount > 0)
                 {
                     // Use the first child as the container
-                    itemButtonsContainer = itemMenu.transform.GetChild(0).GetComponent<RectTransform>();
+                    itemButtonsContainer = itemMenuObject.transform.GetChild(0).GetComponent<RectTransform>();
                     Debug.Log($"[ItemButton Lifecycle] Using first child as container: {itemButtonsContainer.name}");
                     
                     // Check for and destroy any existing RuntimeItemButtons container
@@ -1771,7 +2062,7 @@ public class CombatUI : MonoBehaviour
                     // Create a child container if needed
                     GameObject container = new GameObject("ItemButtonsContainer");
                     itemButtonsContainer = container.AddComponent<RectTransform>();
-                    itemButtonsContainer.SetParent(itemMenu.transform, false);
+                    itemButtonsContainer.SetParent(itemMenuObject.transform, false);
                     itemButtonsContainer.anchorMin = new Vector2(0, 0);
                     itemButtonsContainer.anchorMax = new Vector2(1, 1);
                     itemButtonsContainer.offsetMin = new Vector2(skillContainerPaddingLeft, skillContainerPaddingBottom);
@@ -1846,14 +2137,23 @@ public class CombatUI : MonoBehaviour
             // Don't add ContentSizeFitter to the runtime container - it causes infinite growth
             // The container should respect the item menu's original size from the editor
             
-            // Create buttons for each item
-            if (activeCharStats != null)
+            // Create cycling item buttons (only 3 at a time for scrolling)
+            CreateCyclingItemButtons();
+            
+            // Set the CombatUI reference in MenuSelector so it can call scroll methods
+            // Items don't use cyclingAllSkills, but they need cyclingCombatUI for the scroll methods
+            menuSelector.SetItemCyclingMode(this);
+            
+            Debug.Log($"[Cycling Item Menu] Created cycling item menu with {allAvailableItems.Count} total items, showing 3 at a time");
+            
+            // OLD CODE REMOVED - Now using cycling system instead of creating all buttons
+            if (false)  // Dead code marker - remove entire old button creation in a future cleanup
             {
                 // Track processed items to avoid duplicates
                 HashSet<string> processedItems = new HashSet<string>();
                 
                 // Create a button for each unique item
-                foreach (var item in partyItems)
+                foreach (var item in allAvailableItems)
                 {
                     // Skip if we've already processed this item
                     if (processedItems.Contains(item.name))
@@ -1946,10 +2246,10 @@ public class CombatUI : MonoBehaviour
                     // Set up the button click handler
                     ItemData capturedItem = item; // Capture for lambda
                     button.onClick.RemoveAllListeners();
-                    button.onClick.AddListener(() => OnItemButtonClicked(capturedItem));
-                    
-                    // Add a debug click handler to verify the button is working
-                    button.onClick.AddListener(() => Debug.Log($"[ItemButton Lifecycle] Button clicked for item: {capturedItem.name}"));
+                    button.onClick.AddListener(() => {
+                        Debug.Log($"[ItemButton Lifecycle] Button clicked for item: {capturedItem.name}");
+                        OnItemButtonClicked(capturedItem);
+                    });
                     
                     // Make sure the button is interactable
                     button.interactable = true;
@@ -2013,7 +2313,9 @@ public class CombatUI : MonoBehaviour
         // Special handling for items that MUST have targets
         bool mustHaveTarget = 
             string.Equals(item.name, "Shiny Bead", StringComparison.OrdinalIgnoreCase) || 
+            string.Equals(item.name, "Throwing dice", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(item.name, "Super Espress-O", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(item.name, "Skipping pebble", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(item.name, "Panacea", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(item.name, "Tower Shield", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(item.name, "Ramen", StringComparison.OrdinalIgnoreCase);
@@ -2038,6 +2340,13 @@ public class CombatUI : MonoBehaviour
     {
         Debug.Log($"[DEBUG TARGETING] ExecuteItem - Item: {item.name}, Target: {target?.name ?? "none"}, TargetIsEnemy: {target?.isEnemy.ToString() ?? "N/A"}");
         
+        // Guard against double-execution
+        if (isExecutingAction)
+        {
+            Debug.Log($"[DEBUG TARGETING] Action already executing, ignoring duplicate item execution");
+            return;
+        }
+        
         // Get the active character
         var activeCharacter = combatManager.ActiveCharacter;
         if (activeCharacter == null) 
@@ -2046,8 +2355,13 @@ public class CombatUI : MonoBehaviour
             return;
         }
         
+        // Set execution flag
+        isExecutingAction = true;
+        
         // Double-check the target for ally-targeting items (defensive programming)
-        if (string.Equals(item.name, "Super Espress-O", StringComparison.OrdinalIgnoreCase) && target != null && target.isEnemy)
+        if ((string.Equals(item.name, "Super Espress-O", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(item.name, "Skipping pebble", StringComparison.OrdinalIgnoreCase)) && 
+            target != null && target.isEnemy)
         {
             Debug.LogError($"[DEBUG TARGETING] ExecuteItem - ERROR: Tried to use {item.name} on enemy {target.name}! Redirecting to self.");
             // Redirect to self instead of an enemy
@@ -2055,7 +2369,9 @@ public class CombatUI : MonoBehaviour
         }
         
         // Double-check the target for enemy-targeting items (defensive programming)
-        if (string.Equals(item.name, "Shiny Bead", StringComparison.OrdinalIgnoreCase) && target != null && !target.isEnemy)
+        if ((string.Equals(item.name, "Shiny Bead", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(item.name, "Throwing dice", StringComparison.OrdinalIgnoreCase)) && 
+            target != null && !target.isEnemy)
         {
             Debug.LogError($"[DEBUG TARGETING] ExecuteItem - ERROR: Tried to use {item.name} on ally {target.name}! Finding an enemy target instead.");
             // Try to find an enemy target
@@ -2086,32 +2402,30 @@ public class CombatUI : MonoBehaviour
     {
         Debug.Log($"[DEBUG TARGETING] ExecuteItemAfterMessage - Item: {item.name}, Target: {target?.name ?? "none"}, TargetIsEnemy: {target?.isEnemy.ToString() ?? "N/A"}");
         
-        // Wait a tiny amount just to ensure the action label coroutine has started
-        yield return null;
-        
-        // Wait for the game to resume (after action display is done)
-        while (Time.timeScale == 0)
-            yield return null;
+        // Brief wait for visual feedback
+        yield return new WaitForSeconds(actionDisplayDuration);
         
         // Implement item effects
         switch (item.name)
         {
             case "Fruit Juice":
-                Debug.Log($"[DEBUG TARGETING] Executing Fruit Juice effect");
+            case "Stone candy":
+                Debug.Log($"[DEBUG TARGETING] Executing {item.name} effect");
                 // Always heal all party members, regardless of target
-                Debug.Log($"[DEBUG TARGETING] Healing all party members with Fruit Juice");
+                Debug.Log($"[DEBUG TARGETING] Healing all party members with {item.name}");
                 foreach (var player in combatManager.players)
                 {
                     if (player != null && !player.IsDead())
                     {
                         player.HealHealth(30f);
-                        Debug.Log($"Healed {player.name} for 30 HP using Fruit Juice");
+                        Debug.Log($"Healed {player.name} for 30 HP using {item.name}");
                     }
                 }
                 break;
                 
             case "Super Espress-O":
-                Debug.Log($"[DEBUG TARGETING] Executing Super Espress-O effect");
+            case "Skipping pebble":
+                Debug.Log($"[DEBUG TARGETING] Executing {item.name} effect");
                 if (target != null && !target.isEnemy)
                 {
                     Debug.Log($"[DEBUG TARGETING] Target is ally: {target.name}");
@@ -2121,40 +2435,41 @@ public class CombatUI : MonoBehaviour
                     // Boost action speed
                     target.BoostActionSpeed(0.5f, 3); // 50% boost for 3 turns
                     
-                    Debug.Log($"Super Espress-O used: Restored 50 SP and boosted speed by 50% for {target.name} for 3 turns");
+                    Debug.Log($"{item.name} used: Restored 50 SP and boosted speed by 50% for {target.name} for 3 turns");
                 }
                 else if (target != null && target.isEnemy)
                 {
-                    Debug.Log($"[DEBUG TARGETING] ERROR: Target is enemy: {target.name} - Super Espress-O should only target allies!");
+                    Debug.Log($"[DEBUG TARGETING] ERROR: Target is enemy: {target.name} - {item.name} should only target allies!");
                     // This should never happen with proper targeting
                 }
                 else if (target == null)
                 {
-                    Debug.Log($"[DEBUG TARGETING] No target specified, using Super Espress-O on self: {activeCharacter.name}");
+                    Debug.Log($"[DEBUG TARGETING] No target specified, using {item.name} on self: {activeCharacter.name}");
                     // Use on self if no target
                     activeCharacter.HealSanity(50f);
                     activeCharacter.BoostActionSpeed(0.5f, 3);
                     
-                    Debug.Log($"Super Espress-O used: Restored 50 SP and boosted speed by 50% for {activeCharacter.name} for 3 turns");
+                    Debug.Log($"{item.name} used: Restored 50 SP and boosted speed by 50% for {activeCharacter.name} for 3 turns");
                 }
                 break;
                 
             case "Shiny Bead":
-                Debug.Log($"[DEBUG TARGETING] Executing Shiny Bead effect");
+            case "Throwing dice":
+                Debug.Log($"[DEBUG TARGETING] Executing {item.name} effect");
                 if (target != null && target.isEnemy)
                 {
                     // Deal damage to the enemy target
                     float damage = 20f;
                     target.TakeDamage(damage);
-                    Debug.Log($"[DEBUG TARGETING] Shiny Bead dealt {damage} damage to enemy: {target.name}");
+                    Debug.Log($"[DEBUG TARGETING] {item.name} dealt {damage} damage to enemy: {target.name}");
                 }
                 else if (target != null && !target.isEnemy)
                 {
-                    Debug.LogError($"[DEBUG TARGETING] ERROR: Target is ally: {target.name} - Shiny Bead should only target enemies!");
+                    Debug.LogError($"[DEBUG TARGETING] ERROR: Target is ally: {target.name} - {item.name} should only target enemies!");
                 }
                 else
                 {
-                    Debug.LogError($"[DEBUG TARGETING] No target specified for Shiny Bead, cannot execute - this should never happen!");
+                    Debug.LogError($"[DEBUG TARGETING] No target specified for {item.name}, cannot execute - this should never happen!");
                 }
                 break;
                 
@@ -2365,6 +2680,9 @@ public class CombatUI : MonoBehaviour
         // Update UI to reflect changes immediately
         UpdateUI();
         
+        // Clear execution flag
+        isExecutingAction = false;
+        
         // Return to action menu and end the player's turn
         BackToItemMenu();
         combatManager.EndPlayerTurn();
@@ -2377,10 +2695,10 @@ public class CombatUI : MonoBehaviour
         // Clear the item menu active flag in the combat manager
         combatManager.isItemMenuActive = false;
         
-        if (itemMenu != null) itemMenu.SetActive(false);
-        if (characterStatsPanel != null) characterStatsPanel.SetActive(true);
-        if (skillMenu != null) skillMenu.SetActive(false); // Ensure skill menu is hidden
+        // Hide ALL menus first, then show action menu
+        HideAllMenus();
         actionMenu.SetActive(true);
+        if (characterStatsPanel != null) characterStatsPanel.SetActive(true);
         
         // Clear skill/item description when leaving item menu
         ClearDescription();
@@ -2416,7 +2734,7 @@ public class CombatUI : MonoBehaviour
         }
         
         // Find and destroy any RuntimeItemButtons container that might have been left behind
-        Transform containerTransform = itemMenu.transform.Find("ItemButtonsContainer");
+        Transform containerTransform = itemMenuObject != null ? itemMenuObject.transform.Find("ItemButtonsContainer") : null;
         if (containerTransform != null)
         {
             Transform runtimeContainer = containerTransform.Find("RuntimeItemButtons");
@@ -2426,6 +2744,12 @@ public class CombatUI : MonoBehaviour
                 Destroy(runtimeContainer.gameObject);
             }
         }
+        
+        // Clear cycling system to prevent stale state
+        menuSelector.ClearCyclingSystem();
+        
+        // Clear the skill/item buttons array to prevent stale state
+        menuSelector.ClearSkillOptions();
         
         // Update UI to reflect any changes
         UpdateUI();
@@ -2486,12 +2810,8 @@ public class CombatUI : MonoBehaviour
     
     private IEnumerator GuardAfterMessage(CombatStats character)
     {
-        // Wait a tiny amount just to ensure the action label coroutine has started
-        yield return null;
-        
-        // Wait for the game to resume (after action display is done)
-        while (Time.timeScale == 0)
-            yield return null;
+        // Brief wait for visual feedback
+        yield return new WaitForSeconds(actionDisplayDuration);
         
         // Activate guard stance
         character.ActivateGuard();
@@ -2531,10 +2851,8 @@ public class CombatUI : MonoBehaviour
     {
         turnText.text = message;
         
-        // Pause game for exactly 1.0 seconds
-        Time.timeScale = 0;
-        yield return new WaitForSecondsRealtime(1.0f);
-        Time.timeScale = 1;
+        // Wait without pausing game
+        yield return new WaitForSeconds(1.0f);
         
         // Clear the message
         turnText.text = "";
@@ -2550,16 +2868,16 @@ public class CombatUI : MonoBehaviour
     {
         Debug.Log("=== INVENTORY DEBUG: CombatUI.PopulateItemMenu ===");
         
-        if (itemMenu == null || items == null)
+        if (itemMenuObject == null || items == null)
         {
-            Debug.LogWarning("Cannot populate item menu: itemMenu or items list is null");
+            Debug.LogWarning("Cannot populate item menu: itemMenuObject or items list is null");
             return;
         }
         
         Debug.Log($"Populating item menu with {items.Count} items from combat inventory");
         
         // Clear existing buttons
-        foreach (Transform child in itemMenu.transform)
+        foreach (Transform child in itemMenuObject.transform)
         {
             // Don't destroy layout groups or other UI components
             if (child.GetComponent<Button>() != null || child.name.Contains("button", StringComparison.OrdinalIgnoreCase))
@@ -2570,11 +2888,11 @@ public class CombatUI : MonoBehaviour
         }
         
         // Find or create the container for buttons
-        Transform itemsContainer = itemMenu.transform.Find("ItemsContainer");
+        Transform itemsContainer = itemMenuObject.transform.Find("ItemsContainer");
         if (itemsContainer == null)
         {
             GameObject container = new GameObject("ItemsContainer");
-            container.transform.SetParent(itemMenu.transform, false);
+            container.transform.SetParent(itemMenuObject.transform, false);
             RectTransform rectTransform = container.AddComponent<RectTransform>();
             rectTransform.anchorMin = new Vector2(0, 0);
             rectTransform.anchorMax = new Vector2(1, 1);
@@ -2700,16 +3018,13 @@ public class CombatUI : MonoBehaviour
     
     private IEnumerator ShowActionLabel(string actionText)
     {
-        // Pause the game
-        Time.timeScale = 0;
+        // Show the label without pausing the game
+        // This provides visual feedback while allowing game to continue smoothly
         
-        // Wait for the specified duration
-        yield return new WaitForSecondsRealtime(actionDisplayDuration);
+        // Wait for the specified duration (no game pause)
+        yield return new WaitForSeconds(actionDisplayDuration);
         
-        // Resume the game
-        Time.timeScale = 1;
-        
-        // Hide the label
+        // Hide the label after the action executes
         if (actionDisplayLabel != null)
         {
             actionDisplayLabel.SetActive(false);

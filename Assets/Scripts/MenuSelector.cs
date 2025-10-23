@@ -49,6 +49,12 @@ public class MenuSelector : MonoBehaviour
     private CombatUI cyclingCombatUI;
     private List<SkillData> cyclingAllSkills;
     private int cyclingScrollIndex;
+    
+    // Input cooldown to prevent double-execution
+    [Header("Input Settings")]
+    [Tooltip("Cooldown time between confirm inputs to prevent double-execution")]
+    [SerializeField] private float inputCooldown = 0.25f;
+    private float lastConfirmTime = -999f;
 
     void Start()
     {
@@ -98,8 +104,30 @@ public class MenuSelector : MonoBehaviour
 
     void Update()
     {
+        // EARLY INPUT REJECTION GUARDS - Check all conditions that should block input
+        
+        // Don't process input if menu is not active
         if (!isActive) return;
         
+        // Don't process input if combat manager is not waiting for player
+        if (combatManager != null && !combatManager.isWaitingForPlayerInput)
+        {
+            return;
+        }
+        
+        // Don't process input during dialogue
+        if (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive())
+        {
+            return;
+        }
+        
+        // Don't process input if an action is currently executing
+        if (combatUI != null && combatUI.isExecutingAction)
+        {
+            return;
+        }
+        
+        // Route to appropriate handler based on current state
         if (isSelectingTarget)
         {
             HandleTargetSelection();
@@ -135,10 +163,19 @@ public class MenuSelector : MonoBehaviour
                 UpdateSelection();
             }
 
-            // Confirm selection
+            // Confirm selection with cooldown check
             if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.Z))
             {
-                ExecuteSelection();
+                // Check cooldown to prevent double-execution
+                if (Time.time - lastConfirmTime >= inputCooldown)
+                {
+                    lastConfirmTime = Time.time;
+                    ExecuteSelection();
+                }
+                else
+                {
+                    Debug.Log("[Input Cooldown] Confirm input ignored - still on cooldown");
+                }
             }
         }
 
@@ -177,14 +214,16 @@ public class MenuSelector : MonoBehaviour
         // Check for team-wide or group targeting items
         bool isTeamWideItem = selectedItem != null && (
             string.Equals(selectedItem.name, "Fruit Juice", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(selectedItem.name, "Stone candy", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(selectedItem.name, "Otherworldly Tome", StringComparison.OrdinalIgnoreCase));
             
         bool isAllEnemyItem = selectedItem != null && (
             string.Equals(selectedItem.name, "Pocket Sand", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(selectedItem.name, "Unstable Catalyst", StringComparison.OrdinalIgnoreCase));
             
-        bool isSingleEnemyItem = selectedItem != null && 
-            string.Equals(selectedItem.name, "Shiny Bead", StringComparison.OrdinalIgnoreCase);
+        bool isSingleEnemyItem = selectedItem != null && (
+            string.Equals(selectedItem.name, "Shiny Bead", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(selectedItem.name, "Throwing dice", StringComparison.OrdinalIgnoreCase));
         
         if (!isTeamWideItem && !isAllEnemyItem && !isSingleEnemyItem)
         {
@@ -263,6 +302,14 @@ public class MenuSelector : MonoBehaviour
         
         if (confirmPressed)
         {
+            // Check cooldown to prevent double-execution
+            if (Time.time - lastConfirmTime < inputCooldown)
+            {
+                Debug.Log("[Input Cooldown] Target confirm ignored - still on cooldown");
+                return;
+            }
+            lastConfirmTime = Time.time;
+            
             if (isTeamWideItem)
             {
                 Debug.Log($"[DEBUG TARGETING] Confirm key pressed for team-wide {selectedItem.name}");
@@ -367,6 +414,14 @@ public class MenuSelector : MonoBehaviour
         cyclingScrollIndex = scrollIndex;
         Debug.Log($"[Cycling Skill Menu] Set cycling system with {allSkills.Count} skills, scroll index: {scrollIndex}");
     }
+    
+    public void SetItemCyclingMode(CombatUI combatUI)
+    {
+        cyclingCombatUI = combatUI;
+        cyclingAllSkills = null; // Items don't use this
+        cyclingScrollIndex = 0;
+        Debug.Log("[Cycling Item Menu] Set item cycling mode");
+    }
 
     public void ClearCyclingSystem()
     {
@@ -375,11 +430,22 @@ public class MenuSelector : MonoBehaviour
         cyclingScrollIndex = 0;
         Debug.Log("[Cycling Skill Menu] Cleared cycling system variables");
     }
+    
+    /// <summary>
+    /// Clears the skill options array to prevent stale state when switching menus
+    /// </summary>
+    public void ClearSkillOptions()
+    {
+        skillOptions = null;
+        isInSkillMenu = false;
+        currentSelection = 0;
+        Debug.Log("[Menu State] Cleared skill options array and reset menu state");
+    }
 
     private void HandleSkillMenuNavigation()
     {
-        // Check if we're using the cycling system
-        if (cyclingCombatUI != null && cyclingAllSkills != null)
+        // Check if we're using the cycling system (skills have both, items only have cyclingCombatUI)
+        if (cyclingCombatUI != null)
         {
             HandleCyclingSkillNavigation();
             return;
@@ -441,6 +507,14 @@ public class MenuSelector : MonoBehaviour
         
         if (Input.GetKeyDown(KeyCode.Z))
         {
+            // Check cooldown to prevent double-execution
+            if (Time.time - lastConfirmTime < inputCooldown)
+            {
+                Debug.Log("[Input Cooldown] Skill/Item selection ignored - still on cooldown");
+                return;
+            }
+            lastConfirmTime = Time.time;
+            
             if (currentSelection < skillOptions.Length && skillOptions[currentSelection] != null)
             {
                 // Check for both SkillButtonData and ItemButtonData
@@ -481,10 +555,14 @@ public class MenuSelector : MonoBehaviour
 
     private void HandleCyclingSkillNavigation()
     {
-        // Safety check
-        if (cyclingCombatUI == null || cyclingAllSkills == null || skillOptions == null)
+        // Check if we're in item menu (doesn't use cyclingAllSkills)
+        bool isItemMenu = skillOptions != null && skillOptions.Length > 0 && 
+                          skillOptions[0] != null && skillOptions[0].GetComponent<ItemButtonData>() != null;
+        
+        // Safety check - items don't need cyclingAllSkills, but skills do
+        if (cyclingCombatUI == null || skillOptions == null || (!isItemMenu && cyclingAllSkills == null))
         {
-            Debug.LogWarning("[Cycling Skill Menu] Cycling system not properly initialized");
+            Debug.LogWarning("[Cycling Menu] Cycling system not properly initialized");
             isInSkillMenu = false;
             combatUI.BackToActionMenu();
             return;
@@ -495,7 +573,7 @@ public class MenuSelector : MonoBehaviour
         {
             currentSelection = 0;
         }
-
+        
         int oldSelection = currentSelection;
 
         // Handle navigation with cycling
@@ -505,11 +583,17 @@ public class MenuSelector : MonoBehaviour
             {
                 // Move to next button in the 3-button window
                 currentSelection++;
-                Debug.Log($"[Cycling Skill Menu] Moved down to button {currentSelection}");
+                Debug.Log($"[Cycling Menu] Moved down to button {currentSelection}");
             }
-            else if (cyclingCombatUI.CanScrollDown())
+            else if (isItemMenu && cyclingCombatUI.CanScrollDownItems())
             {
-                // We're at the bottom button and can scroll down
+                // We're at the bottom button and can scroll down in items
+                cyclingCombatUI.ScrollDownItems();
+                Debug.Log($"[Cycling Item Menu] Scrolled down, now showing items from index {cyclingCombatUI.currentItemScrollIndex}");
+            }
+            else if (!isItemMenu && cyclingCombatUI.CanScrollDown())
+            {
+                // We're at the bottom button and can scroll down in skills
                 cyclingCombatUI.ScrollDown();
                 Debug.Log($"[Cycling Skill Menu] Scrolled down, now showing skills from index {cyclingCombatUI.currentSkillScrollIndex}");
             }
@@ -520,40 +604,80 @@ public class MenuSelector : MonoBehaviour
             {
                 // Move to previous button in the 3-button window
                 currentSelection--;
-                Debug.Log($"[Cycling Skill Menu] Moved up to button {currentSelection}");
+                Debug.Log($"[Cycling Menu] Moved up to button {currentSelection}");
             }
-            else if (cyclingCombatUI.CanScrollUp())
+            else if (isItemMenu && cyclingCombatUI.CanScrollUpItems())
             {
-                // We're at the top button and can scroll up
+                // We're at the top button and can scroll up in items
+                cyclingCombatUI.ScrollUpItems();
+                Debug.Log($"[Cycling Item Menu] Scrolled up, now showing items from index {cyclingCombatUI.currentItemScrollIndex}");
+            }
+            else if (!isItemMenu && cyclingCombatUI.CanScrollUp())
+            {
+                // We're at the top button and can scroll up in skills
                 cyclingCombatUI.ScrollUp();
                 Debug.Log($"[Cycling Skill Menu] Scrolled up, now showing skills from index {cyclingCombatUI.currentSkillScrollIndex}");
             }
         }
 
-        // Handle skill selection
+        // Handle selection
         if (Input.GetKeyDown(KeyCode.Z))
         {
+            // Check cooldown to prevent double-execution
+            if (Time.time - lastConfirmTime < inputCooldown)
+            {
+                Debug.Log("[Input Cooldown] Cycling selection ignored - still on cooldown");
+                return;
+            }
+            lastConfirmTime = Time.time;
+            
             if (currentSelection < skillOptions.Length && skillOptions[currentSelection] != null)
             {
-                // Get the skill data from the cycling system
-                SkillData skill = cyclingCombatUI.GetSkillAtButtonIndex(currentSelection);
-                if (skill != null)
+                if (isItemMenu)
                 {
-                    Debug.Log($"[Cycling Skill Menu] Skill selected with Z key - Skill: {skill.name}");
-                    OnSkillSelected(skill);
+                    // Get the item data from the cycling system
+                    ItemData item = cyclingCombatUI.GetItemAtButtonIndex(currentSelection);
+                    if (item != null)
+                    {
+                        Debug.Log($"[Cycling Item Menu] Item selected with Z key - Item: {item.name}");
+                        cyclingCombatUI.OnItemButtonClicked(item);
+                    }
+                    else
+                    {
+                        Debug.LogWarning("[Cycling Item Menu] No item found at button index " + currentSelection);
+                    }
                 }
                 else
                 {
-                    Debug.LogWarning("[Cycling Skill Menu] No skill found at button index " + currentSelection);
+                    // Get the skill data from the cycling system
+                    SkillData skill = cyclingCombatUI.GetSkillAtButtonIndex(currentSelection);
+                    if (skill != null)
+                    {
+                        Debug.Log($"[Cycling Skill Menu] Skill selected with Z key - Skill: {skill.name}");
+                        OnSkillSelected(skill);
+                    }
+                    else
+                    {
+                        Debug.LogWarning("[Cycling Skill Menu] No skill found at button index " + currentSelection);
+                    }
                 }
             }
         }
         else if (Input.GetKeyDown(KeyCode.X))
         {
-            Debug.Log("[Cycling Skill Menu] Exiting skill menu with X key");
-            isInSkillMenu = false;
-            ClearCyclingSystem(); // Clear cycling system properly
-            combatUI.BackToActionMenu();
+            if (isItemMenu)
+            {
+                Debug.Log("[Cycling Item Menu] Exiting item menu with X key");
+                ClearCyclingSystem(); // Clear cycling system properly
+                combatUI.BackToItemMenu();
+            }
+            else
+            {
+                Debug.Log("[Cycling Skill Menu] Exiting skill menu with X key");
+                isInSkillMenu = false;
+                ClearCyclingSystem(); // Clear cycling system properly
+                combatUI.BackToActionMenu();
+            }
             return;
         }
 
@@ -768,11 +892,12 @@ public class MenuSelector : MonoBehaviour
                 Debug.Log($"[Ally Targeting] Potential target {i}: {currentTargets[i].name}, isEnemy: {currentTargets[i].isEnemy}");
             }
         }
-        // Check if we're selecting targets for Fruit Juice (team-wide effect)
-        else if (selectedItem != null && string.Equals(selectedItem.name, "Fruit Juice", StringComparison.OrdinalIgnoreCase))
+        // Check if we're selecting targets for Fruit Juice / Stone candy (team-wide effect)
+        else if (selectedItem != null && (string.Equals(selectedItem.name, "Fruit Juice", StringComparison.OrdinalIgnoreCase) ||
+                                          string.Equals(selectedItem.name, "Stone candy", StringComparison.OrdinalIgnoreCase)))
         {
             Debug.Log($"[DEBUG TARGETING] Detected team-targeting item: {selectedItem.name}");
-            // For Fruit Juice, include all allies and highlight them all
+            // For Fruit Juice / Stone candy, include all allies and highlight them all
             currentTargets = new List<CombatStats>(combatManager.players);
             
             // No need to remove the active character since it affects everyone
@@ -787,9 +912,10 @@ public class MenuSelector : MonoBehaviour
             // Highlight all team members
             HighlightAllTeamMembers();
         }
-        // Check if we're selecting a target for ally-targeting item (Super Espress-O, Panacea, Tower Shield, Ramen)
+        // Check if we're selecting a target for ally-targeting item (Super Espress-O, Skipping pebble, Panacea, Tower Shield, Ramen)
         else if (selectedItem != null && (
             string.Equals(selectedItem.name, "Super Espress-O", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(selectedItem.name, "Skipping pebble", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(selectedItem.name, "Panacea", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(selectedItem.name, "Tower Shield", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(selectedItem.name, "Ramen", StringComparison.OrdinalIgnoreCase)))
@@ -809,8 +935,9 @@ public class MenuSelector : MonoBehaviour
                 Debug.Log($"[DEBUG TARGETING] Potential ally target {i}: {currentTargets[i].name}, isEnemy: {currentTargets[i].isEnemy}");
             }
         }
-        // Check if we're selecting a target for enemy-targeting item (Shiny Bead)
-        else if (selectedItem != null && string.Equals(selectedItem.name, "Shiny Bead", StringComparison.OrdinalIgnoreCase))
+        // Check if we're selecting a target for enemy-targeting item (Shiny Bead, Throwing dice)
+        else if (selectedItem != null && (string.Equals(selectedItem.name, "Shiny Bead", StringComparison.OrdinalIgnoreCase) ||
+                                          string.Equals(selectedItem.name, "Throwing dice", StringComparison.OrdinalIgnoreCase)))
         {
             Debug.Log($"[DEBUG TARGETING] Detected enemy-targeting ITEM: {selectedItem.name}");
             // For enemy-targeting items, target enemies
@@ -902,7 +1029,8 @@ public class MenuSelector : MonoBehaviour
             SetMenuItemsEnabled(false);
             
             // Only highlight the selected target if it's not a team-wide effect
-            if (selectedItem == null || !string.Equals(selectedItem.name, "Fruit Juice", StringComparison.OrdinalIgnoreCase))
+            if (selectedItem == null || (!string.Equals(selectedItem.name, "Fruit Juice", StringComparison.OrdinalIgnoreCase) &&
+                                         !string.Equals(selectedItem.name, "Stone candy", StringComparison.OrdinalIgnoreCase)))
             {
                 HighlightSelectedTarget();
                 Debug.Log($"[Target Selection] Initial target selected: {currentTargets[currentTargetSelection].name}");
@@ -920,6 +1048,11 @@ public class MenuSelector : MonoBehaviour
     private void EndTargetSelection()
     {
         Debug.Log("[Target Selection] Ending target selection");
+        
+        // ATOMIC STATE TRANSITION - Set all flags FIRST to prevent race conditions
+        isSelectingTarget = false;
+        isActive = false;
+        menuItemsEnabled = false;
         
         // Only attempt to clear highlights if currentTargets exists
         if (currentTargets != null)
@@ -952,13 +1085,12 @@ public class MenuSelector : MonoBehaviour
         }
         
         // Reset state variables
-        isSelectingTarget = false;
         selectedSkill = null;
         selectedItem = null;
         currentTargets = null;
         currentTargetSelection = 0;
         
-        Debug.Log("[Target Selection] Target selection state reset");
+        Debug.Log("[Target Selection] Target selection state reset atomically");
     }
 
     public void EnableMenu()
@@ -1142,7 +1274,38 @@ public class MenuSelector : MonoBehaviour
 
     public void UpdateCurrentSelectionDescription()
     {
-        // Check if we're using the cycling system
+        // Safety check - make sure we have valid state
+        if (combatUI == null)
+        {
+            Debug.LogWarning("[Description Update] CombatUI is null");
+            return;
+        }
+        
+        // First check if we have any valid buttons at all
+        if (skillOptions == null || skillOptions.Length == 0 || currentSelection < 0 || currentSelection >= skillOptions.Length)
+        {
+            combatUI.ClearDescription();
+            return;
+        }
+        
+        // Get the current button
+        GameObject currentButton = skillOptions[currentSelection];
+        if (currentButton == null)
+        {
+            combatUI.ClearDescription();
+            return;
+        }
+        
+        // Check if it's an ITEM button FIRST (items don't use cycling system)
+        var itemData = currentButton.GetComponent<ItemButtonData>();
+        if (itemData != null && itemData.item != null)
+        {
+            combatUI.UpdateItemDescription(itemData.item);
+            Debug.Log($"[Description Update] Updated item description: {itemData.item.name}");
+            return;
+        }
+        
+        // Check if we're using the cycling system for skills
         if (cyclingCombatUI != null && cyclingAllSkills != null)
         {
             // Use cycling system to get the correct skill
@@ -1150,38 +1313,21 @@ public class MenuSelector : MonoBehaviour
             if (skill != null)
             {
                 combatUI.UpdateSkillDescription(skill);
-                Debug.Log($"[Cycling Skill Menu] Updated description for skill: {skill.name} at button index {currentSelection}");
-                return;
-            }
-            else
-            {
-                combatUI.ClearDescription();
+                Debug.Log($"[Description Update] Updated cycling skill description: {skill.name} at button index {currentSelection}");
                 return;
             }
         }
         
-        // Fallback to original system
-        // Update description based on currently selected button
-        if (skillOptions != null && currentSelection >= 0 && currentSelection < skillOptions.Length && skillOptions[currentSelection] != null)
+        // Fallback: Check if it's a skill button (non-cycling)
+        var skillData = currentButton.GetComponent<SkillButtonData>();
+        if (skillData != null && skillData.skill != null)
         {
-            // Check if it's a skill button
-            var skillData = skillOptions[currentSelection].GetComponent<SkillButtonData>();
-            if (skillData != null && skillData.skill != null)
-            {
-                combatUI.UpdateSkillDescription(skillData.skill);
-                return;
-            }
-            
-            // Check if it's an item button
-            var itemData = skillOptions[currentSelection].GetComponent<ItemButtonData>();
-            if (itemData != null && itemData.item != null)
-            {
-                combatUI.UpdateItemDescription(itemData.item);
-                return;
-            }
+            combatUI.UpdateSkillDescription(skillData.skill);
+            Debug.Log($"[Description Update] Updated skill description: {skillData.skill.name}");
+            return;
         }
         
-        // Clear description if nothing valid is selected
+        // No valid data found, clear description
         combatUI.ClearDescription();
     }
 
@@ -1203,14 +1349,16 @@ public class MenuSelector : MonoBehaviour
         // Special handling for team-wide effects
         bool isTeamWideItem = selectedItem != null && (
             string.Equals(selectedItem.name, "Fruit Juice", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(selectedItem.name, "Stone candy", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(selectedItem.name, "Otherworldly Tome", StringComparison.OrdinalIgnoreCase));
             
         bool isAllEnemyItem = selectedItem != null && (
             string.Equals(selectedItem.name, "Pocket Sand", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(selectedItem.name, "Unstable Catalyst", StringComparison.OrdinalIgnoreCase));
         
-        bool isSingleEnemyItem = selectedItem != null && 
-            string.Equals(selectedItem.name, "Shiny Bead", StringComparison.OrdinalIgnoreCase);
+        bool isSingleEnemyItem = selectedItem != null && (
+            string.Equals(selectedItem.name, "Shiny Bead", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(selectedItem.name, "Throwing dice", StringComparison.OrdinalIgnoreCase));
             
         if (isTeamWideItem)
         {

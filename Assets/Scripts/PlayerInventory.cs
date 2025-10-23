@@ -63,7 +63,34 @@ public class PlayerInventory : MonoBehaviour
                         Debug.Log($"Loaded {pair.Key} as a KeyItem type");
                     }
                     
-                    ItemData item = new ItemData(pair.Key, "", pair.Value, false, itemType);
+                    // CRITICAL FIX: Use ItemManager to get proper item data with description
+                    // Ensure ItemManager exists before accessing it
+                    ItemManager.EnsureExists();
+                    
+                    ItemData item;
+                    if (ItemManager.Instance != null)
+                    {
+                        ItemData template = ItemManager.Instance.GetItemData(pair.Key, pair.Value);
+                        if (template != null)
+                        {
+                            // Use template with correct description, but preserve type from persistence
+                            item = new ItemData(template.name, template.description, pair.Value, template.requiresTarget, itemType, template.icon);
+                            Debug.Log($"Loaded item {pair.Key} with description: {template.description}");
+                        }
+                        else
+                        {
+                            // Fallback if ItemManager doesn't have this item
+                            item = new ItemData(pair.Key, "Unknown item", pair.Value, false, itemType);
+                            Debug.LogWarning($"ItemManager doesn't have data for {pair.Key}, using fallback");
+                        }
+                    }
+                    else
+                    {
+                        // Fallback if ItemManager doesn't exist
+                        item = new ItemData(pair.Key, "Unknown item", pair.Value, false, itemType);
+                        Debug.LogWarning("ItemManager not available, loading item without description");
+                    }
+                    
                     items.Add(item);
                 }
                 

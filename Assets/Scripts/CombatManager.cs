@@ -27,7 +27,8 @@ public class CombatManager : MonoBehaviour
     private CombatStats activeCharacter;
     public CombatStats ActiveCharacter => activeCharacter;
     private bool isCombatActive = true;
-    private bool isWaitingForPlayerInput = false;
+    private bool _isWaitingForPlayerInput = false;
+    public bool isWaitingForPlayerInput => _isWaitingForPlayerInput;
     
     // Flag to track if the item menu is currently active
     public bool isItemMenuActive = false;
@@ -348,7 +349,7 @@ public class CombatManager : MonoBehaviour
         if (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive())
             return;
             
-        if (!isCombatActive || isWaitingForPlayerInput) return;
+        if (!isCombatActive || _isWaitingForPlayerInput) return;
 
         // Update action bars with null check
         if (shouldAccumulateAction)
@@ -505,7 +506,7 @@ public class CombatManager : MonoBehaviour
             }
             
             // Player turn - show action menu
-            isWaitingForPlayerInput = true;
+            _isWaitingForPlayerInput = true;
             combatUI.ShowActionMenu(character);
         }
     }
@@ -639,12 +640,8 @@ public class CombatManager : MonoBehaviour
     
     private IEnumerator ExecuteAttackAfterMessage(CombatStats target)
     {
-        // Wait a tiny amount just to ensure the action label coroutine has started
-        yield return null;
-        
-        // Wait for the game to resume (after action display is done)
-        while (Time.timeScale == 0)
-            yield return null;
+        // Brief wait for visual feedback
+        yield return new WaitForSeconds(0.4f);
             
         // Base damage
         float baseDamage = 10f;
@@ -676,12 +673,8 @@ public class CombatManager : MonoBehaviour
     
     private IEnumerator ExecuteHealAfterMessage()
     {
-        // Wait a tiny amount just to ensure the action label coroutine has started
-        yield return null;
-        
-        // Wait for the game to resume (after action display is done)
-        while (Time.timeScale == 0)
-            yield return null;
+        // Brief wait for visual feedback
+        yield return new WaitForSeconds(0.4f);
             
         // Base heal amount
         float baseHealAmount = 10f;
@@ -716,7 +709,7 @@ public class CombatManager : MonoBehaviour
             menuSelector.DisableMenu();
         }
         
-        isWaitingForPlayerInput = false;
+        _isWaitingForPlayerInput = false;
         activeCharacter = null;
 
         // Increment turn counter after a player's turn

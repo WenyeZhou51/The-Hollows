@@ -944,9 +944,34 @@ public class PersistentGameManager : MonoBehaviour
         
         foreach (var pair in playerInventory)
         {
-            // Create a new ItemData object for each item
-            // Note: This only sets name and amount; other properties will be default
-            ItemData item = new ItemData(pair.Key, "", pair.Value, false);
+            // CRITICAL FIX: Use ItemManager to get proper item data with description
+            // Ensure ItemManager exists before accessing it
+            ItemManager.EnsureExists();
+            
+            ItemData item;
+            if (ItemManager.Instance != null)
+            {
+                ItemData template = ItemManager.Instance.GetItemData(pair.Key, pair.Value);
+                if (template != null)
+                {
+                    // Use template with correct description
+                    item = template;
+                    Debug.Log($"GetPlayerInventoryAsItemData: Loaded {pair.Key} with description: {template.description}");
+                }
+                else
+                {
+                    // Fallback if ItemManager doesn't have this item
+                    item = new ItemData(pair.Key, "Unknown item", pair.Value, false);
+                    Debug.LogWarning($"ItemManager doesn't have data for {pair.Key}, using fallback");
+                }
+            }
+            else
+            {
+                // Fallback if ItemManager doesn't exist
+                item = new ItemData(pair.Key, "Unknown item", pair.Value, false);
+                Debug.LogWarning("ItemManager not available in GetPlayerInventoryAsItemData");
+            }
+            
             result.Add(item);
         }
         
